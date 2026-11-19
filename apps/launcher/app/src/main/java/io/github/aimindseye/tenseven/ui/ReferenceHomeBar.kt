@@ -134,7 +134,6 @@ internal class HomeBarActions(
     val phoneFocus: (Boolean) -> Unit = {},
 )
 
-private const val BAR_GLYPH_SIZE = 22
 private const val MAX_BAR_COUNT = 99
 
 private fun homeControlPaths(glyph: String): List<String> =

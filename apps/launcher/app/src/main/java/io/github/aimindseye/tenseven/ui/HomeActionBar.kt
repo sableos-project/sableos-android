@@ -5,14 +5,11 @@ import android.provider.CallLog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,7 +24,6 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -44,15 +40,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.aimindseye.tenseven.design.sableFocusRing
 import io.github.aimindseye.tenseven.model.AppEntry
@@ -62,7 +52,6 @@ import io.github.aimindseye.tenseven.model.QuickBar
 import io.github.aimindseye.tenseven.model.StartText.t
 import io.github.aimindseye.tenseven.model.inLauncherUser
 import io.github.aimindseye.tenseven.model.stableKey
-import io.github.aimindseye.tenseven.privacy.AllAppsKeyPolicy
 import java.util.Locale
 import androidx.compose.foundation.Canvas as ComposeCanvas
 
@@ -159,80 +148,6 @@ internal fun SlotOptionsScreen(
                 ContextAction(mark = "ⓘ", label = t("app_info_2"), onClick = { onAppInfo(app) })
             }
             ContextAction(mark = "▭", label = t("edit_home_and_quick_bar"), onClick = onEditHome)
-        }
-    }
-}
-
-/**
- * The BB10 bar under Active Frames and the app grid: Phone · Search · Camera
- * by default, icon only, white on the dark bar, the focused slot BB10 blue.
- * Enter or a tap opens a slot; long press, Menu or Alt+Enter (Fn+Enter) opens
- * the slot's options; Space on a Hub slot peeks at the Hub page; digits typed
- * while Phone is focused go to the dialer (handled by [StartStrip]).
- */
-@Composable
-internal fun Bb10ActionBar(
-    slots: List<QuickSlot>,
-    onSlot: (QuickSlot) -> Unit,
-    onOptions: (QuickSlot) -> Unit,
-    onHubPeek: () -> Unit,
-    onPhoneFocusChanged: (Boolean) -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(BAR_HEIGHT_DP.dp)
-                .background(Brush.verticalGradient(listOf(Bb10BarTop, Bb10BarBottom)))
-                .border(1.dp, Bb10Line)
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        slots.forEachIndexed { index, slot ->
-            var focused by remember { mutableStateOf(false) }
-            Box(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (focused) Bb10Blue else Color.Transparent)
-                        .onFocusChanged { state ->
-                            focused = state.isFocused
-                            if (slot.token == QuickBar.PHONE) onPhoneFocusChanged(state.isFocused)
-                        }.onPreviewKeyEvent { event ->
-                            val native = event.nativeKeyEvent
-                            val alt = native.metaState and (QuickBar.META_FUNCTION_ON or QuickBar.META_ALT_ON) != 0
-                            val action: (() -> Unit)? =
-                                when {
-                                    native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
-                                        (native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && alt) -> {
-                                        { onOptions(slot) }
-                                    }
-
-                                    native.keyCode == AllAppsKeyPolicy.KEYCODE_SPACE && !alt && slot
-                                        .token == QuickBar.HUB -> {
-                                        onHubPeek
-                                    }
-
-                                    else -> {
-                                        null
-                                    }
-                                }
-                            if (action != null && event.type == KeyEventType.KeyDown && native.repeatCount == 0) action()
-                            action != null
-                        }.combinedClickable(
-                            onClick = { onSlot(slot) },
-                            onLongClick = { onOptions(slot) },
-                        ).semantics {
-                            contentDescription = "${slot.label}, ${QuickBar.shortcutLabel(index)}"
-                        },
-                contentAlignment = Alignment.Center,
-            ) {
-                CompositionLocalProvider(LocalContentColor provides if (focused) Bb10OnBlue else Bb10Text) {
-                    QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
-                }
-            }
         }
     }
 }
