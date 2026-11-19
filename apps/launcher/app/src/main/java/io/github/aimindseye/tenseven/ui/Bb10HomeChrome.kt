@@ -418,7 +418,7 @@ internal fun pageDescription(
         else -> t("app_grid_page", page - StartPages.FIRST_GRID + 1)
     }
 
-/** The status dials (Wi-Fi, Mobile, CPU, RAM, battery time left, Cell) and the Settings gear. */
+/** The status dials (Wi-Fi, Mobile, CPU, RAM, battery time left, Cell) (the Settings gear is gone; Settings opens from the long-press menu). */
 @Suppress("UNUSED_PARAMETER")
 @Composable
 internal fun StatusDialsRow(
@@ -455,20 +455,6 @@ internal fun StatusDialsRow(
         } else {
             BbHomeStatus(mode = mode, visible = selectedMetrics, modifier = Modifier.weight(1f))
         }
-        Text(
-            text = "⚙",
-            color = Bb10Text,
-            fontSize = 22.sp,
-            textAlign = TextAlign.Center,
-            modifier =
-                Modifier
-                    .heightIn(min = 44.dp)
-                    .width(44.dp)
-                    .sableFocusRing()
-                    .clickable(onClick = onOpenSettings)
-                    .semantics { contentDescription = "Launcher Settings" }
-                    .padding(top = 8.dp),
-        )
     }
 }
 
