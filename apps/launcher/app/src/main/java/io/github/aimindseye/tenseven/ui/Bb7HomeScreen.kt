@@ -440,15 +440,25 @@ private class Bb7HomeActions(
             },
         ) + (if (app != null) appMenu(app, fromDesktop) else emptyList()) + homeMenu()
 
+    /** The lines for the focused icon, as in the approved menu: Mark as Favourite, Move, Launch, then the rest. */
     private fun appMenu(
         app: AppEntry,
         fromDesktop: Boolean,
     ): List<Pair<String, () -> Unit>> =
         buildList {
             val key = app.stableKey()
-            add(t("open") to { input.launch.onLaunchApp(app) })
+            if (key in favorites) {
+                add(
+                    "Unmark as Favourite" to {
+                        input.edits.onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key))
+                    },
+                )
+            } else {
+                add("Mark as Favourite" to { addToFavorites(key) })
+            }
+            if (fromDesktop || key in favorites) add(t("move_2") to { state.moving = true })
+            add("Launch" to { input.launch.onLaunchApp(app) })
             if (key in desktopKeys) {
-                if (fromDesktop) add(t("move_2") to { state.moving = true })
                 add(
                     resources.getString(R.string.bb7_remove_home) to {
                         input.edits.onDesktopChanged(desktopKeys.filterNot { it == key })
@@ -457,46 +467,35 @@ private class Bb7HomeActions(
             } else {
                 add(resources.getString(R.string.bb7_add_home) to { addToDesktop(app) })
             }
-            if (key in favorites) {
-                add(
-                    resources.getString(R.string.bb7_remove_favorites) to {
-                        input.edits.onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key))
-                    },
-                )
-            } else {
-                add(resources.getString(R.string.bb7_add_favorites) to { addToFavorites(key) })
-            }
             add(t("app_info") to { input.launch.onOpenAppInfo(app) })
         }
 
+    /** The home's own lines: Maximise Panel, Manage Panels, Show All, and Options (settings live in one place). */
     private fun homeMenu(): List<Pair<String, () -> Unit>> =
         buildList {
             add(
-                "Add shortcut" to {
-                    openApps()
-                    state.pickingDesktop = true
+                "Maximise Panel" to {
+                    with(state) {
+                        open = true
+                        selected = 0
+                    }
                 },
             )
+            add("Manage Panels" to { input.launch.onOpenMenu(panelsMenu()) })
+            add("Show All" to { openApps() })
             add(
-                "Home settings" to {
+                "Options" to {
                     context.startActivity(Intent(context, io.github.aimindseye.tenseven.LauncherSettingsActivity::class.java))
                 },
             )
-            add("Wallpaper" to { input.extra.onOpenWallpaper() })
-            val frequent = Bb7Panel.Frequent
-            add(
-                (if (frequent in input.panel.panels) "Hide Frequent panel" else "Show Frequent panel") to {
-                    input.edits.onPanelsChanged(Bb7Panels.toggle(input.panel.panels, frequent))
-                },
-            )
-            add(
-                "Settings" to {
-                    context.startActivity(
-                        Intent(android.provider.Settings.ACTION_SETTINGS)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    )
-                },
-            )
+        }
+
+    /** One line per panel to show or hide it; the last panel cannot be hidden. */
+    private fun panelsMenu(): List<Pair<String, () -> Unit>> =
+        Bb7Panel.entries.map { panel ->
+            val shown = panel in input.panel.panels
+            val title = (if (shown) "Hide " else "Show ") + panel.title + " panel"
+            title to { input.edits.onPanelsChanged(Bb7Panels.toggle(input.panel.panels, panel)) }
         }
 }
 
