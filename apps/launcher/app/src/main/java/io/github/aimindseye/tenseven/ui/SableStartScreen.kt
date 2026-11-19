@@ -27,6 +27,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -101,6 +103,9 @@ fun SableStartScreen(
     frameSnapshot: (io.github.aimindseye.tenseven.frames.FrameItem, Long) -> Bitmap? = { _, _ -> null },
     onResumeFrame: (io.github.aimindseye.tenseven.frames.FrameItem) -> Unit = {},
     onCloseFrame: (io.github.aimindseye.tenseven.frames.FrameItem) -> Unit = {},
+    /** The Menu key's application menu on Start (a list of title and action pairs). */
+    onOpenMenu: (List<Pair<String, () -> Unit>>) -> Unit = {},
+    onOpenWallpaper: () -> Unit = {},
     onAllowUsageAccess: () -> Unit = {},
     onAppearanceChanged: (SableAppearance) -> Unit = {},
     onResetAppearance: () -> Unit = {},
@@ -366,7 +371,34 @@ fun SableStartScreen(
                         Modifier
                             .fillMaxSize()
                             .windowInsetsPadding(WindowInsets.safeDrawing)
-                            .pointerInput(onDoubleTapEmpty, destination) {
+                            .onPreviewKeyEvent { event ->
+                                // BBOS 10 Menu key: the application menu on the Start pages.
+                                val native = event.nativeKeyEvent
+                                if (native.keyCode == android.view.KeyEvent.KEYCODE_MENU &&
+                                    destination == SableStartDestination.Start && !hubPeek
+                                ) {
+                                    if (event.type == KeyEventType.KeyUp && !native.isCanceled) {
+                                        val items =
+                                            buildList {
+                                                add("Edit Home" to { destination = SableStartDestination.EditHome })
+                                                add("Search" to { openSearch(SableStartDestination.Start) })
+                                                add("Wallpaper" to onOpenWallpaper)
+                                                add(
+                                                    "Settings" to {
+                                                        onStartIntent(Intent(homeContext, LauncherSettingsActivity::class.java))
+                                                    },
+                                                )
+                                                if (currentPage == StartPages.HOME && framesState.items.isNotEmpty()) {
+                                                    add("Close All" to { framesState.items.toList().forEach(onCloseFrame) })
+                                                }
+                                            }
+                                        onOpenMenu(items)
+                                    }
+                                    true
+                                } else {
+                                    false
+                                }
+                            }.pointerInput(onDoubleTapEmpty, destination) {
                                 // Home only, and only empty space: taps on tiles and rows are consumed by them first.
                                 if (onDoubleTapEmpty != null && destination == SableStartDestination.Start) {
                                     detectTapGestures(onDoubleTap = { onDoubleTapEmpty() })
