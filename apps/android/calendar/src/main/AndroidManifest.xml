@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <queries>
+        <provider android:authorities="org.sableos.appearance" />
+        <!-- Start reads the snapshot; getPackagesForUid only names packages this app can see. -->
+        <package android:name="org.sableos.launcher" />
+        <!-- SystemUI reads the next event for the lock screen (frameworks/base 0317). -->
+        <package android:name="com.android.systemui" />
+        <!-- Hub reads the next events for its Coming up strip. -->
+        <package android:name="org.sableos.hub" />
+    </queries>
+    <application
+        android:name="org.sableos.calendar.CalendarApplication"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:icon="@mipmap/ic_sable_calendar"
+        android:roundIcon="@mipmap/ic_sable_calendar_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <provider
+            android:name=".CalendarSnapshotProvider"
+            android:authorities="org.sableos.calendar.snapshot"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+    </application>
+</manifest>

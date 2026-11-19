@@ -1,0 +1,295 @@
+package org.sableos.weather
+
+import android.content.Context
+import android.content.SharedPreferences
+import android.net.Uri
+import org.sableos.weather.WeatherText.t
+import org.sableos.weather.cities.CityEdit
+import org.sableos.weather.cities.CityRepository
+import org.sableos.weather.cities.ForecastCache
+import org.sableos.weather.cities.KeyValueStore
+import org.sableos.weather.cities.LegacyWeatherCache
+import java.net.URI
+import javax.net.ssl.HttpsURLConnection
+
+internal class WeatherRepository(
+    context: Context,
+) {
+    private val appContext = context.applicationContext
+    private val preferences =
+        appContext.getSharedPreferences(
+            WeatherSnapshotContract.PREFERENCES_NAME,
+            Context.MODE_PRIVATE,
+        )
+    private val store = PreferencesStore(preferences)
+
+    /** The user-managed city list and selection (IR-015). */
+    val cities = CityRepository(store)
+
+    /** One cached forecast per city, keyed by coordinates and timezone (IR-015). */
+    private val forecasts = ForecastCache(store)
+
+    /** "Use current location" and the last place found ([CurrentLocationStore]). */
+    val currentLocation = CurrentLocationStore(preferences)
+
+    /** The opt-in morning forecast and rain alerts ([WeatherNotifier]). */
+    val alerts = AlertStore(preferences)
+
+    init {
+        LegacyWeatherCache.migrate(store)
+    }
+
+    fun load(
+        location: WeatherLocation = loadLocation(),
+        nowEpochSeconds: Long = System.currentTimeMillis() / 1000,
+    ): WeatherUiState {
+        // Only this city's own cached forecast may be shown under its name.
+        val cached = forecasts.read(location.toCity())
+        val protocol = cached?.protocol
+        val observed = cached?.observedEpochSeconds ?: 0L
+
+        if (protocol.isNullOrBlank() || observed <= 0L) {
+            return WeatherUiState(
+                location = location,
+                availability = WeatherAvailability.Local,
+                message = t("refresh_to_load_the_forecast"),
+            )
+        }
+
+        val availability =
+            availabilityFromNative(
+                WeatherCore.providerState(
+                    hasCachedSnapshot = true,
+                    lastSuccessEpochSeconds = observed,
+                    nowEpochSeconds = nowEpochSeconds,
+                    fetchFailed = false,
+                ),
+            )
+
+        val snapshot =
+            WeatherProtocol.parse(
+                protocol = protocol,
+                location = location,
+                availability = availability,
+                observedAtEpochSeconds = observed,
+            )
+
+        return if (snapshot == null) {
+            WeatherUiState(
+                location = location,
+                availability = WeatherAvailability.Failed,
+                message = t("cached_forecast_could_not_be"),
+            )
+        } else {
+            WeatherUiState(
+                location = location,
+                snapshot = snapshot,
+                availability = availability,
+                message =
+                    when (availability) {
+                        WeatherAvailability.Live -> t("forecast_is_current")
+                        WeatherAvailability.Stale -> t("showing_cached_forecast")
+                        else -> t("forecast_available")
+                    },
+            )
+        }
+    }
+
+    fun refresh(
+        location: WeatherLocation,
+        fahrenheit: Boolean = true,
+        nowEpochSeconds: Long = System.currentTimeMillis() / 1000,
+    ): WeatherUiState {
+        val cached = load(location, nowEpochSeconds)
+        val url =
+            WeatherCore.buildForecastUrl(
+                latitude = location.latitude,
+                longitude = location.longitude,
+                timezone = location.timezone,
+                fahrenheit = fahrenheit,
+            )
+
+        val protocol: String? =
+            runCatching {
+                fetchHttps(url)
+            }.mapCatching { json ->
+                WeatherCore.parseForecast(json)
+            }.getOrNull()
+
+        if (protocol.isNullOrBlank() || !protocol.startsWith("OK\n")) {
+            val fallback = cached.snapshot
+            if (fallback != null) {
+                val stale =
+                    fallback.copy(
+                        availability = WeatherAvailability.Stale,
+                    )
+                return WeatherUiState(
+                    location = location,
+                    snapshot = stale,
+                    availability = WeatherAvailability.Stale,
+                    message = t("offline_showing_last_known_forecast"),
+                )
+            }
+
+            return WeatherUiState(
+                location = location,
+                availability = WeatherAvailability.Failed,
+                message = t("forecast_unavailable_check_the_connection"),
+            )
+        }
+
+        val parsed =
+            WeatherProtocol.parse(
+                protocol = protocol,
+                location = location,
+                availability = WeatherAvailability.Live,
+                observedAtEpochSeconds = nowEpochSeconds,
+            )
+
+        if (parsed == null) {
+            return WeatherUiState(
+                location = location,
+                snapshot = cached.snapshot,
+                availability =
+                    if (cached.snapshot != null) {
+                        WeatherAvailability.Stale
+                    } else {
+                        WeatherAvailability.Failed
+                    },
+                message = t("provider_response_could_not_be"),
+            )
+        }
+
+        forecasts.write(location.toCity(), protocol, nowEpochSeconds)
+
+        appContext.contentResolver.notifyChange(
+            WeatherSnapshotContract.SNAPSHOT_URI,
+            null,
+        )
+
+        return WeatherUiState(
+            location = location,
+            snapshot = parsed,
+            availability = WeatherAvailability.Live,
+            message = t("updated_from_open_meteo"),
+        )
+    }
+
+    /** The current place while "Use current location" is on, granted and found; otherwise the chosen city. */
+    fun loadLocation(): WeatherLocation = currentPlaceOrNull() ?: cities.load().selected.toLocation()
+
+    private fun currentPlaceOrNull(): WeatherLocation? =
+        currentLocation.lastPlace()?.takeIf {
+            currentLocation.enabled && CurrentLocationFinder.hasPermission(appContext)
+        }
+
+    /** Finds and stores where the phone is (slow: may wait for a fix); null when off, not granted or not found. */
+    fun updateCurrentPlace(): WeatherLocation? {
+        if (!currentLocation.enabled) return null
+        val place = CurrentLocationFinder.locate(appContext) ?: return null
+        if (place != currentLocation.lastPlace()) {
+            currentLocation.save(place)
+            appContext.contentResolver.notifyChange(WeatherSnapshotContract.SNAPSHOT_URI, null)
+        }
+        return place
+    }
+
+    /**
+     * Applies the result of a city edit: drops cached forecasts of removed cities and, when the active city
+     * changed, tells the Start/Live snapshot to re-query (it reads the active city's own cache entry).
+     */
+    fun afterCityEdit(edit: CityEdit) {
+        if (!edit.changed) return
+        forecasts.retainOnly(edit.state.cities + listOfNotNull(currentLocation.lastPlace()?.toCity()))
+        if (edit.refresh) {
+            appContext.contentResolver.notifyChange(
+                WeatherSnapshotContract.SNAPSHOT_URI,
+                null,
+            )
+        }
+    }
+
+    private fun fetchHttps(url: String): String {
+        require(url.startsWith("https://")) {
+            "Weather transport must use HTTPS."
+        }
+
+        val connection =
+            URI(url).toURL().openConnection() as HttpsURLConnection
+
+        return try {
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 15_000
+            connection.requestMethod = "GET"
+            connection.setRequestProperty(
+                "Accept",
+                "application/json",
+            )
+            connection.setRequestProperty(
+                "User-Agent",
+                "SableOS-Weather/0.1",
+            )
+            connection.instanceFollowRedirects = false
+
+            val status = connection.responseCode
+            check(status in 200..299) {
+                "Weather provider HTTP status $status"
+            }
+
+            connection.inputStream
+                .bufferedReader(Charsets.UTF_8)
+                .use { reader ->
+                    reader.readText()
+                }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun availabilityFromNative(value: String): WeatherAvailability =
+        when (value) {
+            "LIVE" -> WeatherAvailability.Live
+            "STALE" -> WeatherAvailability.Stale
+            "FETCHING" -> WeatherAvailability.Fetching
+            "FAILED" -> WeatherAvailability.Failed
+            else -> WeatherAvailability.Local
+        }
+}
+
+internal object WeatherSnapshotContract {
+    const val AUTHORITY = "org.sableos.weather.snapshot"
+    const val PATH_CURRENT = "current"
+
+    val SNAPSHOT_URI: Uri =
+        Uri.parse("content://$AUTHORITY/$PATH_CURRENT")
+
+    const val COLUMN_TITLE = "title"
+    const val COLUMN_DETAIL = "detail"
+    const val COLUMN_AVAILABILITY = "availability"
+    const val COLUMN_OBSERVED_AT = "observed_at"
+
+    const val PREFERENCES_NAME = "sable_weather_snapshot"
+}
+
+/**
+ * [KeyValueStore] over Weather's private preferences. Reads go through [SharedPreferences.getAll] so values that
+ * older builds stored as longs read back as text instead of throwing.
+ */
+internal class PreferencesStore(
+    private val preferences: SharedPreferences,
+) : KeyValueStore {
+    override fun get(key: String): String? = preferences.all[key]?.toString()
+
+    override fun put(
+        key: String,
+        value: String,
+    ) {
+        preferences.edit().putString(key, value).apply()
+    }
+
+    override fun remove(key: String) {
+        preferences.edit().remove(key).apply()
+    }
+
+    override fun keys(): Set<String> = preferences.all.keys.toSet()
+}

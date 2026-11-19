@@ -1,0 +1,62 @@
+config:
+  validation: true
+  warningsAsErrors: true
+
+complexity:
+  CyclomaticComplexMethod:
+    excludes:
+      - "**/media/MediaApp.kt"
+      - "**/media/MediaScreen.kt"
+      - "**/media/MediaResponsive.kt"
+      - "**/media/MediaC2Screens.kt"
+      - "**/media/PodcastScreen.kt"
+      - "**/hub/ui/HubScreen.kt"
+      - "**/hub/ui/ConnectedAppsScreen.kt"
+      - "**/hub/MainActivity.kt"
+      - "**/hub/ConnectedAppsActivity.kt"
+  LongMethod:
+    excludes:
+      - "**/media/MediaApp.kt"
+      - "**/media/MediaScreen.kt"
+      - "**/media/MediaResponsive.kt"
+      - "**/media/MediaC2Screens.kt"
+      - "**/media/PodcastScreen.kt"
+      - "**/hub/ui/HubScreen.kt"
+      - "**/hub/ui/ConnectedAppsScreen.kt"
+      - "**/hub/MainActivity.kt"
+      - "**/hub/ConnectedAppsActivity.kt"
+  LongParameterList:
+    excludes:
+      - "**/media/MediaScreen.kt"
+      - "**/media/MediaResponsive.kt"
+      - "**/media/MediaC2Screens.kt"
+      - "**/media/PodcastScreen.kt"
+      - "**/hub/ui/HubScreen.kt"
+      - "**/hub/ui/ConnectedAppsScreen.kt"
+      - "**/hub/policy/HubItemsTest.kt"
+  TooManyFunctions:
+    ignorePrivate: true
+    ignoreAnnotatedFunctions:
+      - Composable
+
+naming:
+  FunctionNaming:
+    excludes:
+      - "**/media/MediaApp.kt"
+      - "**/media/FmScreen.kt"
+      - "**/media/MediaScreen.kt"
+      - "**/media/MediaResponsive.kt"
+      - "**/media/MediaHubChrome.kt"
+      - "**/media/MediaArtwork.kt"
+      - "**/media/MediaC2Screens.kt"
+      - "**/media/PodcastScreen.kt"
+      - "**/hub/ui/HubScreen.kt"
+      - "**/hub/ui/HubUpcoming.kt"
+      - "**/hub/ui/ConnectedAppsScreen.kt"
+      - "**/hub/ui/AttentionSettingsScreen.kt"
+      - "**/hub/ui/HubTheme.kt"
+      - "**/design/SableActionBar.kt"
+
+style:
+  MagicNumber:
+    ignorePropertyDeclaration: true

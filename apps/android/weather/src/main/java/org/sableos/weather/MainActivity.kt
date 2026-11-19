@@ -1,0 +1,610 @@
+package org.sableos.weather
+
+import android.Manifest
+import android.os.Build
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.sableos.design.SableGlobalTheme
+import org.sableos.design.SableRefreshableSurface
+import org.sableos.design.SableSpacing
+import org.sableos.design.isSableShortWindow
+import org.sableos.design.sableVerticalScroll
+import org.sableos.weather.WeatherText.t
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        enableEdgeToEdge()
+
+        setContent {
+            SableGlobalTheme(window = window) {
+                WeatherApp()
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeatherApp() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val repository =
+        remember(context) {
+            WeatherRepository(context)
+        }
+    val scope = rememberCoroutineScope()
+
+    var selectedLocation by remember {
+        mutableStateOf(repository.loadLocation())
+    }
+    var state by remember(selectedLocation) {
+        mutableStateOf(repository.load(selectedLocation))
+    }
+    var refreshing by remember {
+        mutableStateOf(false)
+    }
+
+    fun refresh() {
+        if (refreshing) return
+        refreshing = true
+        state =
+            state.copy(
+                availability = WeatherAvailability.Fetching,
+                message = t("refreshing_forecast"),
+            )
+
+        val requested = selectedLocation
+        scope.launch {
+            val result =
+                withContext(Dispatchers.IO) {
+                    repository.refresh(requested)
+                }
+            // A forecast is only shown for the city it was fetched for (IR-015); a late result for a city the
+            // user has since left stays in that city's cache entry.
+            refreshing = false
+            if (requested == selectedLocation) {
+                state = result
+            } else {
+                state = repository.load(selectedLocation)
+                if (state.snapshot == null) refresh()
+            }
+        }
+    }
+
+    LaunchedEffect(selectedLocation) {
+        state = repository.load(selectedLocation)
+        if (state.snapshot == null) {
+            refresh()
+        }
+    }
+
+    var useCurrent by remember {
+        mutableStateOf(repository.currentLocation.enabled && CurrentLocationFinder.hasPermission(context))
+    }
+
+    fun locateNow() {
+        scope.launch {
+            withContext(Dispatchers.IO) { repository.updateCurrentPlace() }
+            selectedLocation = repository.loadLocation()
+        }
+    }
+
+    val permissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            repository.currentLocation.enabled = granted
+            useCurrent = granted
+            if (granted) locateNow()
+        }
+
+    fun setUseCurrent(on: Boolean) {
+        if (on && !CurrentLocationFinder.hasPermission(context)) {
+            permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+            return
+        }
+        repository.currentLocation.enabled = on
+        useCurrent = on
+        if (on) locateNow() else selectedLocation = repository.loadLocation()
+    }
+
+    LaunchedEffect(Unit) {
+        if (useCurrent) locateNow()
+    }
+
+    var alerts by remember {
+        mutableStateOf(repository.alerts.settings.takeIf { WeatherNotifier.canPost(context) } ?: AlertSettings())
+    }
+    var pendingAlerts by remember { mutableStateOf<AlertSettings?>(null) }
+
+    fun applyAlerts(next: AlertSettings) {
+        repository.alerts.settings = next
+        alerts = next
+        if (next.any) WeatherRefreshJob.ensureScheduled(context, needsFetch = false)
+    }
+
+    val notificationLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val next = pendingAlerts
+            pendingAlerts = null
+            if (granted && next != null) applyAlerts(next)
+        }
+
+    fun setAlerts(next: AlertSettings) {
+        val turningOn = next.any && !WeatherNotifier.canPost(context)
+        if (turningOn && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pendingAlerts = next
+            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        applyAlerts(next)
+    }
+
+    SableRefreshableSurface(
+        isRefreshing = refreshing,
+        onRefresh = ::refresh,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .sableVerticalScroll()
+                    .padding(
+                        horizontal = SableSpacing.ScreenHorizontal,
+                        vertical = SableSpacing.Xl,
+                    ),
+        ) {
+            Text(
+                text = "weather",
+                style = MaterialTheme.typography.displayLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = statusLine(state),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(SableSpacing.Xl))
+
+            val snapshot = state.snapshot
+            if (snapshot == null) {
+                WeatherNotice(
+                    title =
+                        when (state.availability) {
+                            WeatherAvailability.Fetching -> t("loading_forecast")
+                            WeatherAvailability.Failed -> t("forecast_unavailable")
+                            else -> t("weather_ready")
+                        },
+                    detail = state.message,
+                )
+            } else {
+                CurrentConditions(snapshot)
+                Spacer(Modifier.height(SableSpacing.Xl))
+                MetricRow(snapshot)
+                Spacer(Modifier.height(SableSpacing.Xl))
+                HourlySection(snapshot.hourly)
+                Spacer(Modifier.height(SableSpacing.Xl))
+                DailySection(snapshot.daily)
+            }
+
+            Spacer(Modifier.height(SableSpacing.Xl))
+            CurrentLocationRow(
+                on = useCurrent,
+                place = selectedLocation.name.takeIf { useCurrent },
+                onChange = ::setUseCurrent,
+            )
+
+            Spacer(Modifier.height(SableSpacing.Lg))
+            AlertsSection(alerts = alerts, onChange = ::setAlerts)
+
+            Spacer(Modifier.height(SableSpacing.Lg))
+            CitiesSection(
+                repository = repository,
+                onActiveCityChanged = { location ->
+                    // Choosing a city means "show this city", not where the phone is.
+                    repository.currentLocation.enabled = false
+                    useCurrent = false
+                    selectedLocation = location
+                },
+            )
+
+            Spacer(Modifier.height(SableSpacing.Xl))
+            Text(
+                text =
+                    t("open_meteo_https_cached_locally"),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** The opt-in alerts: a morning forecast and a heads-up before rain. Each opens Sable Weather when tapped. */
+@Composable
+private fun AlertsSection(
+    alerts: AlertSettings,
+    onChange: (AlertSettings) -> Unit,
+) {
+    SectionHeader(t("alert_notifications"))
+    SwitchRow(
+        title = t("alert_morning_forecast"),
+        detail = t("alert_morning_forecast_detail"),
+        on = alerts.morning,
+        onChange = { onChange(alerts.copy(morning = it)) },
+    )
+    SwitchRow(
+        title = t("alert_rain_alerts"),
+        detail = t("alert_rain_alerts_detail"),
+        on = alerts.rain,
+        onChange = { onChange(alerts.copy(rain = it)) },
+    )
+}
+
+@Composable
+private fun SwitchRow(
+    title: String,
+    detail: String,
+    on: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp)
+                .toggleable(value = on, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = on, onCheckedChange = null)
+    }
+}
+
+/** "Use current location": approximate location, asked for the first time it is turned on. */
+@Composable
+private fun CurrentLocationRow(
+    on: Boolean,
+    place: String?,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .toggleable(value = on, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = t("use_current_location"),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = if (on) place ?: t("finding_where_you_are") else t("off_showing_the_chosen_city"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = on, onCheckedChange = null)
+    }
+}
+
+@Composable
+private fun CurrentConditions(snapshot: WeatherSnapshot) {
+    val current = snapshot.current
+    // The Q25's short window: a smaller temperature and picture, so the hours show on the first screen.
+    val short = isSableShortWindow()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = current.temperature.toInt().toString() + "°",
+                fontSize = if (short) 56.sp else 84.sp,
+                lineHeight = if (short) 60.sp else 88.sp,
+                fontWeight = FontWeight.Light,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = conditionLabel(current.condition),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text =
+                    t("feels_like") +
+                        current.apparentTemperature.toInt().toString() +
+                        "°",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        WeatherGlyph(
+            condition = current.condition,
+            modifier =
+                Modifier
+                    .padding(top = if (short) 8.dp else 16.dp)
+                    .size(if (short) 72.dp else 104.dp),
+            accent = MaterialTheme.colorScheme.primary,
+            muted = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun MetricRow(snapshot: WeatherSnapshot) {
+    val current = snapshot.current
+    val nextRain =
+        snapshot.hourly
+            .firstOrNull()
+            ?.precipitationProbability
+            ?: 0
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Metric("rain", nextRain.toString() + "%", Modifier.weight(1f))
+        Metric("humidity", current.humidity.toString() + "%", Modifier.weight(1f))
+        Metric(
+            "wind",
+            windDirection(current.windDirectionDegrees) +
+                " " +
+                current.windSpeedMph.toInt().toString() +
+                " mph",
+            Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun Metric(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+    }
+}
+
+@Composable
+private fun HourlySection(hourly: List<HourWeather>) {
+    SectionHeader(t("next_hours"))
+
+    hourly.take(8).forEach { hour ->
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 9.dp),
+        ) {
+            Text(
+                text = hourLabel(hour.time),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
+            )
+            Box(
+                modifier = Modifier.weight(0.6f),
+                contentAlignment = Alignment.Center,
+            ) {
+                WeatherGlyph(
+                    condition = hour.condition,
+                    modifier = Modifier.size(30.dp),
+                    accent = MaterialTheme.colorScheme.primary,
+                    muted = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text = hour.temperature.toInt().toString() + "°",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(0.7f),
+                textAlign = TextAlign.End,
+            )
+            Text(
+                text = hour.precipitationProbability.toString() + "%",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(0.7f),
+                textAlign = TextAlign.End,
+            )
+        }
+        Hairline()
+    }
+}
+
+@Composable
+private fun DailySection(daily: List<DayWeather>) {
+    SectionHeader(t("n7_days"))
+
+    daily.take(7).forEach { day ->
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp),
+        ) {
+            Text(
+                text = dayLabel(day.date),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1.1f),
+            )
+            Box(
+                modifier = Modifier.weight(0.5f),
+                contentAlignment = Alignment.Center,
+            ) {
+                WeatherGlyph(
+                    condition = day.condition,
+                    modifier = Modifier.size(30.dp),
+                    accent = MaterialTheme.colorScheme.primary,
+                    muted = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text =
+                    day.high.toInt().toString() +
+                        "°  " +
+                        day.low.toInt().toString() +
+                        "°",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(0.9f),
+                textAlign = TextAlign.End,
+            )
+            Text(
+                text = day.precipitationProbability.toString() + "%",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(0.6f),
+                textAlign = TextAlign.End,
+            )
+        }
+        Hairline()
+    }
+}
+
+@Composable
+private fun WeatherNotice(
+    title: String,
+    detail: String,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = SableSpacing.Md),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .width(4.dp)
+                    .height(48.dp)
+                    .background(MaterialTheme.colorScheme.primary),
+        )
+        Spacer(Modifier.width(SableSpacing.Md))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.headlineMedium,
+        color = MaterialTheme.colorScheme.onBackground,
+    )
+}
+
+@Composable
+private fun Hairline() {
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant,
+    )
+}
+
+private fun statusLine(state: WeatherUiState): String {
+    val prefix = state.location.name
+    return when (state.availability) {
+        WeatherAvailability.Live -> prefix + t("live")
+        WeatherAvailability.Stale -> prefix + t("cached")
+        WeatherAvailability.Fetching -> prefix + t("fetching")
+        WeatherAvailability.Failed -> prefix + t("unavailable")
+        WeatherAvailability.Local -> prefix + t("local")
+    }
+}
+
+private fun windDirection(degrees: Int): String {
+    val normalized = Math.floorMod(degrees, 360)
+    val directions =
+        listOf(
+            "N",
+            "NE",
+            "E",
+            "SE",
+            "S",
+            "SW",
+            "W",
+            "NW",
+        )
+    val index = ((normalized + 22) / 45) % directions.size
+    return directions[index]
+}
+
+private fun hourLabel(value: String): String = value.substringAfter('T', value)
+
+private fun dayLabel(value: String): String = value

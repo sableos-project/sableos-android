@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- No permissions (and no location permission: the Weather city is typed, not detected). Reads the default dialer/SMS/home/keyboard and the Sable apps choice through public APIs and opens system settings screens.
+         The settings actions below are declared only so the helper can check that each screen resolves before offering it. -->
+    <queries>
+        <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.HOME" /></intent>
+        <intent><action android:name="android.settings.HOME_SETTINGS" /></intent>
+        <intent><action android:name="android.settings.INPUT_METHOD_SETTINGS" /></intent>
+        <!-- Sable Launcher's home style chooser (BlackBerry 10 or 7). -->
+        <intent><action android:name="org.sableos.start.action.CHOOSE_HOME_STYLE" /></intent>
+        <intent><action android:name="android.settings.MANAGE_DEFAULT_APPS_SETTINGS" /></intent>
+        <intent><action android:name="android.settings.WIRELESS_SETTINGS" /></intent>
+        <!-- Theme: Settings, Display (Dark or Light, accent, text size). -->
+        <intent><action android:name="android.settings.DISPLAY_SETTINGS" /></intent>
+        <!-- Sable apps: first-boot setup's Sable apps step, opened again. -->
+        <intent><action android:name="org.sableos.setupwizard.SABLE_APPS" /></intent>
+        <!-- Telephony.Sms.getDefaultSmsPackage() checks the holder's SMS-role components through
+             PackageManager, so without these the default SMS app is invisible and reads as none. -->
+        <intent><action android:name="android.provider.Telephony.SMS_DELIVER" /></intent>
+        <intent>
+            <action android:name="android.provider.Telephony.WAP_PUSH_DELIVER" />
+            <data android:mimeType="application/vnd.wap.mms-message" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.RESPOND_VIA_MESSAGE" />
+            <data android:scheme="smsto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+        <!-- Hub's settings page: Snooze and Remind me for Hub's row menu. -->
+        <intent><action android:name="org.sableos.hub.action.CONNECTED_APPS" /></intent>
+        <!-- Sable Spaces: make a Work space (BB10 Balance). -->
+        <intent><action android:name="org.sableos.spaces.action.WORK_SPACE" /></intent>
+        <package android:name="org.sableos.titan2.displaycompat" />
+        <package android:name="org.sableos.tools" />
+        <!-- Sable Weather's city hand-off (ContentResolver.call); Weather allows only this package. -->
+        <provider android:authorities="org.sableos.weather.snapshot" />
+        <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
+        <provider android:authorities="org.sableos.appearance" />
+    </queries>
+
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <application
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:icon="@mipmap/ic_sable_setup"
+        android:roundIcon="@mipmap/ic_sable_setup_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <activity android:name=".android.SetupActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

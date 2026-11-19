@@ -1,0 +1,384 @@
+package org.sableos.tools.ui
+
+import android.app.Activity
+import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.view.KeyEvent
+import android.view.MotionEvent
+import android.view.View
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.Toast
+import org.sableos.titan2.theme.SablePalette
+import org.sableos.tools.android.Collectors
+import org.sableos.tools.android.Links
+import org.sableos.tools.android.ReportFiles
+import org.sableos.tools.android.ToolsEnv
+import org.sableos.tools.core.Capability
+import org.sableos.tools.core.Command
+import org.sableos.tools.core.DialerCodes
+import org.sableos.tools.core.Handoffs
+import org.sableos.tools.core.HomeModel
+import org.sableos.tools.core.KeyCommands
+import org.sableos.tools.core.KeyHints
+import org.sableos.tools.core.KeyPress
+import org.sableos.tools.core.PermissionPlan
+import org.sableos.tools.core.ReportFile
+import org.sableos.tools.core.SettingsLink
+import org.sableos.tools.core.Tool
+import org.sableos.tools.core.ToolKind
+import org.sableos.tools.core.ToolsText.t
+
+/** In-memory only, cleared when the process dies; the report includes it only if the user selects it. */
+object Session {
+    val keyLog = ArrayDeque<String>()
+    val textEntry = mutableMapOf<String, org.sableos.tools.core.CaseResult>()
+    const val MAX_LOG = 200
+
+    fun log(line: String) {
+        keyLog.addLast(line)
+        while (keyLog.size > MAX_LOG) keyLog.removeFirst()
+    }
+}
+
+/** What a tool screen gets from its host activity. */
+class ToolHost(val activity: ToolActivity, val env: ToolsEnv, val tool: Tool) {
+    val collectors = Collectors(env)
+
+    fun toast(msg: String) = Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show()
+
+    fun openLink(link: SettingsLink, pkg: String? = null) {
+        if (!Links.open(activity, link, pkg)) toast(t("is_not_available_on_this", link.label))
+    }
+
+    fun openTool(t: Tool) = activity.startActivity(ToolActivity.intent(activity, t))
+
+    /** Writes [text] to Download/SableTools and says where, so it can be shared for diagnostics. */
+    fun saveToFile(text: String) {
+        val path = ReportFiles.save(activity, tool.title, text)
+        toast(if (path == null) t("could_not_save_the_file") else t("saved_to", path))
+    }
+}
+
+/** One tool screen. Views are built once; sensors/camera/mic run only between start() and stop(). */
+interface ToolController {
+    fun view(): View
+    fun start() {
+        // Default: a tool with no sensor, camera or mic has nothing to start.
+    }
+    fun stop() {
+        // Default: nothing was started, so there is nothing to stop.
+    }
+
+    /** Local commands (C/R/H/Space/Menu actions). Return true when handled. */
+    fun onCommand(c: Command): Boolean = false
+
+    /** KEY_CAPTURE tools see every key event. */
+    fun onKeyCapture(e: KeyEvent) {
+        // Default: only KEY_CAPTURE tools override this; others ignore raw key events.
+    }
+    fun onMotion(e: MotionEvent): Boolean = false
+    fun info(): String
+    fun copyText(): String? = null
+
+    /** Extra actions offered by Menu / Fn+Enter, besides Settings hand-offs. */
+    fun actions(): List<Pair<String, () -> Unit>> = emptyList()
+}
+
+/**
+ * Hosts one tool. Re-checks capability gating on arrival (callers from other apps cannot open a hidden tool),
+ * requests runtime permissions only now (PERMISSION_REQUEST_AT_FEATURE_USE), and maps keys through
+ * [KeyCommands] so single-letter commands are tool-local and off while a text field has focus.
+ */
+class ToolActivity : Activity() {
+    private lateinit var env: ToolsEnv
+    private lateinit var tool: Tool
+    private var controller: ToolController? = null
+    private var started = false
+    private val exit = KeyCommands.DoubleBackExit()
+
+    companion object {
+        const val ACTION_OPEN_TOOL = "org.sableos.tools.action.OPEN_TOOL"
+        const val ACTION_SEARCH = "org.sableos.tools.action.SEARCH"
+        const val EXTRA_TOOL = "org.sableos.tools.extra.TOOL"
+        const val EXTRA_QUERY = "org.sableos.tools.extra.QUERY"
+        const val EXTRA_NOTICE = "org.sableos.tools.extra.NOTICE"
+        private const val REQ_PERMS = 41
+
+        fun intent(ctx: Context, t: Tool): Intent =
+            Intent(ctx, ToolActivity::class.java).putExtra(EXTRA_TOOL, t.name)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        Ui.palette = SablePalette.read(this).also { it.applyTo(this) }
+        env = ToolsEnv(this)
+        var notice = intent.getStringExtra(EXTRA_NOTICE)
+        tool = if (intent.action == ACTION_SEARCH) {
+            val (t, n) = resolveSearch(intent.getStringExtra(EXTRA_QUERY).orEmpty())
+            if (n != null) notice = n
+            t
+        } else {
+            Tool.byName(intent.getStringExtra(EXTRA_TOOL)) ?: Tool.HARDWARE_TESTS
+        }
+        title = tool.title
+        if (!HomeModel.isListed(tool, env.resolutions, env.developerMode)) {
+            showMessage(tool.title, unavailableReason())
+            return
+        }
+        val missing = PermissionPlan.missingFor(tool, env.granted())
+        if (missing.isNotEmpty()) {
+            showPermissionExplainer(missing)
+        } else {
+            install(notice)
+        }
+    }
+
+    /** Friendly names go to the matching diagnostic; the raw dialer code goes through the bridge decision. */
+    private fun resolveSearch(q: String): Pair<Tool, String?> {
+        val bridge = DialerCodes.bridge(
+            env.resolutions.getValue(Capability.FACTORY_TEST_BRIDGE),
+            env.developerMode
+        )
+        return when (val r = DialerCodes.resolveQuery(q, bridge)) {
+            is DialerCodes.QueryResult.Category -> r.tool to null
+
+            is DialerCodes.QueryResult.Bridge ->
+                (if (r.decision.opensBridge) Tool.FACTORY_BRIDGE else Tool.HARDWARE_TESTS) to
+                    r.decision.reason
+
+            DialerCodes.QueryResult.NoMatch -> {
+                val hit = Tool.entries.firstOrNull {
+                    HomeModel.matches(it, q) &&
+                        HomeModel.isListed(it, env.resolutions, env.developerMode)
+                }
+                (hit ?: Tool.HARDWARE_TESTS) to if (hit == null) t("nothing_matched", q) else null
+            }
+        }
+    }
+
+    private fun unavailableReason(): String {
+        val cap = tool.capability
+        return when {
+            tool.developerOnly && !env.developerMode ->
+                t("this_tool_is_part_of")
+
+            cap != null -> {
+                val why = env.resolutions.getValue(cap).reason
+                t("not_available_on_this_device", env.profile.id, why)
+            }
+
+            else -> t("not_available")
+        }
+    }
+
+    private fun showMessage(t: String, msg: String) {
+        val col = Ui.column(this)
+        col.addView(Ui.title(this, t))
+        col.addView(Ui.body(this, msg))
+        col.addView(
+            Ui.row(this, t("back"), null) {
+                finish()
+            }.also { it.post { it.requestFocus() } }
+        )
+        setContentView(col)
+    }
+
+    private fun showPermissionExplainer(missing: List<String>) {
+        val col = Ui.column(this)
+        col.addView(Ui.title(this, tool.title))
+        val why = when (tool) {
+            Tool.NOISE_METER ->
+                t("the_noise_meter_reads_the")
+
+            Tool.MAGNIFIER ->
+                t("the_magnifier_shows_the_camera")
+
+            Tool.SPEEDOMETER ->
+                t("the_speedometer_uses_your_location")
+
+            Tool.PEDOMETER ->
+                t("the_pedometer_reads_the_step")
+
+            else -> t("this_tool_needs") + missing.joinToString { it.substringAfterLast('.') }
+        }
+        col.addView(Ui.body(this, why))
+        col.addView(
+            Ui.row(this, t("allow"), null) {
+                requestPermissions(missing.toTypedArray(), REQ_PERMS)
+            }.also { it.post { it.requestFocus() } }
+        )
+        col.addView(Ui.row(this, t("not_now"), null) { finish() })
+        setContentView(col)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQ_PERMS) return
+        val refused = permissions.filterIndexed { i, _ ->
+            grantResults.getOrNull(i) !=
+                PackageManager.PERMISSION_GRANTED
+        }
+        if (PermissionPlan.usableWithout(tool, refused)) {
+            install(null)
+            if (started) controller?.start()
+        } else {
+            showMessage(
+                tool.title,
+                t("permission_not_granted_so_this")
+            )
+        }
+    }
+
+    private fun install(notice: String?) {
+        val host = ToolHost(this, env, tool)
+        val c = Controllers.create(host)
+        controller = c
+        val col = Ui.column(this)
+        col.addView(Ui.title(this, tool.title))
+        if (notice != null) col.addView(Ui.subtitle(this, notice).apply { setTextColor(Ui.ACCENT) })
+        col.addView(
+            c.view(),
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        )
+        // The key line and a visible Actions button (copy, save to phone, info, hand-offs): the
+        // button is the touch and trackpad way in, M the keyboard way.
+        val hint = KeyHints.footer(tool.kind, tool.capability?.calibratable == true)
+        col.addView(
+            Ui.footer(
+                this,
+                hint,
+                if (tool.kind ==
+                    ToolKind.KEY_CAPTURE
+                ) {
+                    null
+                } else {
+                    t("actions")
+                }
+            ) { showActions(c) }
+        )
+        setContentView(col)
+    }
+
+    private fun copy(c: ToolController) {
+        val text = c.copyText() ?: return toast(t("nothing_to_copy_yet"))
+        getSystemService(
+            ClipboardManager::class.java
+        )?.setPrimaryClip(ClipData.newPlainText(tool.title, text))
+        toast(t("copied_identifiers_masked"))
+    }
+
+    private fun save(c: ToolController) {
+        c.copyText()?.let(ToolHost(this, env, tool)::saveToFile) ?: toast(t("nothing_to_save_yet"))
+    }
+
+    private fun showInfo(c: ToolController) {
+        AlertDialog.Builder(
+            this
+        ).setTitle(tool.title).setMessage(c.info()).setPositiveButton(t("close"), null).show()
+    }
+
+    private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+
+    override fun onResume() {
+        super.onResume()
+        started = true
+        controller?.start()
+    }
+
+    override fun onPause() {
+        controller?.stop()
+        started = false
+        super.onPause()
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val c = controller
+        if (c != null && tool.kind == ToolKind.KEY_CAPTURE) {
+            c.onKeyCapture(event)
+            if (event.action == KeyEvent.ACTION_UP && exit.onKeyUp(event.keyCode)) finish()
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean =
+        controller?.onMotion(ev) == true || super.dispatchGenericMotionEvent(ev)
+
+    override fun dispatchTrackballEvent(ev: MotionEvent): Boolean =
+        controller?.onMotion(ev) == true || super.dispatchTrackballEvent(ev)
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (tool.kind == ToolKind.KEY_CAPTURE) controller?.onMotion(ev)
+        return super.dispatchTouchEvent(ev)
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        val c = controller ?: return super.onKeyDown(keyCode, event)
+        val ctx = KeyCommands.contextFor(tool, currentFocus is EditText)
+        return when (
+            val cmd = KeyCommands.map(
+                ctx,
+                KeyPress(keyCode, event.unicodeChar, event.metaState, event.repeatCount)
+            )
+        ) {
+            Command.Back -> {
+                finish()
+                true
+            }
+
+            Command.Info -> {
+                showInfo(c)
+                true
+            }
+
+            Command.Copy -> {
+                copy(c)
+                true
+            }
+
+            Command.Save -> {
+                save(c)
+                true
+            }
+
+            Command.Actions -> {
+                showActions(c)
+                true
+            }
+
+            Command.Calibrate, Command.Reset, Command.Hold, Command.Toggle, is Command.Move ->
+                c.onCommand(cmd) || super.onKeyDown(keyCode, event)
+
+            else -> super.onKeyDown(keyCode, event)
+        }
+    }
+
+    private fun showActions(c: ToolController) {
+        val common =
+            listOf(
+                t("copy_c") to { copy(c) },
+                t("save_to_phone_s", ReportFile.FOLDER) to { save(c) },
+                t("about_this_tool") to { showInfo(c) }
+            )
+        val items =
+            common + c.actions() +
+                Handoffs.forTool(tool).map { l ->
+                    t("open", l.label) to
+                        { ToolHost(this, env, tool).openLink(l) }
+                }
+        if (items.isEmpty()) return
+        AlertDialog.Builder(this).setTitle(tool.title)
+            .setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }
+            .setNegativeButton(t("close"), null).show()
+    }
+}

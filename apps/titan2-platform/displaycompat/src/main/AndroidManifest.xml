@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Runs as the system UID: IPackageManager.setUserMinAspectRatio only lets the system UID set another
+     package's aspect ratio (PackageManagerService.enforceOwnerRights). Platform-signed and privileged on the
+     image (apps.tsv signing "platform"); the privileged permissions below are allowlisted in
+     product/q25/permissions/privapp-permissions-sable-q25.xml. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:sharedUserId="android.uid.system"
+    tools:ignore="SharedUserId">
+
+    <!-- Per-app aspect ratio (IPackageManager.setUserMinAspectRatio). -->
+    <uses-permission android:name="android.permission.INSTALL_PACKAGES" tools:ignore="ProtectedPermissions" />
+    <!-- Per-app orientation (IPlatformCompat.putOverridesOnReleaseBuilds). -->
+    <uses-permission
+        android:name="android.permission.OVERRIDE_COMPAT_CHANGE_CONFIG_ON_RELEASE_BUILD"
+        tools:ignore="ProtectedPermissions" />
+    <!-- Display tools: Tall canvas and its density guard (IWindowManager.setForcedDisplaySize,
+         setForcedDisplayDensityForUser), the display's ignore-orientation-request setting, forced
+         rotation (Settings.System user_rotation / accelerometer_rotation), the app in front
+         (task stack listener, running tasks of every app) and the restore at boot. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.SET_ORIENTATION" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_TASKS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.REAL_GET_TASKS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES.
+         The Sable appearance authority (Settings) holds the global Sable app corner style. -->
+    <queries>
+        <provider android:authorities="org.sableos.appearance" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.HOME" /></intent>
+        <intent><action android:name="android.intent.action.DIAL" /></intent>
+        <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>
+    </queries>
+
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <application
+        android:name=".android.DisplayCompatApp"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:icon="@mipmap/ic_sable_displaycompat"
+        android:roundIcon="@mipmap/ic_sable_displaycompat_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Settings > Apps > (app) > Display compatibility: package:<name> opens that app's
+                 profile (core/ProfileLink). The user still reviews and applies every change. -->
+            <intent-filter>
+                <action android:name="org.sableos.titan2.displaycompat.action.APP_PROFILE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </activity>
+
+        <!-- Follows the app in front for Tall canvas and per-app rotation (android/DisplayToolsService). -->
+        <service
+            android:name=".android.DisplayToolsService"
+            android:exported="false" />
+
+        <!-- Gives held display settings back at boot, before the first unlock too. Not
+             exported: the app runs as android.uid.system, the same uid that sends the boot
+             broadcasts, so they still arrive. -->
+        <receiver
+            android:name=".android.BootReceiver"
+            android:directBootAware="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Out-of-box presets (2.0): a newly installed app with a Sable preset gets it (android/PresetSupport). -->
+        <receiver
+            android:name=".android.PresetReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Resolution hotkey from PhoneWindowManager (frameworks/base 0313). Not exported: only the
+             system UID (the system server) can send it. -->
+        <receiver
+            android:name=".android.CanvasHotkeyReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.sableos.titan2.displaycompat.action.CYCLE_CANVAS" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
