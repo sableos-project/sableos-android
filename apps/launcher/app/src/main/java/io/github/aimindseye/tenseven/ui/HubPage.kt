@@ -311,17 +311,40 @@ private fun HubPageHeader(
     calendarPeekEnabled: Boolean,
     openPanel: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        HomeBarControl(HomeBarControlSpec("Hub settings", "menu-2"), onClick = openPanel)
-        Text(
-            text = HUB_LABEL,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Medium,
-            color = Bb10Text,
-            modifier = Modifier.semantics { heading() },
-        )
+    if (sableBottomTabs()) {
+        // BBOS 10 (approved board): the title at the left, the menu at the right, the unread line under the title.
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = HUB_LABEL,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Medium,
+                color = Bb10Text,
+                modifier = Modifier.weight(1f).padding(start = 4.dp).semantics { heading() },
+            )
+            HomeBarControl(HomeBarControlSpec("Hub settings", "menu-2"), onClick = openPanel)
+        }
+        SableHubSubtitle(session.data.conversations)
+    } else {
+        // BBOS 7 (approved board): a title bar with the Hub icon, the title and the unread line; the menu comes
+        // from the bottom bar (Menu key) and a swipe opens the Hub panel.
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            LineIcon(listOf("M3 5h18v14H3z", "M3 7l9 7 9-7"), Modifier.size(20.dp), Bb10Text)
+            Text(
+                text = HUB_LABEL,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Bb10Text,
+                modifier = Modifier.semantics { heading() },
+            )
+            SableHubSubtitle(session.data.conversations)
+        }
     }
-    SableHubSubtitle(session.data.conversations)
+    // BBOS 7 shows its tabs right under the title bar; BBOS 10 has them at the bottom.
+    if (!sableBottomTabs()) HubPageNavigation(session, chrome)
     Spacer(Modifier.height(if (io.github.aimindseye.tenseven.design.isSableShortWindow()) 2.dp else 6.dp))
     if (session.model.filter == HubFilter.All && calendarPeekEnabled && !session.data.conversations.remindersSelected) {
         HubCalendarPeek(
@@ -332,7 +355,6 @@ private fun HubPageHeader(
             onOpenCalendar = { session.events.onStartIntent(hubCalendarIntent()) },
         )
     }
-    if (!sableBottomTabs()) HubPageNavigation(session, chrome)
 }
 
 @Composable
@@ -533,10 +555,6 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
                 actions.onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI))
             })
         }
-    }
-    item(key = "hub-settings-link") {
-        Spacer(Modifier.height(8.dp))
-        MetroLink(text = t("hub_settings"), onClick = actions.onOpenHubSettings)
     }
 }
 
