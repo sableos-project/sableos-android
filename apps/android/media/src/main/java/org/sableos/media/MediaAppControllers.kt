@@ -583,6 +583,12 @@ internal class MediaFmController(
 ) {
     fun togglePower() = host.fm.togglePower(state.fmFavorites)
 
+    /** Opens a starred station from the Favourites list and shows Now playing. */
+    fun play(station: Int) {
+        host.fm.playStation(station)
+        state.destination = MediaDestination.NowPlaying
+    }
+
     fun toggleFavorite(station: Int) {
         val updated = FmPresets.toggle(state.fmFavorites, station)
         if (updated != state.fmFavorites) {

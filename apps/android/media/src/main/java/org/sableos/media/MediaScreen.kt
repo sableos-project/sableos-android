@@ -209,6 +209,8 @@ internal data class MediaScreenActions(
     val onCloseSearch: () -> Unit = {},
     val onTrackFocusChange: (LocalAudioItem, Boolean) -> Unit = { _, _ -> },
     val fm: FmScreenActions? = null,
+    /** Plays a starred FM station from the Favourites list: powers the tuner on if needed. */
+    val onPlayFmFavorite: (Int) -> Unit = {},
 )
 
 @Composable
@@ -328,6 +330,17 @@ internal fun MediaScreen(
                                 focusToken = state.searchFocusToken,
                             ),
                         onTrackFocusChange = actions.onTrackFocusChange,
+                        shortcuts =
+                            FavoriteShortcuts(
+                                stations = stations.filter { it.id in favoriteStationIds },
+                                fm =
+                                    FmPresets.ordered(state.fmFavorites).map { station ->
+                                        val named = state.fmNames[station].orEmpty()
+                                        station to named.ifBlank { "${FmBand.format(station)} MHz" }
+                                    },
+                                onPlayStation = onPlayStation,
+                                onPlayFm = actions.onPlayFmFavorite,
+                            ),
                     )
                 }
 
@@ -752,6 +765,7 @@ private fun CollectionScreen(
     onNext: () -> Unit,
     search: CollectionSearch,
     onTrackFocusChange: (LocalAudioItem, Boolean) -> Unit,
+    shortcuts: FavoriteShortcuts,
 ) {
     val query = search.query.orEmpty()
     val collectionIndex = rememberCollectionIndex(localItems, favoriteAudioUris, query)
@@ -767,6 +781,7 @@ private fun CollectionScreen(
             pivot = pivot,
             query = query,
             visiblePlaylists = visiblePlaylists,
+            shortcuts = shortcuts,
         )
     val trackActions =
         CollectionTrackActions(
@@ -880,7 +895,18 @@ private class CollectionContent(
     val pivot: LibraryPivot,
     val query: String,
     val visiblePlaylists: List<MediaPlaylist>,
+    val shortcuts: FavoriteShortcuts,
 )
+
+/** Starred online and FM stations: the Favourites list shows them beside the starred songs, as shortcuts. */
+private class FavoriteShortcuts(
+    val stations: List<RadioStation>,
+    val fm: List<Pair<Int, String>>,
+    val onPlayStation: (RadioStation) -> Unit,
+    val onPlayFm: (Int) -> Unit,
+) {
+    val count: Int get() = stations.size + fm.size
+}
 
 /** Track-row callbacks shared by the Songs and Favorites pivots (and group rows' play). */
 private class CollectionTrackActions(
@@ -1069,7 +1095,7 @@ private fun LazyListScope.collectionBody(
             }
         }
 
-        !content.hasItems -> {
+        !content.hasItems && !(content.pivot == LibraryPivot.Favorites && content.shortcuts.count > 0) -> {
             item {
                 EmptyPanel(
                     title = t("no_local_audio_yet"),
@@ -1113,7 +1139,7 @@ private fun LazyListScope.collectionResults(
         LibraryPivot.Songs -> trackItems(index.songs, tracks, allFavorites = false)
         LibraryPivot.Artists -> groupItems(index.artists, tracks.onPlay)
         LibraryPivot.Albums -> groupItems(index.albums, tracks.onPlay)
-        LibraryPivot.Favorites -> favoriteItems(index.favorites, tracks)
+        LibraryPivot.Favorites -> favoriteItems(index.favorites, tracks, content.shortcuts)
         LibraryPivot.Playlists -> playlistItems(query, content.visiblePlaylists, index.availableUris, playlists)
     }
 }
@@ -1165,8 +1191,9 @@ private fun LazyListScope.groupItems(
 private fun LazyListScope.favoriteItems(
     favorites: List<MediaIndexedTrack>,
     tracks: CollectionTrackActions,
+    shortcuts: FavoriteShortcuts,
 ) {
-    if (favorites.isEmpty()) {
+    if (favorites.isEmpty() && shortcuts.count == 0) {
         item {
             C2InfoPanel(
                 title = t("no_favorite_tracks"),
@@ -1175,6 +1202,30 @@ private fun LazyListScope.favoriteItems(
         }
     } else {
         trackItems(favorites, tracks, allFavorites = true)
+        items(
+            count = shortcuts.fm.size,
+            key = { index -> "fm-${shortcuts.fm[index].first}" },
+        ) { index ->
+            val (station, name) = shortcuts.fm[index]
+            LibraryGroupRow(
+                title = name,
+                detail = t("fm_radio") + " · ${FmBand.format(station)} MHz",
+                accent = accentFor(station),
+                onClick = { shortcuts.onPlayFm(station) },
+            )
+        }
+        items(
+            count = shortcuts.stations.size,
+            key = { index -> "radio-${shortcuts.stations[index].id}" },
+        ) { index ->
+            val station = shortcuts.stations[index]
+            LibraryGroupRow(
+                title = station.name,
+                detail = t("live_radio"),
+                accent = accentFor(station.id.hashCode()),
+                onClick = { shortcuts.onPlayStation(station) },
+            )
+        }
     }
 }
 
