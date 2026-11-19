@@ -1,0 +1,474 @@
+package org.sableos.hub
+
+import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.database.ContentObserver
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.CallLog
+import android.provider.Telephony
+import android.util.Log
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.lifecycle.Lifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.sableos.hub.HubText.t
+import org.sableos.hub.notifications.HubNotificationCommands
+import org.sableos.hub.policy.HubDrafts
+import org.sableos.hub.policy.HubHandoffTarget
+import org.sableos.hub.policy.HubIntents
+import org.sableos.hub.policy.HubMenuOptions
+import org.sableos.hub.policy.HubRemindMe
+import org.sableos.hub.policy.HubRowAction
+import org.sableos.hub.ui.HubScreen
+import org.sableos.hub.ui.HubTheme
+import kotlin.math.roundToInt
+
+class MainActivity : ComponentActivity() {
+    private lateinit var repository: HubRepository
+    private lateinit var draftStore: HubDraftStore
+    private val drafts = mutableStateMapOf<String, String>()
+    private var refreshGeneration by mutableIntStateOf(0)
+
+    // Only a user pull shows the refresh indicator; provider changes reload silently.
+    private var userRefreshGeneration = 0
+    private var pendingHandoff by mutableStateOf<Intent?>(null)
+    private var pendingThreadId by mutableStateOf<Long?>(null)
+    private var pendingQuery by mutableStateOf<HubLaunchQuery?>(null)
+    private var pendingAddress by mutableStateOf<String?>(null)
+    private var pendingMenuThreadId by mutableStateOf<Long?>(null)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val providerRefresh = Runnable { refreshGeneration += 1 }
+    private var providerObserversRegistered = false
+    private var launchQuerySequence = 0
+
+    /** Dock icons by source, loaded once per activity (main-thread access only). */
+    private val appIcons = mutableMapOf<ConnectedAppKey, ImageBitmap?>()
+    private val inventory by lazy { ConnectedAppsInventory(applicationContext) }
+
+    private val connectedHistoryObserver =
+        object : ContentObserver(mainHandler) {
+            override fun onChange(selfChange: Boolean) {
+                refreshGeneration += 1
+            }
+        }
+
+    /**
+     * SMS/MMS and call-log changes (incoming, sent, read state) refresh the open thread and the
+     * list while Hub is visible. Bursts (multipart SMS, thread updates) collapse into one reload.
+     */
+    private val providerObserver =
+        object : ContentObserver(mainHandler) {
+            override fun onChange(selfChange: Boolean) {
+                mainHandler.removeCallbacks(providerRefresh)
+                mainHandler.postDelayed(providerRefresh, PROVIDER_REFRESH_DELAY_MILLIS)
+            }
+        }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        repository = HubRepository(applicationContext)
+        draftStore = HubDraftStore(applicationContext)
+        drafts.putAll(draftStore.load())
+        pendingHandoff = intent.takeIf { it.action == HubIntents.ACTION_OPEN_NOTIFICATION }
+        // A recreated activity keeps its own route; only a fresh launch applies the query.
+        if (savedInstanceState == null) {
+            pendingQuery = launchQueryFrom(intent)
+            pendingAddress = conversationAddressFrom(intent)
+            applyOpenThread(intent)
+        }
+        contentResolver.registerContentObserver(
+            ConnectedAppsRepository.HISTORY_URI,
+            false,
+            connectedHistoryObserver,
+        )
+
+        setContent {
+            val permissionLauncher =
+                rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestMultiplePermissions(),
+                ) {
+                    // Newly granted SMS/call-log access: observe the providers it opens.
+                    if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                        registerProviderObservers()
+                    }
+                    refreshGeneration += 1
+                }
+
+            var snapshot by remember {
+                mutableStateOf<HubSnapshot?>(null)
+            }
+            var refreshing by remember {
+                mutableStateOf(false)
+            }
+            var combineConversations by remember {
+                mutableStateOf(true)
+            }
+            var eachMessage by remember {
+                mutableStateOf(false)
+            }
+            var menuOptions by remember {
+                mutableStateOf(HubMenuOptions())
+            }
+
+            LaunchedEffect(refreshGeneration) {
+                refreshing = refreshGeneration == userRefreshGeneration
+                snapshot =
+                    withContext(Dispatchers.IO) {
+                        repository.snapshot()
+                    }
+                val preferences = withContext(Dispatchers.IO) { HubPreferences(applicationContext) }
+                combineConversations = preferences.combineConversations()
+                eachMessage = preferences.eachMessage()
+                menuOptions = preferences.menuOptions()
+                refreshing = false
+            }
+
+            // Shade "H": Hub decides eligibility; it never includes a source silently.
+            LaunchedEffect(snapshot, pendingHandoff) {
+                val loaded = snapshot
+                val handoff = pendingHandoff
+                if (loaded != null && handoff != null) {
+                    pendingHandoff = null
+                    handleHandoff(handoff, loaded)
+                }
+            }
+
+            HubTheme(window = window) {
+                HubScreen(
+                    snapshot = snapshot,
+                    isRefreshing = refreshing,
+                    onRefresh = {
+                        refreshGeneration += 1
+                        userRefreshGeneration = refreshGeneration
+                    },
+                    onRequestAccess = {
+                        permissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.READ_SMS,
+                                Manifest.permission.SEND_SMS,
+                                Manifest.permission.READ_CONTACTS,
+                                Manifest.permission.READ_CALL_LOG,
+                            ),
+                        )
+                    },
+                    onSendSms = { recipient, body ->
+                        runCatching {
+                            repository.sendSms(
+                                recipient = recipient,
+                                body = body,
+                            )
+                        }.fold(
+                            onSuccess = {
+                                refreshGeneration += 1
+                                HubSendResult(
+                                    success = true,
+                                    message = t("message_handed_to_android_telephony"),
+                                )
+                            },
+                            onFailure = { error ->
+                                HubSendResult(
+                                    success = false,
+                                    message =
+                                        error.message
+                                            ?: t("sms_send_capability_is_unavailable"),
+                                )
+                            },
+                        )
+                    },
+                    onOpenAndroidMessaging = { recipient, body ->
+                        repository.openAndroidMessaging(
+                            recipient = recipient,
+                            body = body,
+                        )
+                    },
+                    onOpenSableMail = {
+                        repository.openSableMail()
+                    },
+                    onDial = { number ->
+                        repository.dial(number)
+                    },
+                    drafts = drafts,
+                    onDraftChange = { key, body ->
+                        val updated = HubDrafts.update(drafts.toMap(), key, body)
+                        drafts.keys.retainAll(updated.keys)
+                        drafts.putAll(updated)
+                        draftStore.save(updated)
+                    },
+                    launchQuery = pendingQuery,
+                    onLaunchQueryConsumed = {
+                        pendingQuery = null
+                    },
+                    onOpenConnectedApps = {
+                        startActivity(
+                            Intent(
+                                this@MainActivity,
+                                ConnectedAppsActivity::class.java,
+                            ),
+                        )
+                    },
+                    onReplyConnected = { notificationKey, body ->
+                        repository.replyToConnected(
+                            notificationKey = notificationKey,
+                            body = body,
+                        )
+                    },
+                    onOpenConnectedApp = { packageName, userSerial ->
+                        repository.openConnectedApp(
+                            packageName = packageName,
+                            userSerial = userSerial,
+                        )
+                    },
+                    onOpenSourceNotificationSettings = { packageName, userSerial ->
+                        repository.openSourceNotificationSettings(
+                            packageName = packageName,
+                            userSerial = userSerial,
+                        )
+                    },
+                    pendingThreadId = pendingThreadId,
+                    onPendingThreadConsumed = {
+                        pendingThreadId = null
+                    },
+                    pendingMenuThreadId = pendingMenuThreadId,
+                    onPendingMenuConsumed = { pendingMenuThreadId = null },
+                    pendingAddress = pendingAddress,
+                    onPendingAddressConsumed = {
+                        pendingAddress = null
+                    },
+                    combineConversations = combineConversations,
+                    eachMessage = eachMessage,
+                    loadAppIcon = ::loadAppIcon,
+                    notificationFacts = HubNotificationCommands::facts,
+                    onNotificationCommand = { key, entry ->
+                        HubNotificationCommands.run(this@MainActivity, key, entry).also {
+                            refreshGeneration += 1
+                        }
+                    },
+                    menuOptions = menuOptions,
+                    onRemindMe = ::remindMe,
+                    onPriority = { conversation, action ->
+                        setPriority(conversation, action).also { refreshGeneration += 1 }
+                    },
+                )
+            }
+        }
+    }
+
+    /**
+     * Priority Hub from the row menu: a sender in Hub's preferences, a whole app as its Hub
+     * priority in Connected apps (the same switch). Ordering only, never a Do Not Disturb exception.
+     */
+    private fun setPriority(
+        conversation: HubConversation,
+        action: HubRowAction,
+    ): String? {
+        val add = action == HubRowAction.AddPersonPriority || action == HubRowAction.AddAppPriority
+        val person = action == HubRowAction.AddPersonPriority || action == HubRowAction.RemovePersonPriority
+        val key = conversation.priorityKey
+        val app =
+            conversation.sourcePackage?.let { pkg ->
+                conversation.sourceUserSerial?.let { serial -> ConnectedAppKey(pkg, serial) }
+            }
+        val done =
+            when {
+                person && key != null -> {
+                    HubPriorityPeople(this).set(key, add)
+                    true
+                }
+
+                !person && app != null -> {
+                    val connectedApps = ConnectedAppsRepository(this)
+                    connectedApps.update(connectedApps.policyFor(app).copy(favorite = add))
+                    true
+                }
+
+                else -> {
+                    false
+                }
+            }
+        return when {
+            !done -> null
+            add -> t("added_to_priority")
+            else -> t("removed_from_priority")
+        }
+    }
+
+    /** Remind me: Sable Tasks opens its new follow-up; null status when it opened. */
+    private fun remindMe(conversation: HubConversation): String? {
+        val followUp =
+            HubRemindMe.followUp(conversation, packageName) ?: return t("the_source_app_is_unavailable")
+        val intent =
+            Intent(HubRemindMe.ACTION_FOLLOW_UP)
+                .setPackage(HubRemindMe.TASKS_PACKAGE)
+                .putExtra(HubRemindMe.EXTRA_SOURCE_PACKAGE, followUp.packageName)
+                .putExtra(HubRemindMe.EXTRA_SOURCE_KEY, followUp.key)
+                .putExtra(HubRemindMe.EXTRA_SOURCE_APP, followUp.appName)
+        return try {
+            startActivity(intent)
+            null
+        } catch (e: ActivityNotFoundException) {
+            Log.i(TAG, "no Sable Tasks for Remind me", e)
+            t("tasks_unavailable")
+        }
+    }
+
+    private suspend fun loadAppIcon(
+        packageName: String,
+        userSerial: Long,
+    ): ImageBitmap? {
+        val key = ConnectedAppKey(packageName, userSerial)
+        if (key in appIcons) return appIcons[key]
+        val sizePx = (DOCK_ICON_SIZE_DP * resources.displayMetrics.density).roundToInt()
+        val icon =
+            withContext(Dispatchers.IO) {
+                inventory.iconFor(key, sizePx)?.asImageBitmap()
+            }
+        appIcons[key] = icon
+        return icon
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == HubIntents.ACTION_OPEN_NOTIFICATION) {
+            pendingHandoff = intent
+            refreshGeneration += 1
+        }
+        launchQueryFrom(intent)?.let { query -> pendingQuery = query }
+        conversationAddressFrom(intent)?.let { address -> pendingAddress = address }
+        applyOpenThread(intent)
+    }
+
+    /** Sable Launcher's Hub page: open a message's thread, or its row menu in the inbox. */
+    private fun applyOpenThread(intent: Intent?) {
+        val open = intent?.takeIf { it.action == HubIntents.ACTION_OPEN_THREAD } ?: return
+        val threadId =
+            open.getLongExtra(HubIntents.EXTRA_THREAD_ID, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE } ?: return
+        if (open.getBooleanExtra(HubIntents.EXTRA_ROW_MENU, false)) {
+            pendingMenuThreadId = threadId
+        } else {
+            pendingThreadId = threadId
+        }
+    }
+
+    /** Command's search text and/or Start's filter (ACTION_MAIN extras); null for a plain launch. */
+    private fun launchQueryFrom(intent: Intent?): HubLaunchQuery? {
+        val launch = intent?.takeIf { it.action == Intent.ACTION_MAIN }
+        val query = launch?.let { HubIntents.launchQuery(it.getStringExtra(HubIntents.EXTRA_QUERY)) }
+        val filter = launch?.let { HubIntents.launchFilter(it.getStringExtra(HubIntents.EXTRA_FILTER)) }
+        if (query == null && filter == null) return null
+        launchQuerySequence += 1
+        return HubLaunchQuery(query.orEmpty(), launchQuerySequence, filter)
+    }
+
+    /** Contacts' Hub route chip: the address whose conversation to open. */
+    private fun conversationAddressFrom(intent: Intent?): String? =
+        intent
+            ?.takeIf { it.action == HubIntents.ACTION_OPEN_CONVERSATION }
+            ?.let { HubIntents.launchAddress(it.getStringExtra(HubIntents.EXTRA_ADDRESS)) }
+
+    override fun onStart() {
+        super.onStart()
+        registerProviderObservers()
+    }
+
+    override fun onStop() {
+        unregisterProviderObservers()
+        super.onStop()
+    }
+
+    private fun registerProviderObservers() {
+        unregisterProviderObservers()
+        // Without READ_SMS / READ_CALL_LOG the provider refuses the observer; resume refresh covers it.
+        PROVIDER_URIS.forEach { uri ->
+            runCatching {
+                contentResolver.registerContentObserver(uri, true, providerObserver)
+                providerObserversRegistered = true
+            }
+        }
+    }
+
+    private fun unregisterProviderObservers() {
+        mainHandler.removeCallbacks(providerRefresh)
+        if (providerObserversRegistered) {
+            runCatching { contentResolver.unregisterContentObserver(providerObserver) }
+            providerObserversRegistered = false
+        }
+    }
+
+    private suspend fun handleHandoff(
+        handoff: Intent,
+        snapshot: HubSnapshot,
+    ) {
+        val packageName = handoff.getStringExtra(HubIntents.EXTRA_APP_PACKAGE)
+        val uid = handoff.getIntExtra(HubIntents.EXTRA_APP_UID, -1).takeIf { it >= 0 }
+        val target =
+            withContext(Dispatchers.IO) {
+                repository.handoffTarget(
+                    packageName = packageName,
+                    uid = uid,
+                    notificationKey = handoff.getStringExtra(HubIntents.EXTRA_NOTIFICATION_KEY),
+                    snapshot = snapshot,
+                )
+            }
+        when (target) {
+            is HubHandoffTarget.Conversation -> {
+                pendingThreadId = target.threadId
+            }
+
+            is HubHandoffTarget.ConnectedAppSettings -> {
+                startActivity(
+                    Intent(this, ConnectedAppsActivity::class.java)
+                        .putExtra(HubIntents.EXTRA_APP_PACKAGE, packageName)
+                        .putExtra(HubIntents.EXTRA_APP_UID, uid ?: -1),
+                )
+            }
+
+            HubHandoffTarget.Home -> {
+                Unit
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::repository.isInitialized) {
+            refreshGeneration += 1
+        }
+    }
+
+    override fun onDestroy() {
+        runCatching {
+            contentResolver.unregisterContentObserver(connectedHistoryObserver)
+        }
+        super.onDestroy()
+    }
+
+    private companion object {
+        const val TAG = "SableHub"
+        const val PROVIDER_REFRESH_DELAY_MILLIS = 250L
+        const val DOCK_ICON_SIZE_DP = 40f
+        val PROVIDER_URIS =
+            listOf(
+                Telephony.Sms.CONTENT_URI,
+                Telephony.Mms.CONTENT_URI,
+                Telephony.MmsSms.CONTENT_URI,
+                CallLog.Calls.CONTENT_URI,
+            )
+    }
+}

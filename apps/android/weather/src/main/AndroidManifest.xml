@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The background refresh waits for a network (JobInfo.NETWORK_TYPE_ANY); JobScheduler refuses
+         such a job without this. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Keeps the periodic background refresh scheduled across reboots. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- The morning forecast and rain alerts. Both are off until turned on in Sable Weather, which asks then. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <queries>
+        <provider android:authorities="org.sableos.appearance" />
+        <!-- The callers its provider allows (WeatherSetupContract): getPackagesForUid only names
+             packages this app can see, so without these the caller check refuses Start and Setup. -->
+        <package android:name="org.sableos.launcher" />
+        <package android:name="org.sableos.titan2.setup" />
+    </queries>
+
+    <application
+        android:name="org.sableos.weather.WeatherApplication"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_sable_weather"
+        android:roundIcon="@mipmap/ic_sable_weather_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:usesCleartextTraffic="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- query(): Start/Live snapshot, org.sableos.launcher only. call(): Sable Setup's city
+             hand-off (search the catalog, set the active city), org.sableos.titan2.setup only.
+             Both entry points check the calling uid in code. -->
+        <provider
+            android:name=".WeatherSnapshotProvider"
+            android:authorities="org.sableos.weather.snapshot"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <service
+            android:name=".WeatherRefreshJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+    </application>
+</manifest>

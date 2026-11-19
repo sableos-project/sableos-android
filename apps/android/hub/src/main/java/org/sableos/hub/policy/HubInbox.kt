@@ -1,0 +1,249 @@
+package org.sableos.hub.policy
+
+import org.sableos.hub.HubCall
+import org.sableos.hub.HubConversation
+import org.sableos.hub.HubConversationSource
+import org.sableos.hub.HubMessage
+import org.sableos.hub.HubPerson
+import org.sableos.hub.HubText.t
+
+/**
+ * Hub inbox filters (SABLE_HUB_KEYBOARD_FIRST_UX "Filters"): one list, narrowed by source or by
+ * what needs attention. Each filter has a single-letter key that works while focus is on a filter
+ * chip or a row (never while typing in a text field, where letters stay text). Sable Launcher opens
+ * Hub on one of them with [HubIntents.EXTRA_FILTER].
+ */
+enum class HubInboxFilter(
+    private val labelKey: String,
+    val shortcut: Char,
+) {
+    All("all", 'a'),
+
+    /** Unread or Hub-priority conversations, answerable threads and missed calls. */
+    Priority("priority", 'p'),
+    Messages("messages", 'm'),
+
+    /** Missed calls and voicemail: the calls the user did not take. */
+    Missed("missed", 'x'),
+    Calls("calls", 'c'),
+
+    /** Connected mail apps (known mail packages or notifications in the email category). */
+    Mail("mail_2", 'e'),
+    Notifications("notifications", 'n'),
+
+    /** Conversations and calls with someone in the address book. */
+    People("people", 'o'),
+    ;
+
+    val label: String get() = t(labelKey)
+
+    companion object {
+        fun forShortcut(typed: Char): HubInboxFilter? = entries.firstOrNull { it.shortcut == typed.lowercaseChar() }
+    }
+}
+
+/** One inbox row: a conversation (SMS or connected app) or a call-log entry. */
+sealed interface HubInboxItem {
+    val key: String
+    val dateMillis: Long
+
+    data class Conversation(
+        val conversation: HubConversation,
+    ) : HubInboxItem {
+        override val key: String
+            get() =
+                "conversation:" + conversation.threadId + ":" + conversation.address +
+                    (conversation.messageId?.let { ":$it" } ?: "")
+        override val dateMillis: Long
+            get() = conversation.lastDateMillis
+    }
+
+    data class Call(
+        val call: HubCall,
+    ) : HubInboxItem {
+        override val key: String
+            get() = "call:" + call.id
+        override val dateMillis: Long
+            get() = call.dateMillis
+    }
+}
+
+/** What [HubInbox.items] reads besides the rows: [people] for People, [todayStartMillis] for `today`. */
+data class HubInboxContext(
+    val people: List<HubPerson> = emptyList(),
+    val todayStartMillis: Long = 0L,
+)
+
+object HubInbox {
+    /**
+     * Each message on its own (Hub setting): one row per received message, newest first,
+     * each still opening its conversation. A conversation with no received message in the
+     * snapshot keeps its one row. A conversation whose list preview is hidden (blank) keeps every
+     * message's text hidden too, so the setting never shows more than the conversation row would.
+     */
+    fun eachMessage(
+        conversations: List<HubConversation>,
+        messages: List<HubMessage>,
+    ): List<HubConversation> {
+        val received = messages.filter { it.incoming }.groupBy { it.source to it.threadId }
+        return conversations
+            .flatMap { conversation ->
+                val own = received[conversation.source to conversation.threadId].orEmpty()
+                if (own.isEmpty()) {
+                    listOf(conversation)
+                } else {
+                    own.map { message ->
+                        conversation.copy(
+                            lastBody = if (conversation.lastBody.isEmpty()) "" else message.body,
+                            lastDateMillis = message.dateMillis,
+                            unreadCount = if (message.read) 0 else 1,
+                            messageId = message.id,
+                        )
+                    }
+                }
+            }.sortedByDescending { it.lastDateMillis }
+    }
+
+    /**
+     * Rows for [filter] matching [query], newest first. The query is a [HubSearch] query: words
+     * match name, number, text or source; `unread`, `missed`, `today`, `from:` and `app:` narrow.
+     * [context] holds the address-book numbers the People filter needs and the start of today
+     * the `today` word needs.
+     */
+    fun items(
+        conversations: List<HubConversation>,
+        calls: List<HubCall>,
+        filter: HubInboxFilter,
+        query: String = "",
+        context: HubInboxContext = HubInboxContext(),
+    ): List<HubInboxItem> {
+        val search = HubSearch.parse(query)
+        val todayStartMillis = context.todayStartMillis
+        val known = knownNumbers(context.people, filter)
+        val conversationItems =
+            conversations
+                .filter { conversation -> filter.includes(conversation, known) }
+                .filter { conversation -> search.matches(conversation, todayStartMillis) }
+                .map(HubInboxItem::Conversation)
+        val callItems =
+            calls
+                .filter { call -> filter.includes(call, known) }
+                .filter { call -> search.matches(call, todayStartMillis) }
+                .map(HubInboxItem::Call)
+        return (conversationItems + callItems).sortedByDescending(HubInboxItem::dateMillis)
+    }
+
+    /** Count of rows that need attention per filter, for chip badges. */
+    fun attentionCount(
+        conversations: List<HubConversation>,
+        calls: List<HubCall>,
+        filter: HubInboxFilter,
+        people: List<HubPerson> = emptyList(),
+    ): Int {
+        val known = knownNumbers(people, filter)
+        val unread =
+            conversations
+                .filter { conversation -> filter.includes(conversation, known) }
+                .count { conversation -> conversation.unreadCount > 0 }
+        val missed =
+            calls
+                .filter { call -> filter.includes(call, known) }
+                .count { call -> call.kind.needsAttention }
+        return unread + missed
+    }
+
+    /** Hub priority: ordering and attention only, never a Do Not Disturb exception. */
+    fun isPriority(conversation: HubConversation): Boolean =
+        conversation.unreadCount > 0 || conversation.canQuickReply || conversation.hubPriority
+
+    private fun knownNumbers(
+        people: List<HubPerson>,
+        filter: HubInboxFilter,
+    ): Set<String> =
+        if (filter == HubInboxFilter.People) {
+            people
+                .map(HubPerson::phoneNumber)
+                .filter(String::isNotBlank)
+                .map(HubAddress::normalize)
+                .toSet()
+        } else {
+            emptySet()
+        }
+
+    private fun HubInboxFilter.includes(
+        conversation: HubConversation,
+        known: Set<String>,
+    ): Boolean =
+        when (this) {
+            HubInboxFilter.All -> true
+            HubInboxFilter.Priority -> isPriority(conversation)
+            HubInboxFilter.Messages -> conversation.source == HubConversationSource.Sms
+            HubInboxFilter.Notifications -> conversation.source == HubConversationSource.ConnectedApp
+            HubInboxFilter.Mail -> HubMailSources.isMail(conversation)
+            HubInboxFilter.People -> isKnown(conversation, known)
+            HubInboxFilter.Calls, HubInboxFilter.Missed -> false
+        }
+
+    private fun HubInboxFilter.includes(
+        call: HubCall,
+        known: Set<String>,
+    ): Boolean =
+        when (this) {
+            HubInboxFilter.All, HubInboxFilter.Calls -> true
+            HubInboxFilter.Priority, HubInboxFilter.Missed -> call.kind.needsAttention
+            HubInboxFilter.People -> call.number.isNotBlank() && HubAddress.normalize(call.number) in known
+            HubInboxFilter.Messages, HubInboxFilter.Notifications, HubInboxFilter.Mail -> false
+        }
+
+    /** SMS threads with an address-book number; connected apps have no phone number to match. */
+    private fun isKnown(
+        conversation: HubConversation,
+        known: Set<String>,
+    ): Boolean =
+        conversation.source == HubConversationSource.Sms &&
+            conversation.address.isNotBlank() &&
+            HubAddress.normalize(conversation.address) in known
+}
+
+/** Which conversation a Hub route shows: by thread id, else the SMS thread for an address. */
+object HubThreadResolver {
+    /** Thread id for an SMS conversation that has no provider thread yet (first message unsent). */
+    const val NEW_THREAD_ID = 0L
+
+    fun resolve(
+        conversations: List<HubConversation>,
+        threadId: Long,
+        address: String?,
+    ): HubConversation? =
+        conversations.firstOrNull { conversation ->
+            threadId != NEW_THREAD_ID && conversation.threadId == threadId
+        } ?: address?.let { wanted ->
+            conversations
+                .filter { conversation ->
+                    conversation.source == HubConversationSource.Sms &&
+                        HubAddress.sameAddress(conversation.address, wanted)
+                }.maxByOrNull(HubConversation::lastDateMillis)
+        }
+}
+
+/** Call-log rows under Hub privacy: the same level that governs Hub's own SMS. */
+object HubCallRedaction {
+    val REDACTED_LABEL: String get() = t("call_2")
+
+    fun apply(
+        calls: List<HubCall>,
+        level: HubContentLevel,
+    ): List<HubCall> =
+        when (level) {
+            HubContentLevel.Full,
+            HubContentLevel.SenderOnly,
+            -> calls
+
+            // Who called is the sender; hide it and the number (and so callback) fail-closed.
+            HubContentLevel.SourceAndCount -> calls.map { call -> call.copy(number = "", displayName = REDACTED_LABEL) }
+
+            HubContentLevel.GenericProfile,
+            HubContentLevel.Hidden,
+            -> emptyList()
+        }
+}

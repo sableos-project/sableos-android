@@ -1,0 +1,160 @@
+package org.sableos.media
+
+import android.annotation.SuppressLint
+import android.content.Intent
+import android.media.AudioManager
+import android.net.Uri
+import android.os.Bundle
+import android.view.KeyEvent
+import android.view.WindowManager
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+
+class MainActivity : ComponentActivity() {
+    private var playbackState by mutableStateOf(PlaybackUiState())
+    private lateinit var playbackController: PlaybackController
+    private var fmState by mutableStateOf(FmUiState())
+    private lateinit var fmController: FmController
+    private var openFmToken by mutableIntStateOf(0)
+
+    /** Set by [MediaApp]: maps a key-down to a Sable Media command before any view sees it. */
+    private var keyHandler: ((KeyEvent) -> Boolean)? = null
+
+    /** Key codes whose key-down was taken as a command, so their key-up is swallowed too. */
+    private val consumedKeyCodes = mutableSetOf<Int>()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        playbackController =
+            PlaybackController(applicationContext) { state ->
+                playbackState = state
+            }
+
+        fmController =
+            FmController(applicationContext) { state ->
+                fmState = state
+            }
+        fmState = fmController.state
+        if (intent?.action == FmBridgeProtocol.ACTION_OPEN_FM) openFmToken += 1
+
+        val repositories =
+            MediaRepositories(
+                localAudio = LocalAudioRepository(applicationContext),
+                audioFolderScanner = AudioFolderScanner(applicationContext),
+                stations = RadioStationRepository(applicationContext),
+                libraryState = MediaLibraryStateRepository(applicationContext),
+                podcasts = PodcastRepository(applicationContext),
+                podcastState = PodcastStateRepository(applicationContext),
+                settings = MediaSettingsRepository(applicationContext),
+                fmPresets = FmPresetStore(applicationContext),
+            )
+
+        setContent {
+            MediaApp(
+                repositories = repositories,
+                host =
+                    MediaHostServices(
+                        contentResolver = contentResolver,
+                        window = window,
+                        playbackController = playbackController,
+                        playUri = ::playUri,
+                        playLocalQueue = ::playLocalQueue,
+                        adjustVolume = ::adjustVolume,
+                        setKeyHandler = { keyHandler = it },
+                        fm = fmController,
+                    ),
+                playbackState = playbackState,
+                fmState = fmState,
+                openFmToken = openFmToken,
+            )
+        }
+    }
+
+    // ComponentActivity.dispatchKeyEvent is a public framework override; lint flags it as androidx-restricted.
+    @SuppressLint("RestrictedApi")
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val takenAsCommand =
+            when (event.action) {
+                KeyEvent.ACTION_DOWN -> {
+                    (keyHandler?.invoke(event) == true).also { taken ->
+                        if (taken) consumedKeyCodes += event.keyCode
+                    }
+                }
+
+                KeyEvent.ACTION_UP -> {
+                    consumedKeyCodes.remove(event.keyCode)
+                }
+
+                else -> {
+                    false
+                }
+            }
+        return takenAsCommand || super.dispatchKeyEvent(event)
+    }
+
+    private fun adjustVolume(raise: Boolean) {
+        getSystemService(AudioManager::class.java)?.adjustStreamVolume(
+            AudioManager.STREAM_MUSIC,
+            if (raise) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER,
+            AudioManager.FLAG_SHOW_UI,
+        )
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == FmBridgeProtocol.ACTION_OPEN_FM) openFmToken += 1
+    }
+
+    override fun onDestroy() {
+        fmController.disconnect()
+        playbackController.close()
+        window.clearFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+        )
+        super.onDestroy()
+    }
+
+    private fun playUri(
+        uri: Uri,
+        title: String,
+        source: String,
+    ) {
+        startService(
+            Intent(this, PlaybackService::class.java)
+                .setAction(PlaybackService.ACTION_PLAY_URI)
+                .setData(uri)
+                .putExtra(PlaybackService.EXTRA_TITLE, title)
+                .putExtra(PlaybackService.EXTRA_SOURCE, source),
+        )
+    }
+
+    private fun playLocalQueue(
+        items: List<LocalAudioItem>,
+        startIndex: Int,
+    ) {
+        if (items.isEmpty()) {
+            return
+        }
+
+        val requestToken =
+            PlaybackQueueRequestStore.publish(
+                items = items,
+                startIndex = startIndex,
+            )
+
+        startService(
+            Intent(this, PlaybackService::class.java)
+                .setAction(PlaybackService.ACTION_PLAY_QUEUE)
+                .putExtra(
+                    PlaybackService.EXTRA_QUEUE_TOKEN,
+                    requestToken,
+                ),
+        )
+    }
+}

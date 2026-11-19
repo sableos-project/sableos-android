@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.telephony.messaging"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Hub Calls filter: read-only recent calls; callback hands off to the Phone app (ACTION_DIAL). -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <provider android:authorities="org.sableos.appearance" />
+        <provider android:authorities="org.sableos.mail.snapshot" />
+        <!-- The upcoming-events strip at the top of Hub: Sable Calendar's next events. -->
+        <provider android:authorities="org.sableos.calendar.snapshot" />
+        <package android:name="org.sableos.calendar" />
+        <package android:name="org.sableos.mail" />
+        <!-- Remind me (row menu, off unless turned on): Sable Tasks' follow-up entry. -->
+        <package android:name="org.sableos.tasks" />
+        <!-- DESIGN-KF-A Settings handoff: Android owns these pages; Hub only links to them. -->
+        <intent>
+            <action android:name="android.settings.NOTIFICATION_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.APP_NOTIFICATION_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.CHANNEL_NOTIFICATION_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.CONVERSATION_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.NOTIFICATION_HISTORY" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.ZEN_MODE_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.NOTIFICATION_LISTENER_DETAIL_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.LOCK_SCREEN_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.DISPLAY_SETTINGS" />
+        </intent>
+    </queries>
+
+    <application
+        android:name="org.sableos.hub.HubApplication"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_sable_messages"
+        android:roundIcon="@mipmap/ic_sable_messages_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:usesCleartextTraffic="false">
+
+        <provider
+            android:name=".HubSnapshotProvider"
+            android:authorities="org.sableos.hub.snapshot"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <!-- Sable private mode for Phone Recents and Contacts (Dialer 0706, Contacts 0754). -->
+        <provider
+            android:name=".HubPrivacyProvider"
+            android:authorities="org.sableos.hub.privacy"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <provider
+            android:name=".ConnectedAppsPolicyProvider"
+            android:authorities="org.sableos.hub.connected_apps"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <!-- No launcher entry: Sable Launcher's Hub page is the one Hub (All · Messages · Calls ·
+                 Contacts, with the unread bar). Hub stays installed for its providers, its
+                 notification listener and the screens below. -->
+            <!-- Shade "H" (patches/framework/frameworks/base 0301): open a notification in Hub. -->
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.OPEN_NOTIFICATION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Contacts' Hub route chip (patches/framework/packages/apps/Contacts 0754). -->
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.OPEN_CONVERSATION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Sable Launcher's Hub page: a message row opens its thread, Menu its row menu. -->
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.OPEN_THREAD" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ConnectedAppsActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.CONNECTED_APPS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Settings > App notifications > (app) > Sable Hub and Attention (patch 0300). -->
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.APP_NOTIFICATION_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Settings > Notifications > Sable Attention (patch 0300). -->
+        <activity
+            android:name=".AttentionSettingsActivity"
+            android:exported="true"
+            android:label="Sable Attention">
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.ATTENTION_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".notifications.SableNotificationListenerService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+
+    </application>
+</manifest>

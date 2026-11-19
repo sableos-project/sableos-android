@@ -1,0 +1,558 @@
+@file:Suppress("FunctionNaming")
+
+package org.sableos.titan2.displaycompat.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import org.sableos.titan2.displaycompat.android.DisplayCompatApp
+import org.sableos.titan2.displaycompat.android.TraitsResolver
+import org.sableos.titan2.displaycompat.core.AppCompatText
+import org.sableos.titan2.displaycompat.core.AppCornerStyle
+import org.sableos.titan2.displaycompat.core.AppSize
+import org.sableos.titan2.displaycompat.core.AppStyleKey
+import org.sableos.titan2.displaycompat.core.AppStylePolicy
+import org.sableos.titan2.displaycompat.core.AppStyleState
+import org.sableos.titan2.displaycompat.core.BackendAvailability
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+import org.sableos.titan2.displaycompat.core.DisplayProfile
+import org.sableos.titan2.displaycompat.core.Presets
+
+/** Observable list state; every property is Compose snapshot state so reads recompose as before. */
+private class ListState {
+    var query by mutableStateOf("")
+    var sel by mutableIntStateOf(0)
+    var version by mutableIntStateOf(0) // bumps after reset-all so profile badges refresh
+    var confirmReset by mutableStateOf(false)
+    var msg by mutableStateOf<String?>(null)
+
+    /** The Sable app style row above the app list holds the selection (Up from the first app). */
+    var styleFocused by mutableStateOf(false)
+
+    /** The Display tools row above the style row holds the selection (Up from the style row). */
+    var toolsFocused by mutableStateOf(false)
+    var style by mutableStateOf<AppStyleState?>(null)
+}
+
+/** Key and reset handling of the list; created per composition so it always sees the latest parameters. */
+private class ListActions(
+    private val app: DisplayCompatApp,
+    private val st: ListState,
+    private val rows: List<TraitsResolver.Entry>,
+    private val onOpen: (TraitsResolver.Entry) -> Unit,
+    private val onTools: () -> Unit,
+    private val onExit: () -> Unit
+) {
+    fun doReset() {
+        if (!st.confirmReset) {
+            st.confirmReset = true
+        } else {
+            st.msg = app.controller.resetAllChecked().message()
+            app.refreshDisplay()
+            st.confirmReset = false
+            st.version++
+        }
+    }
+
+    /** Pointer or touch on a style option. */
+    fun chooseStyle(target: AppCornerStyle) {
+        val s = st.style ?: return
+        app.appStyle.choose(s, target)?.let { (next, m) ->
+            st.style = next
+            st.msg = m
+        }
+    }
+
+    private fun styleKey(key: AppStyleKey) {
+        val s = st.style ?: return
+        app.appStyle.onKey(s, key)?.let { (next, m) ->
+            st.style = next
+            st.msg = m
+        }
+    }
+
+    fun onKey(e: KeyEvent): Boolean {
+        if (e.type != KeyEventType.KeyDown) return false
+        return when (e.key) {
+            Key.DirectionDown -> moveDown()
+
+            Key.DirectionUp -> moveUp()
+
+            // Left/Right choose a style only while the style row is selected; otherwise they stay
+            // with the filter field (text input wins).
+            Key.DirectionLeft, Key.DirectionRight -> styleArrow(e.key == Key.DirectionLeft)
+
+            Key.Enter, Key.NumPadEnter -> {
+                if (st.toolsFocused) {
+                    onTools()
+                } else if (st.styleFocused) {
+                    styleKey(
+                        AppStyleKey.ENTER
+                    )
+                } else {
+                    rows.getOrNull(st.sel)?.let(onOpen)
+                }
+                true
+            }
+
+            Key.R -> ctrlReset(e)
+
+            Key.Escape -> {
+                escape()
+                true
+            }
+
+            else -> false
+        }
+    }
+
+    private fun moveDown(): Boolean {
+        when {
+            st.toolsFocused -> {
+                st.toolsFocused = false
+                st.styleFocused = true
+            }
+
+            st.styleFocused -> {
+                st.styleFocused = false
+                st.sel = 0
+            }
+
+            else -> st.sel = (st.sel + 1).coerceAtMost((rows.size - 1).coerceAtLeast(0))
+        }
+        return true
+    }
+
+    /** Up from the first app selects the style row, Up again the Display tools row. */
+    private fun moveUp(): Boolean {
+        when {
+            st.toolsFocused -> Unit
+
+            st.styleFocused -> {
+                st.styleFocused = false
+                st.toolsFocused = true
+            }
+
+            st.sel == 0 -> st.styleFocused = true
+
+            else -> st.sel = (st.sel - 1).coerceAtLeast(0)
+        }
+        return true
+    }
+
+    private fun styleArrow(left: Boolean): Boolean {
+        if (!st.styleFocused) return false
+        styleKey(if (left) AppStyleKey.LEFT else AppStyleKey.RIGHT)
+        return true
+    }
+
+    private fun ctrlReset(e: KeyEvent): Boolean {
+        if (!e.isCtrlPressed) return false
+        doReset()
+        return true
+    }
+
+    private fun escape() {
+        if (st.confirmReset) {
+            st.confirmReset = false
+        } else if (st.query.isNotEmpty()) {
+            st.query = ""
+        } else {
+            onExit()
+        }
+    }
+}
+
+/**
+ * Keyboard-first list: type to filter (text input always wins), Up/Down move, Enter opens, Esc clears
+ * then exits. Up from the first app selects the global Sable app style row (Left/Right or Enter choose).
+ */
+@Composable
+fun AppListScreen(
+    app: DisplayCompatApp,
+    resolver: TraitsResolver,
+    onOpen: (TraitsResolver.Entry) -> Unit,
+    onTools: () -> Unit,
+    onExit: () -> Unit
+) {
+    val all = remember { resolver.launchable() }
+    val st = remember { ListState() }
+    val rows =
+        remember(st.query, all) {
+            all.filter {
+                st.query.isBlank() || it.label.contains(st.query, true) ||
+                    it.pkg.contains(st.query, true)
+            }
+        }
+    val fr = remember { FocusRequester() }
+    val list = rememberLazyListState()
+    val actions = ListActions(app, st, rows, onOpen, onTools, onExit)
+    LaunchedEffect(Unit) { fr.requestFocus() }
+    DisposableEffect(app) {
+        st.style = app.appStyle.load()
+        // Follow changes made elsewhere (Settings), so the row always shows what Sable apps use.
+        val stop = app.appStyleStore.observe { st.style = app.appStyle.load() }
+        onDispose { stop() }
+    }
+    LaunchedEffect(rows.size) { st.sel = st.sel.coerceIn(0, (rows.size - 1).coerceAtLeast(0)) }
+    LaunchedEffect(st.sel) { if (rows.isNotEmpty()) list.animateScrollToItem(st.sel) }
+
+    Column(
+        Modifier.fillMaxSize().padding(12.dp)
+            .onPreviewKeyEvent { e -> actions.onKey(e) }
+    ) {
+        ListTitle(app, remember(st.version, all) { presetCount(app, all) })
+        ToolsEntry(app, st.toolsFocused) {
+            st.toolsFocused = true
+            st.styleFocused = false
+            onTools()
+        }
+        AppStyleSection(st.style, st.styleFocused) { actions.chooseStyle(it) }
+        FilterField(st.query, { st.query = it }, fr)
+        ColumnHeads()
+        EmptyList(rows.isEmpty(), all.isEmpty(), st.query)
+        LazyColumn(Modifier.weight(1f), state = list) {
+            itemsIndexed(rows, key = { _, e -> e.pkg }) { i, e ->
+                val p = remember(st.version, e.pkg) { app.store.get(e.pkg) }
+                // A tap selects the row and opens its page, like the arrow keys and Enter.
+                AppRow(
+                    e.label,
+                    AppCompatText.source(e.pkg, p, app.presets),
+                    p,
+                    !st.styleFocused && !st.toolsFocused && i == st.sel
+                ) {
+                    st.styleFocused = false
+                    st.toolsFocused = false
+                    st.sel = i
+                    onOpen(e)
+                }
+            }
+        }
+        st.msg?.let { Text(it, color = messageTint(it), fontSize = 11.sp) }
+        ListFooter(st.confirmReset, st.styleFocused || st.toolsFocused) { actions.doReset() }
+    }
+}
+
+@Composable
+private fun ListTitle(app: DisplayCompatApp, preset: Int) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Text(
+            t("app_compatibility"),
+            color = C.text,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Light
+        )
+        if (preset > 0) Text(t("apps_set_by_sable", preset), color = C.muted, fontSize = 12.sp)
+    }
+    val availability = app.controller.backendAvailability
+    Text(
+        availability.banner,
+        color = if (availability == BackendAvailability.CLOSED) C.warn else C.muted,
+        fontSize = 11.sp
+    )
+}
+
+private fun presetCount(app: DisplayCompatApp, all: List<TraitsResolver.Entry>): Int =
+    all.count { Presets.isPreset(it.pkg, app.store.get(it.pkg), app.presets) }
+
+@Composable
+private fun EmptyList(empty: Boolean, noAppsAtAll: Boolean, query: String) {
+    if (!empty) return
+    Text(
+        emptyListMessage(noAppsAtAll, query),
+        color = C.muted,
+        fontSize = 12.sp,
+        modifier = Modifier.padding(vertical = 8.dp)
+    )
+}
+
+private fun emptyListMessage(noAppsAtAll: Boolean, query: String): String = if (noAppsAtAll) {
+    t("no_launchable_apps_were_found")
+} else {
+    t("no_apps_match", query)
+}
+
+private fun messageTint(msg: String): androidx.compose.ui.graphics.Color =
+    if (msg.contains("could not")) C.warn else C.ok
+
+@Composable
+private fun FilterField(query: String, onQueryChange: (String) -> Unit, fr: FocusRequester) {
+    Box(
+        Modifier.fillMaxWidth().padding(
+            vertical = 8.dp
+        ).border(1.dp, C.accent, RoundedCornerShape(6.dp)).padding(8.dp)
+    ) {
+        BasicTextField(
+            query,
+            onQueryChange,
+            Modifier.fillMaxWidth().focusRequester(fr),
+            textStyle = TextStyle(color = C.text, fontSize = 14.sp),
+            cursorBrush = SolidColor(C.accent),
+            singleLine = true,
+            decorationBox = { inner ->
+                if (query.isEmpty()) {
+                    Text(
+                        t("type_to_filter_apps"),
+                        color = C.muted,
+                        fontSize = 14.sp
+                    )
+                }
+                inner()
+            }
+        )
+    }
+}
+
+@Composable
+private fun ColumnHeads() {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            t("col_app").uppercase(),
+            color = C.muted,
+            fontSize = 11.sp,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            t("col_layout").uppercase(),
+            color = C.muted,
+            fontSize = 11.sp,
+            modifier = Modifier.width(LAYOUT_W)
+        )
+        Text(
+            t("col_size").uppercase(),
+            color = C.muted,
+            fontSize = 11.sp,
+            modifier = Modifier.width(SIZE_W)
+        )
+        Text(
+            t("col_video").uppercase(),
+            color = C.muted,
+            fontSize = 11.sp,
+            modifier = Modifier.width(VIDEO_W)
+        )
+    }
+}
+
+private val LAYOUT_W = 76.dp
+private val SIZE_W = 40.dp
+private val VIDEO_W = 64.dp
+
+/** One app: its name and where its choice came from, then layout, app size and landscape video. */
+@Composable
+private fun AppRow(
+    label: String,
+    source: String,
+    p: DisplayProfile,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 1.dp)
+            .background(if (selected) C.surface else C.window)
+            .border(if (selected) 2.dp else 0.dp, if (selected) C.accent else C.window)
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, color = C.text, fontSize = 15.sp, maxLines = 1)
+            Text(source, color = C.muted, fontSize = 11.sp, maxLines = 1)
+        }
+        val plain = p.isNative
+        Text(
+            AppCompatText.layout(p),
+            color = C.text,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.width(LAYOUT_W)
+        )
+        Text(
+            AppCompatText.size(p),
+            color = if (p.appSize ==
+                AppSize.Full
+            ) {
+                C.muted
+            } else {
+                C.text
+            },
+            fontSize = 13.sp,
+            modifier = Modifier.width(SIZE_W)
+        )
+        Text(
+            AppCompatText.video(p),
+            color = if (plain) C.muted else C.text,
+            fontSize = 13.sp,
+            maxLines = 1,
+            modifier = Modifier.width(VIDEO_W)
+        )
+    }
+}
+
+/** Entry to Display tools: system rotation and the hotkey's favourite sizes, shown in one line. */
+@Composable
+private fun ToolsEntry(app: DisplayCompatApp, focused: Boolean, onOpen: () -> Unit) {
+    val settings = app.toolsSettings
+    Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp)
+            .background(if (focused) C.surface else C.window, RoundedCornerShape(6.dp))
+            .border(
+                if (focused) 2.dp else 1.dp,
+                if (focused) C.accent else C.surface,
+                RoundedCornerShape(6.dp)
+            )
+            .clickable { onOpen() }
+            .padding(10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(t("display_tools"), color = C.text, fontSize = 14.sp)
+        Text(
+            t("rotation") + settings.systemRotation.label + t("alt_shift_r"),
+            color = C.accent,
+            fontSize = 12.sp
+        )
+    }
+}
+
+@Composable
+private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            if (styleFocused) {
+                t("choose_enter_switch_open_move")
+            } else {
+                t("select_enter_edit_back")
+            },
+            color = C.muted,
+            fontSize = 11.sp
+        )
+        Text(
+            if (confirmReset) {
+                t("press_ctrl_r_again_to")
+            } else {
+                t("ctrl_r_reset_all_profiles")
+            },
+            color = C.warn,
+            fontSize = 11.sp,
+            modifier = Modifier.clickable { onReset() }
+        )
+    }
+}
+
+/**
+ * Global "Sable app style" section: the corner style every Sable app uses. Selected with Up from the
+ * first app; Left/Right or Enter choose. Each option is drawn with its own corner shape as a preview.
+ */
+@Composable
+private fun AppStyleSection(
+    state: AppStyleState?,
+    focused: Boolean,
+    onPick: (AppCornerStyle) -> Unit
+) {
+    val s = state ?: return
+    Column(
+        Modifier.fillMaxWidth().padding(top = 8.dp)
+            .background(if (focused) C.surface else C.window, RoundedCornerShape(6.dp))
+            .border(
+                if (focused) 2.dp else 1.dp,
+                if (focused) C.accent else C.surface,
+                RoundedCornerShape(6.dp)
+            )
+            .padding(10.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(t("sable_app_style"), color = C.text, fontSize = 14.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                AppCornerStyle.entries.forEach { option ->
+                    StyleOption(option, option == s.style, s.enabled) { onPick(option) }
+                }
+            }
+        }
+        Text(
+            if (s.enabled) {
+                t("corners_for_all_sable_apps", s.style.summary)
+            } else {
+                AppStylePolicy.UNAVAILABLE_TEXT
+            },
+            color = if (s.enabled) C.muted else C.warn,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun StyleOption(
+    option: AppCornerStyle,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(if (option == AppCornerStyle.Rounded) 8.dp else 3.dp)
+    Text(
+        (if (selected) "● " else "") + option.label,
+        color = when {
+            selected -> C.onAccent
+            enabled -> C.text
+            else -> C.muted
+        },
+        fontSize = 12.sp,
+        modifier = Modifier
+            .background(if (selected) C.accent else C.window, shape)
+            .border(1.dp, if (enabled) C.accent else C.muted, shape)
+            .clickable(enabled = enabled) { onClick() }
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    )
+}

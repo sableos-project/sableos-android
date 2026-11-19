@@ -1,0 +1,129 @@
+package org.sableos.titan2.keyboard.android
+
+import android.content.Context
+import android.content.SharedPreferences
+import org.sableos.titan2.keyboard.core.AutoText
+import org.sableos.titan2.keyboard.core.KeyboardConfig
+
+/** AutoText on Space and punctuation (core AutoText); on by default, as on BlackBerry. */
+internal const val AUTO_TEXT = "autoText"
+
+/** Enter performs the field's Send action (core KeyShortcuts.enterSends); off by default. */
+internal const val ENTER_SENDS = "enterSends"
+
+/** Clipboard history (core ClipboardHistory), kept in memory only; off by default. */
+internal const val CLIP_HISTORY = "clipHistory"
+
+/** Word suggestions (autocomplete, spelling, emoji) for the word before the cursor; on by default. */
+internal const val WORD_SUGGEST = "wordSuggest"
+
+/** Learn the user's own words and phrases (core UserWords), kept on the device; on by default. */
+internal const val LEARN_WORDS = "learnWords"
+internal const val INCOGNITO = "incognito"
+
+/** Auto-correct the word before Space when sure, Backspace undoes it (core AutoCorrect); off by default. */
+internal const val AUTO_CORRECT = "autoCorrect"
+
+/**
+ * Stored in device-protected storage so the keyboard works at the lockscreen and during direct boot
+ * (critical text entry).
+ */
+class KeyboardPrefs(context: Context) {
+    private val prefs: SharedPreferences =
+        context.createDeviceProtectedStorageContext().getSharedPreferences(
+            "sable_keyboard",
+            Context.MODE_PRIVATE
+        )
+
+    fun load(): KeyboardConfig {
+        val d = KeyboardConfig()
+        return KeyboardConfig(
+            autoCap = prefs.getBoolean(
+                "autoCap",
+                d.autoCap
+            ),
+            doubleSpacePeriod = prefs.getBoolean("doubleSpace", d.doubleSpacePeriod),
+            longPressAlt = prefs.getBoolean(
+                "longPressAlt",
+                d.longPressAlt
+            ),
+            autoText = prefs.getBoolean(AUTO_TEXT, d.autoText),
+            numericAutoAlt = prefs.getBoolean("numericAutoAlt", d.numericAutoAlt),
+            navModeEnabled = prefs.getBoolean(
+                "navMode",
+                d.navModeEnabled
+            ),
+            altSpaceTogglesNav = prefs.getBoolean("altSpaceNav", d.altSpaceTogglesNav),
+            doubleTapMs = prefs.getLong(
+                "doubleTapMs",
+                d.doubleTapMs
+            ),
+            oneShotTimeoutMs = prefs.getLong("oneShotTimeoutMs", d.oneShotTimeoutMs),
+            holdCancelMs = prefs.getLong("holdCancelMs", d.holdCancelMs)
+        )
+    }
+
+    var forceSoftKeyboard: Boolean
+        get() = prefs.getBoolean("forceSoft", false)
+        set(
+            v
+        ) {
+            prefs.edit().putBoolean("forceSoft", v).apply()
+        }
+
+    /** Show the on-screen fallback for numeric/phone/numeric-password fields (Bluetooth pairing codes, PINs). */
+    var softForNumeric: Boolean
+        get() = prefs.getBoolean("softForNumeric", true)
+        set(
+            v
+        ) {
+            prefs.edit().putBoolean("softForNumeric", v).apply()
+        }
+
+    /**
+     * Show the compact status strip (language, Shift/Alt/Sym/Nav, candidates) while the on-screen keyboard is
+     * hidden. Turning it off restores the previous candidates-only behaviour.
+     */
+    var compactStrip: Boolean
+        get() = prefs.getBoolean("compactStrip", compactStripDefault())
+        set(v) {
+            prefs.edit().putBoolean("compactStrip", v).apply()
+        }
+
+    /** The user's AutoText entries, stored as AutoText.format text. */
+    var autoTextEntries: Map<String, String>
+        get() = AutoText.parse(prefs.getString("autoTextUser", "").orEmpty())
+        set(v) {
+            prefs.edit().putString("autoTextUser", AutoText.format(v)).apply()
+        }
+
+    /** The learned words and phrases of typing language [lang], as UserWords.serialize text. */
+    fun userWords(lang: String): String = prefs.getString(USER_WORDS + lang, "").orEmpty()
+
+    fun setUserWords(lang: String, text: String) {
+        prefs.edit().putString(USER_WORDS + lang, text).apply()
+    }
+
+    /** Forgets the learned words of every language. */
+    fun clearUserWords() {
+        val editor = prefs.edit()
+        prefs.all.keys.filter { it.startsWith(USER_WORDS) }.forEach { editor.remove(it) }
+        editor.apply()
+    }
+
+    fun setBool(key: String, v: Boolean) {
+        prefs.edit().putBoolean(key, v).apply()
+    }
+    fun getBool(key: String, d: Boolean) = prefs.getBoolean(key, d)
+
+    companion object {
+        private const val USER_WORDS = "userWords_"
+        private const val COMPACT_STRIP_PROP = "ro.sable.keyboard.compact_strip"
+
+        /**
+         * Default of the compact strip: on, unless the device sets the property to false. The Q25
+         * does: its small square screen shows modifier state as a status bar icon instead.
+         */
+        fun compactStripDefault(): Boolean = SysProps.get(COMPACT_STRIP_PROP) != "false"
+    }
+}

@@ -1,0 +1,676 @@
+/*
+ * Copyright (c) 2026 Piyush Daiya
+ * ...
+ */
+
+package org.vaachak.reader.leisure
+
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.view.KeyEvent
+import android.widget.Toast
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.IndicationNodeFactory
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Photo
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.node.DelegatableNode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import org.sableos.reader.input.EditableFocusState
+import org.sableos.reader.input.LocalEditableFocus
+import org.sableos.reader.input.LocalReaderKeyDispatcher
+import org.sableos.reader.input.ReaderKeyDispatcher
+import org.sableos.reader.layout.rememberReaderLayoutProfile
+import org.sableos.reader.model.PublicationKind
+import org.sableos.reader.model.PublicationTypes
+import org.sableos.reader.ui.audio.AudiobookReaderScreen
+import org.sableos.reader.ui.backup.BackupScreen
+import org.sableos.reader.ui.comic.ComicReaderScreen
+import org.sableos.reader.ui.pdf.PdfReaderScreen
+import org.vaachak.reader.core.data.repository.VaultRepository
+import org.vaachak.reader.core.domain.model.BookEntity
+import org.vaachak.reader.core.domain.model.ThemeMode
+import org.vaachak.reader.leisure.navigation.Screen
+import org.vaachak.reader.leisure.ui.bookshelf.BookshelfScreen
+import org.vaachak.reader.leisure.ui.bookshelf.BookshelfUiState
+import org.vaachak.reader.leisure.ui.bookshelf.BookshelfViewModel
+import org.vaachak.reader.leisure.ui.highlights.AllHighlightsScreen
+import org.vaachak.reader.leisure.ui.reader.ReaderScreen
+import org.vaachak.reader.leisure.ui.settings.AboutScreen
+import org.vaachak.reader.leisure.ui.settings.AppAppearanceScreen
+import org.vaachak.reader.leisure.ui.settings.DefaultAppearanceScreen
+import org.vaachak.reader.leisure.ui.settings.DictionarySettingsScreen
+import org.vaachak.reader.leisure.ui.settings.LibrarySettingsScreen
+import org.vaachak.reader.leisure.ui.settings.ReaderProfilesScreen
+import org.vaachak.reader.leisure.ui.settings.SettingsScreen
+import org.vaachak.reader.leisure.ui.settings.SettingsViewModel
+import org.vaachak.reader.leisure.ui.settings.AudiobookDefaultsScreen
+import org.vaachak.reader.leisure.ui.settings.ComicDefaultsScreen
+import org.vaachak.reader.leisure.ui.settings.TtsSettingsScreen
+import org.vaachak.reader.leisure.ui.testability.Tid
+import org.vaachak.reader.leisure.ui.testability.tid
+import org.vaachak.reader.leisure.ui.testability.tids
+import org.vaachak.reader.leisure.ui.theme.ProductReaderTheme
+import timber.log.Timber
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
+import java.util.zip.ZipFile
+
+@AndroidEntryPoint
+class MainActivity : AppCompatActivity() {
+
+    // OPTIMIZATION: Ultra-lightweight ViewModel for routing and theme
+    private val rootViewModel: RootViewModel by viewModels()
+
+    // Kept at activity scope so it isn't destroyed when transitioning to the Reader.
+    private val bookshelfViewModel: BookshelfViewModel by viewModels()
+
+    private var isTtsActive = false
+
+    // Activity-level keyboard routing for the active reading surface (EPUB, PDF, ...).
+    private val readerKeyDispatcher = ReaderKeyDispatcher()
+    private val editableFocus = EditableFocusState()
+
+    private fun BookshelfUiState.findBookByHash(hash: String): BookEntity? {
+        if (heroBook?.bookHash == hash) return heroBook
+        for (list in groupedLibrary.values) {
+            val found = list.find { it.bookHash == hash }
+            if (found != null) return found
+        }
+        return null
+    }
+
+    private fun BookshelfUiState.findBookByTitle(title: String): BookEntity? {
+        val cleanTitle = title.trim()
+        if (heroBook?.title?.trim().equals(cleanTitle, ignoreCase = true)) return heroBook
+        for (list in groupedLibrary.values) {
+            val found = list.find { it.title.trim().equals(cleanTitle, ignoreCase = true) }
+            if (found != null) return found
+        }
+        return null
+    }
+
+    private fun BookshelfUiState.isLibraryEmpty(): Boolean {
+        return heroBook == null && groupedLibrary.all { it.value.isEmpty() }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        if (savedInstanceState == null && intent?.action == Intent.ACTION_VIEW) {
+            processExternalIntent(intent)
+        }
+
+        setContent { ReaderApp() }
+    }
+
+    @Composable
+    private fun ReaderApp() {
+        val navController = rememberNavController()
+
+        // Read from the ultra-lightweight RootViewModel
+        val currentTheme by rootViewModel.appThemeMode.collectAsState()
+        val einkContrast by rootViewModel.einkContrastVal.collectAsState()
+        val hasCompletedOnboarding by rootViewModel.hasCompletedOnboarding.collectAsState(initial = false)
+        val isMultiUser by rootViewModel.isMultiUserMode.collectAsState(initial = false)
+        val activeVaultId by rootViewModel.activeVaultId.collectAsState(initial = VaultRepository.DEFAULT_VAULT_ID)
+
+        val isEink = currentTheme == ThemeMode.E_INK
+
+        val startDestination = remember(hasCompletedOnboarding, isMultiUser, activeVaultId) {
+            startDestinationFor(hasCompletedOnboarding, isMultiUser, activeVaultId)
+        }
+
+        CompositionLocalProvider(
+            LocalIndication provides if (isEink) NoIndication else LocalIndication.current,
+            LocalReaderKeyDispatcher provides readerKeyDispatcher,
+            LocalEditableFocus provides editableFocus
+        ) {
+            // Maestro's `id:` selector maps to Android resource-id, so this must wrap
+            // the full Compose hierarchy to surface all test tags from screens and overlays.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .semantics { testTagsAsResourceId = true }
+            ) {
+                ProductReaderTheme(themeMode = currentTheme, contrast = einkContrast) {
+                    val background = if (isEink) Color.White else MaterialTheme.colorScheme.background
+                    Scaffold(containerColor = background) { padding ->
+                        Surface(
+                            modifier = Modifier.padding(padding).fillMaxSize(),
+                            color = background
+                        ) {
+                            NavHost(
+                                navController = navController,
+                                startDestination = startDestination
+                            ) {
+                                onboardingDestinations(navController, isEink)
+                                libraryDestination(navController, isEink, isMultiUser)
+                                readerDestinations(navController)
+                                settingsDestinations(navController)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun startDestinationFor(hasCompletedOnboarding: Boolean, isMultiUser: Boolean, activeVaultId: String): String =
+        when {
+            !hasCompletedOnboarding -> PROFILE_PICKER_ROUTE
+            isMultiUser && activeVaultId == VaultRepository.DEFAULT_VAULT_ID -> PROFILE_PICKER_ROUTE
+            else -> Screen.Library.route
+        }
+
+    private fun NavGraphBuilder.onboardingDestinations(navController: NavHostController, isEink: Boolean) {
+        composable(WELCOME_ROUTE) {
+            val settingsViewModel: SettingsViewModel = hiltViewModel()
+            WelcomeScreen(
+                onComplete = { multi ->
+                    settingsViewModel.completeOnboarding(multi)
+                    val nextScreen = if (multi) PROFILE_PICKER_ROUTE else Screen.Library.route
+                    navController.navigate(nextScreen) {
+                        popUpTo(WELCOME_ROUTE) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(PROFILE_PICKER_ROUTE) {
+            val profileViewModel: org.vaachak.reader.leisure.ui.settings.ProfileViewModel = hiltViewModel()
+
+            ProfilePickerScreen(
+                isEink = isEink,
+                viewModel = profileViewModel,
+                onProfileSelected = {
+                    navController.navigate(Screen.Library.route) {
+                        popUpTo(PROFILE_PICKER_ROUTE) { inclusive = true }
+                    }
+                }
+            )
+        }
+    }
+
+    private fun NavGraphBuilder.libraryDestination(navController: NavHostController, isEink: Boolean, isMultiUser: Boolean) {
+        composable(Screen.Library.route) {
+            MainAppScreen(
+                navController = navController,
+                bookshelfViewModel = bookshelfViewModel,
+                isEink = isEink,
+                isMultiUser = isMultiUser,
+                onBookClick = { bookHash -> openBook(navController, bookHash) },
+                onHighlightsClick = { navController.navigate(Screen.Highlights.route) },
+                onSwitchProfileClick = { navController.navigate(PROFILE_PICKER_ROUTE) }
+            )
+        }
+    }
+
+    /** Opens a library item in the reader that matches its publication kind. */
+    private fun openBook(navController: NavHostController, bookHash: String) {
+        val book = bookshelfViewModel.uiState.value.findBookByHash(bookHash) ?: return
+        val route = when (book.kind) {
+            PublicationKind.PDF.stableValue -> Screen.PdfReader.createRoute(book.bookHash)
+            PublicationKind.COMIC.stableValue -> Screen.ComicReader.createRoute(book.bookHash)
+            PublicationKind.AUDIOBOOK.stableValue -> Screen.AudiobookReader.createRoute(book.bookHash)
+            else -> Screen.Reader.createRoute(book.bookHash, book.lastCfiLocation)
+        }
+        navController.navigate(route)
+    }
+
+    private fun NavGraphBuilder.readerDestinations(navController: NavHostController) {
+        composable(
+            route = Screen.Reader.route,
+            arguments = listOf(
+                navArgument(BOOK_ID_ARG) { type = NavType.StringType },
+                navArgument("locator") { type = NavType.StringType; nullable = true }
+            )
+        ) { backStackEntry ->
+            EpubReaderRoute(
+                navController = navController,
+                bookHash = backStackEntry.arguments?.getString(BOOK_ID_ARG).orEmpty(),
+                locatorJson = backStackEntry.arguments?.getString("locator")
+            )
+        }
+
+        composable(
+            route = Screen.PdfReader.route,
+            arguments = listOf(navArgument(BOOK_ID_ARG) { type = NavType.StringType })
+        ) { backStackEntry ->
+            PdfReaderScreen(
+                bookHash = backStackEntry.arguments?.getString(BOOK_ID_ARG).orEmpty(),
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.ComicReader.route,
+            arguments = listOf(navArgument(BOOK_ID_ARG) { type = NavType.StringType })
+        ) { backStackEntry ->
+            ComicReaderScreen(
+                bookHash = backStackEntry.arguments?.getString(BOOK_ID_ARG).orEmpty(),
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.AudiobookReader.route,
+            arguments = listOf(navArgument(BOOK_ID_ARG) { type = NavType.StringType })
+        ) { backStackEntry ->
+            AudiobookReaderScreen(
+                bookHash = backStackEntry.arguments?.getString(BOOK_ID_ARG).orEmpty(),
+                onBack = { navController.popBackStack() }
+            )
+        }
+    }
+
+    @Composable
+    private fun EpubReaderRoute(navController: NavHostController, bookHash: String, locatorJson: String?) {
+        val book by remember(bookHash) {
+            bookshelfViewModel.uiState.map { it.findBookByHash(bookHash) }.distinctUntilChanged()
+        }.collectAsState(initial = null)
+
+        val loaded = book
+        if (loaded != null) {
+            ReaderScreen(
+                initialUri = loaded.localUri,
+                initialLocatorJson = locatorJson,
+                onBack = {
+                    isTtsActive = false
+                    navController.popBackStack()
+                },
+                onTtsStatusChange = { active -> isTtsActive = active }
+            )
+        } else {
+            Box(Modifier.fillMaxSize()) { Text("Loading Book...", Modifier.align(Alignment.Center)) }
+            LaunchedEffect(Unit) {
+                delay(1000)
+                if (bookshelfViewModel.uiState.value.findBookByHash(bookHash) == null) {
+                    navController.popBackStack()
+                }
+            }
+        }
+    }
+
+    private fun NavGraphBuilder.settingsDestinations(navController: NavHostController) {
+        val back: () -> Unit = { navController.popBackStack() }
+        composable(Screen.Backup.route) { BackupScreen(onBack = back) }
+        composable(Screen.Highlights.route) {
+            AllHighlightsScreen(
+                onBack = back,
+                onHighlightClick = { bookId, locator -> navController.navigate(Screen.Reader.createRoute(bookId, locator)) }
+            )
+        }
+        composable(Screen.Settings.route) { SettingsScreen(navController = navController) }
+        composable(Screen.ReaderProfiles.route) { ReaderProfilesScreen(navController = navController) }
+        composable(Screen.About.route) { AboutScreen(onBack = back) }
+        composable(Screen.Appearance.route) { DefaultAppearanceScreen(onBack = back) }
+        composable(Screen.TTS.route) { TtsSettingsScreen(onBack = back) }
+        composable(Screen.ComicDefaults.route) { ComicDefaultsScreen(onBack = back) }
+        composable(Screen.AudiobookDefaults.route) { AudiobookDefaultsScreen(onBack = back) }
+        composable(Screen.AppAppearance.route) { AppAppearanceScreen(onBack = back) }
+        composable(Screen.Dictionary.route) { DictionarySettingsScreen(onBack = back) }
+        composable(Screen.Bookshelf.route) { LibrarySettingsScreen(navController = navController) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        processExternalIntent(intent)
+    }
+
+    private fun processExternalIntent(intent: Intent?) {
+        val contentUri = intent?.data
+        if (intent?.action != Intent.ACTION_VIEW || contentUri == null) return
+        val mimeType = intent.type
+
+        lifecycleScope.launch {
+            try {
+                Toast.makeText(this@MainActivity, "Importing book...", Toast.LENGTH_SHORT).show()
+                importExternal(contentUri, mimeType)
+            } catch (e: Exception) {
+                Timber.e(e, "Error opening book")
+                toast("Error opening book")
+            }
+        }
+    }
+
+    private suspend fun importExternal(contentUri: Uri, mimeType: String?) {
+        val kind = PublicationTypes.detect(mimeType ?: contentResolver.getType(contentUri), contentUri.lastPathSegment)
+        if (kind == PublicationKind.COMIC) {
+            // The comic importer streams the content URI into its own private copy; no second copy here.
+            bookshelfViewModel.importBook(contentUri)
+            return
+        }
+        val extension = if (kind == PublicationKind.PDF) "pdf" else "epub"
+        val localFile = withContext(Dispatchers.IO) { copyToExternalStorage(contentUri, extension) }
+        if (localFile != null && localFile.exists() && localFile.length() > 0) {
+            importCopiedFile(localFile, isPdf = kind == PublicationKind.PDF)
+        } else {
+            toast("Failed to load file")
+        }
+    }
+
+    /** PDFs are de-duplicated by content hash during import; EPUBs also by title, checked here. */
+    private suspend fun importCopiedFile(localFile: File, isPdf: Boolean) {
+        val existingBook = if (isPdf) {
+            waitForDatabaseToLoad()
+            null
+        } else {
+            val tempTitle = withContext(Dispatchers.IO) { getEpubTitle(localFile) }.orEmpty()
+            waitForDatabaseToLoad()
+            bookshelfViewModel.uiState.value.findBookByTitle(tempTitle)
+        }
+
+        if (existingBook != null) {
+            Timber.d("Duplicate found: '${existingBook.title}'")
+            val deleted = withContext(Dispatchers.IO) { localFile.delete() }
+            if (!deleted) Timber.w("Could not delete the duplicate copy %s", localFile.name)
+            toast("Book already exists")
+        } else {
+            Timber.d("Importing New Book")
+            bookshelfViewModel.importBook(Uri.fromFile(localFile))
+            toast("Import Successful")
+        }
+    }
+
+    private fun toast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    private suspend fun waitForDatabaseToLoad() {
+        withTimeoutOrNull(2000) {
+            while (bookshelfViewModel.uiState.value.isLibraryEmpty()) {
+                delay(100)
+            }
+        }
+    }
+
+    private fun copyToExternalStorage(uri: Uri, extension: String): File? {
+        return try {
+            val inputStream = contentResolver.openInputStream(uri) ?: return null
+            val booksDir = getExternalFilesDir("imported_books") ?: return null
+            if (!booksDir.exists()) booksDir.mkdirs()
+
+            val fileName = "book_${System.currentTimeMillis()}_${UUID.randomUUID()}.$extension"
+            val destFile = File(booksDir, fileName)
+
+            FileOutputStream(destFile).use { output -> inputStream.copyTo(output) }
+            destFile
+        } catch (e: Exception) {
+            Timber.e(e, "Error copying to external storage")
+            null
+        }
+    }
+
+    private fun getEpubTitle(epubFile: File): String? {
+        return try {
+            ZipFile(epubFile).use { zip ->
+                val containerEntry = zip.getEntry("META-INF/container.xml") ?: return null
+                val containerXml = zip.getInputStream(containerEntry).bufferedReader().use { it.readText() }
+                val opfPathMatch = Regex("full-path=\"([^\"]+)\"").find(containerXml)
+                val opfPath = opfPathMatch?.groupValues?.get(1) ?: return null
+                val opfEntry = zip.getEntry(opfPath) ?: return null
+                val opfXml = zip.getInputStream(opfEntry).bufferedReader().use { it.readText() }
+                val titleMatch = Regex("<dc:title[^>]*>(.*?)</dc:title>", RegexOption.DOT_MATCHES_ALL).find(opfXml)
+                titleMatch?.groupValues?.get(1)
+            }
+        } catch (e: Exception) { null }
+    }
+
+    /**
+     * Offers key events to the active reading surface before any view sees them, so a WebView or a focused button
+     * cannot swallow Reader shortcuts. Volume keys are never mapped: they always keep their system behavior.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        readerKeyDispatcher.dispatch(event) || super.dispatchKeyEvent(event)
+
+    private companion object {
+        const val WELCOME_ROUTE = "welcome"
+        const val PROFILE_PICKER_ROUTE = "profile_picker"
+        const val BOOK_ID_ARG = "bookId"
+    }
+
+    // A data object supplies the equals/hashCode IndicationNodeFactory requires.
+    private data object NoIndication : IndicationNodeFactory {
+        override fun create(interactionSource: InteractionSource): DelegatableNode { return object : Modifier.Node(), DelegatableNode {} }
+    }
+}
+
+// --- NEW COMPOSABLES FOR LAUNCH FLOW ---
+
+@Composable
+fun WelcomeScreen(onComplete: (isMultiUser: Boolean) -> Unit) {
+    var isMultiUser by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Welcome to Sable Reader", style = MaterialTheme.typography.headlineLarge)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            "Your library stays on this device. Sable Reader never connects to the internet.\n" +
+                "You can change these options later in Settings.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text("Will multiple people use this app?")
+            Spacer(modifier = Modifier.weight(1f))
+            Switch(checked = isMultiUser, onCheckedChange = { isMultiUser = it })
+        }
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Button(
+            onClick = { onComplete(isMultiUser) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Continue to Library")
+        }
+    }
+}
+
+@Composable
+fun MainAppScreen(
+    navController: androidx.navigation.NavController,
+    bookshelfViewModel: BookshelfViewModel,
+    profileViewModel: org.vaachak.reader.leisure.ui.settings.ProfileViewModel = hiltViewModel(),
+    isEink: Boolean,
+    isMultiUser: Boolean, // <-- 2. ACCEPT IT HERE
+    onBookClick: (String) -> Unit,
+    onHighlightsClick: () -> Unit,
+    onSwitchProfileClick: () -> Unit
+) {
+    val tabs = listOf("Books", "Comics", "Audio", "Settings")
+    var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
+
+    val activeProfile by profileViewModel.activeProfile.collectAsState()
+    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
+
+    androidx.activity.compose.BackHandler(enabled = selectedTabIndex != 0) { selectedTabIndex = 0 }
+    // Books shows the whole library; Comics and Audio are the same shelf narrowed to one kind.
+    LaunchedEffect(selectedTabIndex) { bookshelfViewModel.setScope(shelfScope(selectedTabIndex)) }
+    // A 720x720 keyboard phone has about 387 dp of height: drop the title row (unless the profile switcher needs it)
+    // and show the tabs as labels only, so the shelf keeps room for a full row of covers.
+    val short = rememberReaderLayoutProfile().isShort
+
+    Scaffold(
+        topBar = {
+            Column {
+                if (!short || isMultiUser) Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 16.dp, vertical = if (short) 4.dp else 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Sable Reader",
+                        style = if (short) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor
+                    )
+
+                    // 3. ONLY RENDER THIS IF THEY ARE IN MULTI-USER MODE
+                    if (isMultiUser) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .tid(Tid.Vault.switchProfile)
+                                .clickable { onSwitchProfileClick() }
+                                .padding(4.dp)
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = "Switch Profile, Current: ${activeProfile?.name ?: "Guest"}"
+                                }
+                        ) {
+                            Text(
+                                text = activeProfile?.name ?: "Guest",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = contentColor
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.Default.AccountCircle, contentDescription = null, tint = contentColor)
+                        }
+                    }
+                }
+
+                PrimaryTabRow(
+                    selectedTabIndex = selectedTabIndex,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        val icon = when (index) {
+                            0 -> Icons.Default.Book
+                            1 -> Icons.Outlined.Photo
+                            2 -> Icons.Default.Audiotrack
+                            3 -> Icons.Default.Settings
+                            else -> Icons.Default.Book
+                        }
+                        val tabTid = when (index) {
+                            0 -> Tid.Tabs.books
+                            1 -> Tid.Tabs.comics
+                            2 -> Tid.Tabs.audio
+                            3 -> Tid.Tabs.settings
+                            else -> Tid.Tabs.books
+                        }
+                        val tabModifier = if (index == 3) {
+                            Modifier.tids(Tid.Bookshelf.SETTINGS_TAB, Tid.Bookshelf.OPEN_SETTINGS)
+                        } else {
+                            Modifier.tid(tabTid)
+                        }.semantics(mergeDescendants = true) {
+                            contentDescription = "$title Tab, ${if (selectedTabIndex == index) "Selected" else "Not Selected"}"
+                        }
+                        // Text-only tabs are 48 dp tall instead of 72; four labels fit a 411 dp width where icons beside them do not.
+                        if (short) {
+                            Tab(
+                                selected = selectedTabIndex == index,
+                                onClick = { selectedTabIndex = index },
+                                modifier = tabModifier,
+                                text = { Text(title, maxLines = 1) }
+                            )
+                        } else {
+                            Tab(
+                                selected = selectedTabIndex == index,
+                                onClick = { selectedTabIndex = index },
+                                modifier = tabModifier,
+                                text = { Text(title) },
+                                icon = { Icon(icon, contentDescription = null) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    ) { paddingValues ->
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            when (selectedTabIndex) {
+                3 -> SettingsScreen(navController = navController)
+                else -> BookshelfScreen(viewModel = bookshelfViewModel, onBookClick = onBookClick, onHighlightsClick = onHighlightsClick)
+            }
+        }
+    }
+}
+
+/** The kind each library tab shows: Books is the whole library, Comics and Audio one kind each. */
+private fun shelfScope(tabIndex: Int): PublicationKind? = when (tabIndex) {
+    1 -> PublicationKind.COMIC
+    2 -> PublicationKind.AUDIOBOOK
+    else -> null
+}
