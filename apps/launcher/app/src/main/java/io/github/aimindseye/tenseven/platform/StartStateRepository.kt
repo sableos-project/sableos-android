@@ -479,14 +479,14 @@ class StartStateRepository(
     }
 
     /** Calendar Peek is optional: never read CalendarProvider until the user enables this. */
-    fun loadHubCalendarPeek(): Boolean = preferences.getInt(KEY_HUB_CALENDAR_PEEK, 0) != 0
+    fun loadHubCalendarPeek(): Boolean = preferences.getInt(KEY_HUB_CALENDAR_PEEK, 1) != 0
 
     fun saveHubCalendarPeek(enabled: Boolean) {
         preferences.edit().putInt(KEY_HUB_CALENDAR_PEEK, if (enabled) 1 else 0).apply()
     }
 
     /** Whether the Hub peek on the home screen shows message text (off: names and counts only). */
-    fun loadHubPeekText(): Boolean = preferences.getInt(KEY_HUB_PEEK_TEXT, 0) != 0
+    fun loadHubPeekText(): Boolean = preferences.getInt(KEY_HUB_PEEK_TEXT, 1) != 0
 
     fun saveHubPeekText(shown: Boolean) {
         preferences.edit().putInt(KEY_HUB_PEEK_TEXT, if (shown) 1 else 0).apply()
