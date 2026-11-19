@@ -140,11 +140,6 @@ internal object DemoConversationData {
         )
     }
 
-    fun isDemoPackage(packageName: String): Boolean =
-        packageName == SLACK_PACKAGE ||
-            packageName == GMAIL_PACKAGE ||
-            packageName == GOOGLE_MESSAGES_PACKAGE
-
     private fun notification(
         key: String,
         conversationId: String,

@@ -2,26 +2,21 @@ package io.github.aimindseye.tenseven.ui
 
 import android.provider.Settings
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -34,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
@@ -52,20 +46,15 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.aimindseye.tenseven.R
 import io.github.aimindseye.tenseven.design.SableAppearance
-import io.github.aimindseye.tenseven.design.sableFocusRing
 import io.github.aimindseye.tenseven.model.Bb10Gestures
 import io.github.aimindseye.tenseven.model.HomeHeader
 import io.github.aimindseye.tenseven.model.HomeStatusMode
-import io.github.aimindseye.tenseven.model.HomeStyle
 import io.github.aimindseye.tenseven.model.LauncherKeys
 import io.github.aimindseye.tenseven.model.QuickBar
 import io.github.aimindseye.tenseven.model.SpeedDialKeys
@@ -316,45 +305,6 @@ private fun Modifier.startStripSearchEvents(
             }
             true
         }
-}
-
-/**
- * BB10 page indicator: the Hub mark, the Active Frames mark and one dot per
- * app grid page; the current page is white, the others grey.
- */
-@Composable
-internal fun Bb10PageIndicator(
-    current: Int,
-    count: Int,
-    lead: Int,
-    onShowPage: (Int) -> Unit,
-) {
-    val widgetsLabel = stringResource(R.string.widgets_page)
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(INDICATOR_HEIGHT_DP.dp)
-                .semantics {
-                    contentDescription = pageDescription(current - lead, widgetsLabel)
-                },
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        for (index in 0 until count) {
-            val page = index - lead
-            val color = if (index == current) Bb10Text else Bb10Dim
-            Box(
-                modifier =
-                    Modifier
-                        .size(width = INDICATOR_SLOT_DP.dp, height = INDICATOR_HEIGHT_DP.dp)
-                        .clickable { onShowPage(index) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Bb10IndicatorMark(page, color)
-            }
-        }
-    }
 }
 
 // The three BB10 system-page marks share the same geometry and colors.

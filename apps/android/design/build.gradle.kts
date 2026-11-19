@@ -19,9 +19,6 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
-    sourceSets["main"].java.srcDir(
-        "../../../../src/android/shared/sabledesign/src/main/java",
-    )
 }
 
 dependencies {
