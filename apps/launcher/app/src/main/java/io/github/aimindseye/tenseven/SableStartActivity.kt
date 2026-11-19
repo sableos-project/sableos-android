@@ -256,6 +256,14 @@ class SableStartActivity : ComponentActivity() {
                     frameSnapshot = activeFrames::snapshot,
                     onResumeFrame = activeFrames.coordinator::open,
                     onCloseFrame = activeFrames.coordinator::close,
+                    onOpenMenu = ::showBb7Menu,
+                    onOpenWallpaper = {
+                        runCatching {
+                            startActivity(
+                                Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), getString(R.string.bb7_wallpaper)),
+                            )
+                        }
+                    },
                     onAllowUsageAccess = {
                         runCatching {
                             startActivity(
