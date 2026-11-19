@@ -80,34 +80,6 @@ class StartStateRepository(
         }
     }
 
-    fun loadFavoriteKeys(): Set<String> {
-        val explicit =
-            preferences.getStringSet(
-                KEY_FAVORITE_APPS,
-                null,
-            )
-        if (explicit != null) {
-            return explicit.toSet()
-        }
-
-        return preferences
-            .getStringSet(
-                KEY_PINNED_APPS_LEGACY,
-                emptySet(),
-            ).orEmpty()
-            .toSet()
-    }
-
-    fun saveFavoriteKeys(keys: Set<String>) {
-        preferences
-            .edit {
-                putStringSet(
-                    KEY_FAVORITE_APPS,
-                    keys.toSet(),
-                ).remove(KEY_PINNED_APPS_LEGACY)
-            }
-    }
-
     /**
      * Null means the user has never customized Start tiles and the production
      * UI should resolve the current preferred/default set from installed apps.
@@ -124,16 +96,6 @@ class StartStateRepository(
                 emptySet(),
             ).orEmpty()
             .toSet()
-    }
-
-    fun saveStartTileKeys(keys: Set<String>) {
-        preferences
-            .edit {
-                putStringSet(
-                    KEY_START_TILES,
-                    keys.toSet(),
-                )
-            }
     }
 
     /**
@@ -214,13 +176,6 @@ class StartStateRepository(
             }
     }
 
-    /** "list" or "tiles" (see HomeLayout); null means never customised. */
-    fun loadHomeMode(): String? = preferences.getString(KEY_HOME_MODE, null)
-
-    fun saveHomeMode(mode: String) {
-        preferences.edit().putString(KEY_HOME_MODE, mode).apply()
-    }
-
     /** BlackBerry 10 or BlackBerry 7 home (HomeStyle); the BB10 layout until the user picks. */
     fun loadHomeStyle(): HomeStyle =
         HomeStyle.fromStableValue(
@@ -256,9 +211,6 @@ class StartStateRepository(
         preferences.edit { putString("home_weather_city", value.trim().take(HOME_WEATHER_CITY_INPUT_LIMIT)) }
     }
 
-    /** Whether the setup flow has been shown (finished, skipped or backed out of); it opens once on first run. */
-    fun loadOnboardingDone(): Boolean = preferences.getBoolean(KEY_ONBOARDING_DONE, false)
-
     fun saveOnboardingDone() {
         preferences.edit().putBoolean(KEY_ONBOARDING_DONE, true).apply()
     }
@@ -288,10 +240,6 @@ class StartStateRepository(
     fun loadHomeStatusSize(): io.github.aimindseye.tenseven.model.HomeStatusSize =
         io.github.aimindseye.tenseven.model.HomeStatusSize
             .decode(preferences.getString("home_status_size", null))
-
-    fun saveHomeStatusSize(size: io.github.aimindseye.tenseven.model.HomeStatusSize) {
-        preferences.edit { putString("home_status_size", size.stableValue) }
-    }
 
     /** Double-tap on empty Home space locks the screen (needs the accessibility service); off until chosen. */
     fun loadDoubleTapLock(): Boolean = preferences.getBoolean(KEY_DOUBLE_TAP_LOCK, false)
@@ -387,10 +335,6 @@ class StartStateRepository(
     /** Compatibility view of automatic observed sources or the optional saved manual selection. */
     fun loadHubEnabledApps(): Set<String> = hubSources.enabledPackages()
 
-    fun saveHubEnabledApps(packages: Set<String>) {
-        hubSources.saveManual(packages)
-    }
-
     /** Shared Home metrics, migrated from the currently selected style on first read. */
     fun loadHomeDials(): Set<String> =
         HomeDisplayPolicy.normalizedDials(
@@ -436,13 +380,6 @@ class StartStateRepository(
      */
     @Suppress("UnusedParameter", "UNUSED_PARAMETER")
     fun loadHomeNotificationStrip(style: HomeStyle): Boolean = false
-
-    fun saveHomeNotificationStrip(
-        style: HomeStyle,
-        enabled: Boolean,
-    ) {
-        preferences.edit().putInt(HomeDisplayPolicy.stripPreference(style), if (enabled) 1 else 0).apply()
-    }
 
     fun loadHomeNotificationExpanded(style: HomeStyle): Boolean =
         preferences.getInt(HomeDisplayPolicy.stripExpandedPreference(style), 0) != 0
@@ -520,10 +457,6 @@ class StartStateRepository(
 
     /** The imported themes (a JSON array, see [CustomThemes.formatStored]); included in a backup. */
     fun loadCustomThemes(): List<CustomTheme> = CustomThemes.parseStored(preferences.getString(KEY_CUSTOM_THEMES, null))
-
-    fun saveCustomThemes(themes: List<CustomTheme>) {
-        preferences.edit().putString(KEY_CUSTOM_THEMES, CustomThemes.formatStored(themes)).apply()
-    }
 
     /** The id of the imported theme in use, or null when a built-in theme is. */
     fun loadActiveCustomThemeId(): String? = preferences.getString(KEY_APPEARANCE_CUSTOM, null)

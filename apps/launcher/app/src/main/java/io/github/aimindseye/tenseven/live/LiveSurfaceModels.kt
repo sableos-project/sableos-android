@@ -53,13 +53,4 @@ data class LiveSurfaceSnapshot(
         require(observedAtEpochMs >= 0L)
     }
 
-    fun isFresh(
-        nowEpochMs: Long,
-        maxAgeMs: Long,
-    ): Boolean {
-        require(nowEpochMs >= 0L)
-        require(maxAgeMs >= 0L)
-        if (observedAtEpochMs > nowEpochMs) return false
-        return nowEpochMs - observedAtEpochMs <= maxAgeMs
-    }
 }

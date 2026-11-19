@@ -81,7 +81,6 @@ object CustomThemes {
     const val MAX_BYTES = 64 * 1024
     const val MAX_THEMES = 12
     const val MAX_NAME = 40
-    const val FILE_SUFFIX = ".tenseventheme.json"
     private val MODES = setOf("dark", "light", "follow-system")
 
     // The built-in dark and light backgrounds the checks compare against when a file leaves the palette out.
