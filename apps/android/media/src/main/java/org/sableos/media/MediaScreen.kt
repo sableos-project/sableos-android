@@ -121,6 +121,7 @@ internal enum class LibraryPivot(
     Artists("artists"),
     Albums("albums"),
     Favorites("favorites"),
+    Recordings("recordings"),
     Playlists("playlists"),
 }
 
@@ -973,6 +974,7 @@ private fun collectionResultCount(
         LibraryPivot.Artists -> built.artists.size
         LibraryPivot.Albums -> built.albums.size
         LibraryPivot.Favorites -> built.favorites.size
+        LibraryPivot.Recordings -> built.recordings.size
         LibraryPivot.Playlists -> visiblePlaylists.size
     }
 }
@@ -1140,6 +1142,7 @@ private fun LazyListScope.collectionResults(
         LibraryPivot.Artists -> groupItems(index.artists, tracks.onPlay)
         LibraryPivot.Albums -> groupItems(index.albums, tracks.onPlay)
         LibraryPivot.Favorites -> favoriteItems(index.favorites, tracks, content.shortcuts)
+        LibraryPivot.Recordings -> recordingItems(index.recordings, tracks)
         LibraryPivot.Playlists -> playlistItems(query, content.visiblePlaylists, index.availableUris, playlists)
     }
 }
@@ -1185,6 +1188,23 @@ private fun LazyListScope.groupItems(
                 onPlay(group.sourceIndex)
             },
         )
+    }
+}
+
+/** FM recordings, newest first by name; a recording is a song, so it can be starred and put in a playlist. */
+private fun LazyListScope.recordingItems(
+    recordings: List<MediaIndexedTrack>,
+    tracks: CollectionTrackActions,
+) {
+    if (recordings.isEmpty()) {
+        item {
+            C2InfoPanel(
+                title = t("no_recordings_yet"),
+                detail = t("record_from_the_fm_screen"),
+            )
+        }
+    } else {
+        trackItems(recordings, tracks, allFavorites = false)
     }
 }
 
@@ -1286,6 +1306,7 @@ private data class MediaCollectionIndex(
     val artists: List<MediaGroupSummary>,
     val albums: List<MediaGroupSummary>,
     val favorites: List<MediaIndexedTrack>,
+    val recordings: List<MediaIndexedTrack>,
     val availableUris: Set<String>,
     val sections: Map<LibraryPivot, SableAlphabetIndex>,
     /** The inputs this index was built from, compared by identity to detect a stale index. */
@@ -1299,6 +1320,7 @@ private data class MediaCollectionIndex(
                 artists = emptyList(),
                 albums = emptyList(),
                 favorites = emptyList(),
+                recordings = emptyList(),
                 availableUris = emptySet(),
                 sections = emptyMap(),
             )
@@ -1334,6 +1356,8 @@ private fun buildMediaCollectionIndex(
         songs.filter { indexed ->
             indexed.item.uri in favoriteAudioUris
         }
+
+    val recordings = songs.filter { indexed -> indexed.item.album == FM_RECORDINGS_ALBUM }
 
     val artists =
         visibleItems
@@ -1383,6 +1407,10 @@ private fun buildMediaCollectionIndex(
                 SableAlphabetIndex.build(
                     favorites.map { indexed -> indexed.item.title },
                 ),
+            LibraryPivot.Recordings to
+                SableAlphabetIndex.build(
+                    recordings.map { indexed -> indexed.item.title },
+                ),
             LibraryPivot.Playlists to EMPTY_ALPHABET,
         )
 
@@ -1391,6 +1419,7 @@ private fun buildMediaCollectionIndex(
         artists = artists,
         albums = albums,
         favorites = favorites,
+        recordings = recordings,
         availableUris = sourceIndexByUri.keys.toSet(),
         sections = sections,
         source = localItems,

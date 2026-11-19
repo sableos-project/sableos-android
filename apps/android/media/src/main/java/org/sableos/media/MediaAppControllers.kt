@@ -50,7 +50,14 @@ internal class MediaLibraryController(
         val loadResult =
             withContext(Dispatchers.IO) {
                 runCatching {
-                    val loadedItems = repositories.localAudio.loadItems()
+                    val stored = repositories.localAudio.loadItems()
+                    val recordings = repositories.localAudio.newFmRecordings(stored)
+                    val loadedItems =
+                        if (recordings.isEmpty()) {
+                            stored
+                        } else {
+                            repositories.localAudio.addUris(stored, recordings, FM_RECORDINGS_ALBUM)
+                        }
                     val loadedPlaylists =
                         repositories.libraryState.pruneMissingAudio(
                             current = repositories.libraryState.loadPlaylists(),

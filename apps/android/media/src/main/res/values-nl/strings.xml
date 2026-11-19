@@ -213,4 +213,11 @@
     <string name="hub_tab_fm">FM</string>
     <string name="fm_name">Naam</string>
     <string name="fm_clear_name">Naam wissen</string>
+    <string name="fm_rec">REC</string>
+    <string name="fm_record">● Record</string>
+    <string name="fm_stop_recording">■ Stop recording</string>
+    <string name="no_recordings_yet">No recordings yet</string>
+    <string name="record_from_the_fm_screen">Record from the FM screen. Recordings are songs: star them or add them to a playlist.</string>
+    <string name="hub_tab_recordings">Recordings</string>
+    <string name="recordings">recordings</string>
 </resources>

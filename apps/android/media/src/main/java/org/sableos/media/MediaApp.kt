@@ -90,7 +90,8 @@ internal fun MediaApp(
             )
         }
 
-    LaunchedEffect(repositories.localAudio, repositories.libraryState) {
+    // Reloads when a recording ends, so the new file shows under Recordings.
+    LaunchedEffect(repositories.localAudio, repositories.libraryState, fmState.recording) {
         controllers.library.load()
     }
 
@@ -300,6 +301,7 @@ private fun mediaScreenActions(
                 onToggleSpeaker = host.fm::toggleSpeaker,
                 onToggleMute = host.fm::toggleMute,
                 onScan = host.fm::toggleScan,
+                onToggleRecording = host.fm::toggleRecording,
             ),
     )
 }
