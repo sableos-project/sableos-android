@@ -12,7 +12,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** Where the FM Radio app saves recordings, and how Sable Media files them in the library. */
-internal const val FM_RECORDINGS_FOLDER = "Music/FM recordings"
+internal const val FM_RECORDINGS_FOLDER = "Recordings/FM recordings"
 internal const val FM_RECORDINGS_ALBUM = "FM recordings"
 internal const val FM_RECORDINGS_ARTIST = "FM radio"
 
@@ -56,7 +56,7 @@ internal class LocalAudioRepository(
         return deduplicated
     }
 
-    /** The FM recordings the FM Radio app saved under Music/FM recordings that [current] does not hold yet. */
+    /** The FM recordings the FM Radio app saved under Recordings/FM recordings that [current] does not hold yet. */
     fun newFmRecordings(current: List<LocalAudioItem>): List<Uri> {
         val known = current.mapTo(HashSet()) { it.uri }
         val found = ArrayList<Uri>()
