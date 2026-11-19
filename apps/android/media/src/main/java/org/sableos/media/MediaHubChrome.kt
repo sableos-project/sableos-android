@@ -61,14 +61,14 @@ internal enum class MediaHubTab(
     val pivot: LibraryPivot? = null,
 ) {
     Songs("hub_tab_songs", MediaDestination.Collection, LibraryPivot.Songs),
-    Artists("hub_tab_artists", MediaDestination.Collection, LibraryPivot.Artists),
     Albums("hub_tab_albums", MediaDestination.Collection, LibraryPivot.Albums),
-    Playlists("hub_tab_playlists", MediaDestination.Collection, LibraryPivot.Playlists),
+    Artists("hub_tab_artists", MediaDestination.Collection, LibraryPivot.Artists),
+    Playlists("hub_tab_lists", MediaDestination.Collection, LibraryPivot.Playlists),
     Favorites("hub_tab_favourites", MediaDestination.Collection, LibraryPivot.Favorites),
     Recordings("hub_tab_recordings", MediaDestination.Collection, LibraryPivot.Recordings),
-    Podcasts("hub_tab_podcasts", MediaDestination.Podcasts),
     Radio("hub_tab_radio", MediaDestination.Radio),
     Fm("hub_tab_fm", MediaDestination.Fm),
+    Podcasts("hub_tab_podcasts", MediaDestination.Podcasts),
     ;
 
     val label: String get() = t(labelKey)
@@ -384,6 +384,9 @@ internal object MediaIcons {
     val Search = stroked("M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4-4")
     val Back = stroked("M15 5l-7 7 7 7")
     val Manage = stroked("M4 6h16M4 12h16M4 18h16")
+    val Dial = stroked("M4 20v-4M8 20v-8M12 20v-12M16 20v-8M20 20v-4")
+    val Star = stroked("M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z")
+    val StarFilled = filled("M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z")
     val Shuffle = stroked("M4 7h11l-3-3M20 17H9l3 3")
 
     private fun filled(path: String) = icon(path, stroke = false)

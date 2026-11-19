@@ -39,6 +39,9 @@ internal class FmController(
     private var bridge: Messenger? = null
     private var bound = false
 
+    /** A station the person asked for (a Favourites shortcut) before the bridge was bound; played on connect. */
+    private var pendingStation: Int? = null
+
     var state = FmUiState(available = isAvailable(context))
         private set
 
@@ -51,6 +54,11 @@ internal class FmController(
                 bridge = service?.let(::Messenger)
                 publish(state.copy(connected = bridge != null))
                 send(FmBridgeProtocol.MSG_REGISTER)
+                pendingStation?.let { station ->
+                    pendingStation = null
+                    // The bridge's state is not known yet; power-up on a running radio retunes to the station.
+                    send(FmBridgeProtocol.MSG_POWER_UP, station)
+                }
             }
 
             override fun onServiceDisconnected(name: ComponentName?) {
@@ -87,6 +95,11 @@ internal class FmController(
     /** Plays [station]: tunes when the radio is on, otherwise powers it up on that station. */
     fun playStation(station: Int) {
         if (!FmBand.isValid(station)) return
+        if (bridge == null) {
+            pendingStation = station
+            connect()
+            return
+        }
         if (state.powered) send(FmBridgeProtocol.MSG_TUNE, station) else send(FmBridgeProtocol.MSG_POWER_UP, station)
     }
 

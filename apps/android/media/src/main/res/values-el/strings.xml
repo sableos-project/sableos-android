@@ -224,4 +224,15 @@
     <string name="fm_stations">Stations</string>
     <string name="fm_stop_rec">Stop rec</string>
     <string name="fm_record_short">Record</string>
+    <string name="hub_tab_lists">Lists</string>
+    <string name="fm_stations_count">%1$s stations</string>
+    <string name="shortcuts_count">Shortcuts · %1$s</string>
+    <string name="playlists_count">Playlists · %1$s</string>
+    <string name="fm_recordings_note">Recordings/FM recordings</string>
+    <string name="fm_favourites">Favourites</string>
+    <string name="fm_dial">Dial</string>
+    <string name="fm_tab_all">All</string>
+    <string name="fm_tab_favourites">Favourites</string>
+    <string name="fm_tab_presets">Presets</string>
+    <string name="fm_none_in_tab">No stations here yet. Press S to scan.</string>
 </resources>

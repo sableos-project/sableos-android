@@ -11,6 +11,17 @@ import org.sableos.design.SableTexts
 object MediaText {
     val EN: Map<String, String> =
         mapOf(
+            "hub_tab_lists" to "Lists",
+            "fm_stations_count" to "%1\$s stations",
+            "shortcuts_count" to "Shortcuts · %1\$s",
+            "playlists_count" to "Playlists · %1\$s",
+            "fm_recordings_note" to "Recordings/FM recordings",
+            "fm_favourites" to "Favourites",
+            "fm_dial" to "Dial",
+            "fm_tab_all" to "All",
+            "fm_tab_favourites" to "Favourites",
+            "fm_tab_presets" to "Presets",
+            "fm_none_in_tab" to "No stations here yet. Press S to scan.",
             "fm_stations" to "Stations",
             "fm_stop_rec" to "Stop rec",
             "fm_record_short" to "Record",
@@ -258,7 +269,7 @@ object MediaText {
             "station_saved_locally" to "Station saved locally.",
             "choose_a_station_to_edit" to "Choose a station to edit.",
             "station_updated" to "Station updated.",
-            "hub_title" to "media",
+            "hub_title" to "Media",
             "hub_back" to "Back",
             "hub_search" to "Search",
             "hub_more" to "More options",

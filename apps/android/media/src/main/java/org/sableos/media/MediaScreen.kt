@@ -2383,13 +2383,32 @@ private fun MediaHubFrame(
     val go = actions.onDestinationChange
     val current = playback.queue.getOrNull(playback.currentIndex)
     val nowArt = artworkFor(current?.uri.orEmpty(), state.podcastSubscriptions, state.stations)
+    val fmActions = actions.fm
+    val fmScreen = destination == MediaDestination.Fm
+    val fmStations = fmScreen && FmViewState.showStations
     val menu =
         listOfNotNull(
+            MediaMenuItem(t("hub_search")) {
+                go(MediaDestination.Collection)
+                actions.onOpenSearch()
+            }.takeIf { destination != MediaDestination.NowPlaying },
             MediaMenuItem(t("now_playing")) { go(MediaDestination.NowPlaying) }
                 .takeIf { destination != MediaDestination.NowPlaying },
             MediaMenuItem(t("up_next_2")) { go(MediaDestination.Queue) }.takeIf { playback.queue.isNotEmpty() },
-            MediaMenuItem(t("hub_settings")) { go(MediaDestination.Settings) },
-        )
+        ) +
+            (
+                if (fmScreen && fmActions != null) {
+                    listOf(
+                        MediaMenuItem(if (state.fm.scanning) t("stop_scan") else t("scan"), fmActions.onScan),
+                        MediaMenuItem(if (state.fm.speaker) t("headphones") else t("speaker"), fmActions.onToggleSpeaker),
+                        MediaMenuItem(if (state.fm.muted) t("unmute") else t("mute"), fmActions.onToggleMute),
+                    )
+                } else {
+                    emptyList()
+                }
+            ) +
+            MediaMenuItem(t("hub_settings")) { go(MediaDestination.Settings) }
+    val recordings = destination == MediaDestination.Collection && state.libraryPivot == LibraryPivot.Recordings
     Column(Modifier.fillMaxSize()) {
         if (destination == MediaDestination.NowPlaying) {
             MediaHubTitleBar(
@@ -2405,24 +2424,41 @@ private fun MediaHubFrame(
             )
         } else {
             MediaHubTitleBar(
-                title = t("hub_title"),
-                onSearch =
-                    {
-                        go(MediaDestination.Collection)
-                        actions.onOpenSearch()
+                title =
+                    when {
+                        fmStations -> t("fm_stations")
+                        recordings -> t("recordings")
+                        else -> t("hub_title")
+                    },
+                note =
+                    when {
+                        fmStations -> t("fm_stations_count", FmPresets.list(state.fmFavorites, state.fm.stations).size)
+                        fmScreen -> if (state.fm.speaker) t("speaker") else t("headphones")
+                        recordings -> t("fm_recordings_note")
+                        destination == MediaDestination.Collection && state.libraryPivot == LibraryPivot.Favorites ->
+                            t(
+                                "shortcuts_count",
+                                state.favoriteAudioUris.size + state.fmFavorites.size +
+                                    state.favoriteStationIds.size + state.favoritePlaylistIds.size,
+                            )
+                        destination == MediaDestination.Collection && state.libraryPivot == LibraryPivot.Playlists ->
+                            t("playlists_count", state.playlists.size)
+                        else -> null
                     },
                 menu = menu,
             )
-            MediaHubTabs(
-                selected = MediaHubTab.of(destination, state.libraryPivot),
-                songCount = state.localItems.size,
-                newEpisodes = newEpisodeCount(state),
-                fmAvailable = LocalFmAvailable.current,
-                onSelect = { tab ->
-                    tab.pivot?.let(actions.onLibraryPivotChange)
-                    go(tab.destination)
-                },
-            )
+            if (!fmStations) {
+                MediaHubTabs(
+                    selected = MediaHubTab.of(destination, state.libraryPivot),
+                    songCount = state.localItems.size,
+                    newEpisodes = newEpisodeCount(state),
+                    fmAvailable = LocalFmAvailable.current,
+                    onSelect = { tab ->
+                        tab.pivot?.let(actions.onLibraryPivotChange)
+                        go(tab.destination)
+                    },
+                )
+            }
         }
         Box(
             Modifier
@@ -2431,7 +2467,7 @@ private fun MediaHubFrame(
         ) {
             content()
         }
-        if (destination != MediaDestination.NowPlaying && destination != MediaDestination.Fm) {
+        if (destination != MediaDestination.NowPlaying && destination != MediaDestination.Fm && !recordings) {
             MediaNowLine(playback = playback, art = nowArt) { go(MediaDestination.NowPlaying) }
         }
         MediaActionBar(hubActions(state, actions))
@@ -2465,6 +2501,22 @@ private fun hubActions(
     val settings = MediaBarAction(MediaIcons.Settings, t("hub_settings"), { go(MediaDestination.Settings) })
     return when (state.destination) {
         MediaDestination.Collection -> {
+            val prev = MediaBarAction(MediaIcons.Previous, t("previous"), actions.onPrevious, enabled = playback.hasPrevious)
+            val favourites =
+                MediaBarAction(
+                    icon = MediaIcons.Star,
+                    label = t("fm_favourites"),
+                    onClick = { actions.onLibraryPivotChange(LibraryPivot.Favorites) },
+                    active = state.libraryPivot == LibraryPivot.Favorites,
+                )
+            val songs =
+                MediaBarAction(MediaIcons.Dial, t("hub_tab_songs"), { actions.onLibraryPivotChange(LibraryPivot.Songs) })
+            val dial = MediaBarAction(MediaIcons.Dial, t("fm_dial"), { go(MediaDestination.Fm) })
+            when (state.libraryPivot) {
+                LibraryPivot.Playlists, LibraryPivot.Favorites -> return listOf(prev, playPause, next, songs, favourites)
+                LibraryPivot.Recordings -> return listOf(prev, playPause, next, dial, favourites)
+                else -> Unit
+            }
             listOf(
                 playPause,
                 next,
@@ -2522,7 +2574,7 @@ private fun hubActions(
         }
 
         MediaDestination.Fm -> {
-            fmBarActions(state.fm, actions.fm)
+            fmBarActions(state.fm, actions.fm, state.fmFavorites)
         }
 
         else -> {
@@ -2531,28 +2583,47 @@ private fun hubActions(
     }
 }
 
-/** The FM bar of the approved board: Previous, power, Next, Stations, Record (red Stop while recording). */
+/**
+ * The FM bars of the approved board. The dial: Previous, power, Next, Stations, Record (red Stop while
+ * recording). The Stations list: Previous, power, Next, Dial, Favourites (stars the tuned station).
+ */
 @Composable
 private fun fmBarActions(
     fm: FmUiState,
     fmActions: FmScreenActions?,
+    favorites: Set<Int>,
 ): List<MediaBarAction> {
     if (fmActions == null || !fm.available) return emptyList()
-    return listOf(
-        MediaBarAction(MediaIcons.Previous, t("previous"), { fmActions.onSeek(false) }, enabled = fm.powered),
+    val previous = MediaBarAction(MediaIcons.Previous, t("previous"), { fmActions.onSeek(false) }, enabled = fm.powered)
+    val power =
         MediaBarAction(
             icon = if (fm.powered) MediaIcons.Pause else MediaIcons.Play,
             label = if (fm.powered) t("turn_off") else t("turn_on"),
             onClick = fmActions.onPower,
             active = fm.powered,
-        ),
-        MediaBarAction(MediaIcons.Next, t("next"), { fmActions.onSeek(true) }, enabled = fm.powered),
-        MediaBarAction(
-            MediaIcons.Manage,
-            t("fm_stations"),
-            { FmViewState.showStations = !FmViewState.showStations },
-            active = FmViewState.showStations,
-        ),
+        )
+    val next = MediaBarAction(MediaIcons.Next, t("next"), { fmActions.onSeek(true) }, enabled = fm.powered)
+    if (FmViewState.showStations) {
+        val starred = fm.station in favorites
+        return listOf(
+            previous,
+            power,
+            next,
+            MediaBarAction(MediaIcons.Dial, t("fm_dial"), { FmViewState.showStations = false }),
+            MediaBarAction(
+                icon = if (starred) MediaIcons.StarFilled else MediaIcons.Star,
+                label = t("fm_favourites"),
+                onClick = { fmActions.onToggleFavorite(fm.station) },
+                enabled = FmBand.isValid(fm.station),
+                active = starred,
+            ),
+        )
+    }
+    return listOf(
+        previous,
+        power,
+        next,
+        MediaBarAction(MediaIcons.Manage, t("fm_stations"), { FmViewState.showStations = true }),
         MediaBarAction(
             icon = if (fm.recording) MediaIcons.Stop else MediaIcons.Record,
             label = if (fm.recording) t("fm_stop_rec") else t("fm_record_short"),
