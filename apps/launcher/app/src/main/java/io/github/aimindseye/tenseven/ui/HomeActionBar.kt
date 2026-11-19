@@ -1,7 +1,6 @@
 package io.github.aimindseye.tenseven.ui
 
 import android.content.Intent
-import android.provider.CallLog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -88,69 +87,6 @@ private const val APPS_CELL_RATIO = 0.36f
 private const val APPS_GAP_RATIO = 0.14f
 private const val APPS_ORIGIN_RATIO = 0.07f
 private const val APPS_CORNER_RATIO = 0.06f
-
-@Composable
-internal fun SlotOptionsScreen(
-    slot: QuickSlot,
-    apps: List<AppEntry>,
-    onBack: () -> Unit,
-    onOpen: () -> Unit,
-    onHubFilter: (HubFilter) -> Unit,
-    onOpenHubSettings: () -> Unit,
-    onStartIntent: (Intent) -> Unit,
-    onLaunchApp: (AppEntry) -> Unit,
-    onAppInfo: (AppEntry) -> Unit,
-    onEditHome: () -> Unit,
-) {
-    val firstFocus = remember { FocusRequester() }
-    LaunchedEffect(slot) {
-        withFrameNanos { }
-        runCatching { firstFocus.requestFocus() }
-    }
-    LazyColumn(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
-        contentPadding = PaddingValues(bottom = 28.dp),
-    ) {
-        item {
-            MetroHeader(title = slot.label.lowercase(Locale.getDefault()), onBack = onBack)
-            Spacer(Modifier.height(8.dp))
-            Box(Modifier.focusRequester(firstFocus)) {
-                ContextAction(mark = "→", label = "open", onClick = onOpen)
-            }
-            when (slot.token) {
-                QuickBar.HUB -> {
-                    HubFilter.entries.forEach { filter ->
-                        ContextAction(mark = "◇", label = t("hub_page_2", filter.label), onClick = { onHubFilter(filter) })
-                    }
-                    ContextAction(mark = "⚙", label = t("hub_settings"), onClick = onOpenHubSettings)
-                }
-
-                QuickBar.PHONE -> {
-                    ContextAction(mark = "☎", label = t("dial_pad"), onClick = { onStartIntent(Intent(Intent.ACTION_DIAL)) })
-                    ContextAction(
-                        mark = "↺",
-                        label = t("recent_calls"),
-                        onClick = { onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
-                    )
-                    findLiveApp(apps, CONTACTS_PACKAGE)?.let { contacts ->
-                        ContextAction(mark = "@", label = "contacts", onClick = { onLaunchApp(contacts) })
-                    }
-                }
-
-                else -> {
-                    Unit
-                }
-            }
-            slot.app?.let { app ->
-                ContextAction(mark = "ⓘ", label = t("app_info_2"), onClick = { onAppInfo(app) })
-            }
-            ContextAction(mark = "▭", label = t("edit_home_and_quick_bar"), onClick = onEditHome)
-        }
-    }
-}
 
 /**
  * A slot's mark. Phone, Search, Camera and All Apps are drawn as BB10-style

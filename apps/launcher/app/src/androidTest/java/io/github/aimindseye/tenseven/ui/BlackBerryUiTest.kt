@@ -56,7 +56,7 @@ class BlackBerryUiTest {
                     ReferenceHomeBar(
                         listOf(QuickSlot(QuickBar.PHONE, "Phone", null), QuickSlot(QuickBar.COMMAND, "Command", null)),
                         HomeBarPages(1, 3, 0),
-                        HomeBarActions({ page = it }, { opened = it.token }, {}),
+                        HomeBarActions({ page = it }, { opened = it.token }),
                     )
                 }
             }

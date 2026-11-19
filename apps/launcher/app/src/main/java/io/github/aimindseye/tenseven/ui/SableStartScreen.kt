@@ -2,7 +2,6 @@ package io.github.aimindseye.tenseven.ui
 
 import android.content.Intent
 import android.graphics.Bitmap
-import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -141,7 +140,6 @@ fun SableStartScreen(
     }
     var returnDestination by remember { mutableStateOf(SableStartDestination.Start) }
     var selectedApp by remember { mutableStateOf<AppEntry?>(null) }
-    var selectedSlot by remember { mutableStateOf<QuickSlot?>(null) }
     var savedGridOrder by remember(initialGridOrder) { mutableStateOf(initialGridOrder) }
     var recentKeys by remember { mutableStateOf<List<String>>(emptyList()) }
     // Text typed on Start before Command/Search opened (type-to-launch).
@@ -278,10 +276,6 @@ fun SableStartScreen(
         showPage(StartPages.HUB)
     }
 
-    fun dial(digits: String) {
-        onStartIntent(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(digits))))
-    }
-
     fun activateSlot(slot: QuickSlot) =
         activateQuickSlot(
             slot,
@@ -403,12 +397,7 @@ fun SableStartScreen(
                                     onMovePage = ::movePage,
                                     onShowPage = { page -> pagerScope.launch { startPager.animateScrollToPage(page) } },
                                     onQuickSlot = ::activateSlot,
-                                    onSlotOptions = { slot ->
-                                        selectedSlot = slot
-                                        destination = SableStartDestination.SlotOptions
-                                    },
                                     onHubPeek = { hubPeek = true },
-                                    onDial = { char -> dial(char.toString()) },
                                     onTypeToSearch = { seed -> if (typeToSearch) openSearch(SableStartDestination.Start, seed) },
                                     speedDialLetters = speedDialLetters,
                                     onSpeedDial = { letter -> speedDial?.call(letter) },
@@ -521,38 +510,6 @@ fun SableStartScreen(
                                         }
                                     }
                                 }
-                            }
-                        }
-
-                        SableStartDestination.SlotOptions -> {
-                            val slot = selectedSlot
-                            if (slot == null) {
-                                destination = SableStartDestination.Start
-                            } else {
-                                SlotOptionsScreen(
-                                    slot = slot,
-                                    apps = apps,
-                                    onBack = ::navigateBack,
-                                    onOpen = {
-                                        destination = SableStartDestination.Start
-                                        activateSlot(slot)
-                                    },
-                                    onHubFilter = ::showHub,
-                                    onOpenHubSettings = {
-                                        destination = SableStartDestination.Start
-                                        openHubSettings()
-                                    },
-                                    onStartIntent = { intent ->
-                                        destination = SableStartDestination.Start
-                                        onStartIntent(intent)
-                                    },
-                                    onLaunchApp = { app ->
-                                        destination = SableStartDestination.Start
-                                        launchApp(app)
-                                    },
-                                    onAppInfo = { app -> onOpenAppInfo(app) },
-                                    onEditHome = { destination = SableStartDestination.EditHome },
-                                )
                             }
                         }
 

@@ -125,9 +125,7 @@ internal fun StartStrip(
     onMovePage: (Int) -> Unit,
     onShowPage: (Int) -> Unit,
     onQuickSlot: (QuickSlot) -> Unit,
-    onSlotOptions: (QuickSlot) -> Unit,
     onHubPeek: () -> Unit,
-    onDial: (Char) -> Unit,
     onTypeToSearch: (String) -> Unit,
     speedDialLetters: Set<Char>,
     onSpeedDial: (Char) -> Unit,
@@ -135,7 +133,6 @@ internal fun StartStrip(
     onEditHome: () -> Unit,
     page: @Composable (Int) -> Unit,
 ) {
-    var phoneSlotFocused by remember { mutableStateOf(false) }
     val speedDialKeys = remember { SpeedDialKeys() }
     val homeFocus = remember { FocusRequester() }
     val swipePx = with(LocalDensity.current) { HOME_SWIPE_DP.dp.toPx() }
@@ -145,10 +142,10 @@ internal fun StartStrip(
                 .fillMaxSize()
                 .background(Bb10Background.copy(alpha = LocalHomeBackdrop.current))
                 .startStripPreviewEvents(
-                    StripInputState(quickSlots, phoneSlotFocused, speedDialLetters, speedDialKeys),
-                    StripNavigationActions(onMovePage, onQuickSlot, onDial, onCommand),
+                    StripInputState(quickSlots, speedDialLetters, speedDialKeys),
+                    StripNavigationActions(onMovePage, onQuickSlot, onCommand),
                 ).startStripSearchEvents(
-                    StripInputState(quickSlots, phoneSlotFocused, speedDialLetters, speedDialKeys),
+                    StripInputState(quickSlots, speedDialLetters, speedDialKeys),
                     StripSearchActions(onEditHome, onTypeToSearch, onSpeedDial),
                 )
                 // After the key handlers, so they sit above this focus target: with nothing else focused (a
@@ -180,9 +177,8 @@ internal fun StartStrip(
                     HomeBarActions(
                         onShowPage,
                         onQuickSlot,
-                        onSlotOptions,
                         peek = onHubPeek,
-                    ) { phoneSlotFocused = it },
+                    ),
             )
         }
     }
@@ -190,7 +186,6 @@ internal fun StartStrip(
 
 private data class StripInputState(
     val quickSlots: List<QuickSlot>,
-    val phoneSlotFocused: Boolean,
     val speedDialLetters: Set<Char>,
     val speedDialKeys: SpeedDialKeys,
 )
@@ -198,7 +193,6 @@ private data class StripInputState(
 private data class StripNavigationActions(
     val onMovePage: (Int) -> Unit,
     val onQuickSlot: (QuickSlot) -> Unit,
-    val onDial: (Char) -> Unit,
     val onCommand: () -> Unit,
 )
 
@@ -213,17 +207,14 @@ private fun Modifier.startStripPreviewEvents(
     actions: StripNavigationActions,
 ): Modifier {
     val quickSlots = state.quickSlots
-    val phoneSlotFocused = state.phoneSlotFocused
     val onMovePage = actions.onMovePage
     val onQuickSlot = actions.onQuickSlot
-    val onDial = actions.onDial
     val onCommand = actions.onCommand
     return this
         .onPreviewKeyEvent { event ->
             val native = event.nativeKeyEvent
             val delta = StartPages.keyDelta(native.keyCode, native.metaState)
             val alt = native.metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) != 0
-            val dial = if (phoneSlotFocused) QuickBar.dialChar(native.unicodeChar) else null
             val slot =
                 QuickBar.shortcutSlot(
                     keyCode = native.keyCode,
@@ -239,10 +230,6 @@ private fun Modifier.startStripPreviewEvents(
 
                     alt && native.keyCode == AllAppsKeyPolicy.KEYCODE_SPACE -> {
                         onCommand
-                    }
-
-                    dial != null -> {
-                        { onDial(dial) }
                     }
 
                     slot != null -> {
