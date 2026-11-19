@@ -1,0 +1,266 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+package at.bitfire.davdroid.ui.account
+
+import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import at.bitfire.davdroid.accounts.AccountId
+import at.bitfire.davdroid.db.Collection
+import at.bitfire.davdroid.di.qualifier.IoDispatcher
+import at.bitfire.davdroid.repository.AccountRepository
+import at.bitfire.davdroid.repository.DavCollectionRepository
+import at.bitfire.davdroid.repository.DavServiceRepository
+import at.bitfire.davdroid.resource.local.LocalChangesCounter
+import at.bitfire.davdroid.servicedetection.RefreshCollectionsWorker
+import at.bitfire.davdroid.settings.AccountSettings
+import at.bitfire.davdroid.settings.AccountSettingsFactory
+import at.bitfire.davdroid.sync.SyncDataType
+import at.bitfire.davdroid.sync.TasksAppManager
+import at.bitfire.davdroid.sync.account.InvalidAccountException
+import at.bitfire.davdroid.sync.worker.SyncWorkerManager
+import dagger.Lazy
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.logging.Level
+import java.util.logging.Logger
+
+@HiltViewModel(assistedFactory = AccountScreenViewModel.Factory::class)
+class AccountScreenViewModel @AssistedInject constructor(
+    @Assisted val accountId: AccountId,
+    private val accountRepository: AccountRepository,
+    accountProgressUseCase: AccountProgressUseCase,
+    private val accountSettingsFactory: AccountSettingsFactory,
+    private val collectionRepository: DavCollectionRepository,
+    @ApplicationContext val context: Context,
+    private val collectionSelectedUseCase: Lazy<CollectionSelectedUseCase>,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    getBindableHomesetsFromService: GetBindableHomeSetsFromServiceUseCase,
+    getServiceCollectionPager: GetServiceCollectionPagerUseCase,
+    private val localChangesCounter: LocalChangesCounter,
+    private val logger: Logger,
+    serviceRepository: DavServiceRepository,
+    private val syncWorkerManager: SyncWorkerManager,
+    tasksAppManager: TasksAppManager
+): ViewModel() {
+
+    @AssistedFactory
+    interface Factory {
+        fun create(accountId: AccountId): AccountScreenViewModel
+    }
+
+    /**
+     * Only acquire account settings on a worker thread!
+     */
+    private val accountSettings: AccountSettings? by lazy {
+        try {
+            accountSettingsFactory.create(accountId)
+        } catch (_: InvalidAccountException) {
+            null
+        }
+    }
+
+    /** whether the account is invalid and the screen shall be closed */
+    val invalidAccount = accountRepository.getAllFlow().map { accountIds ->
+        accountId !in accountIds
+    }
+
+    /**
+     * Whether to show only personal collections.
+     */
+    private val _showOnlyPersonal = MutableStateFlow(false)
+    val showOnlyPersonal = _showOnlyPersonal.asStateFlow()
+    private suspend fun reloadShowOnlyPersonal() = withContext(ioDispatcher) {
+        accountSettings?.let {
+            _showOnlyPersonal.value = it.getShowOnlyPersonal()
+        }
+    }
+    fun setShowOnlyPersonal(showOnlyPersonal: Boolean) {
+        viewModelScope.launch(ioDispatcher) {
+            accountSettings?.setShowOnlyPersonal(showOnlyPersonal)
+            reloadShowOnlyPersonal()
+        }
+    }
+
+    /**
+     * Whether the user setting to show only personal collections is locked.
+     */
+    private var _showOnlyPersonalLocked = MutableStateFlow(false)
+    val showOnlyPersonalLocked = _showOnlyPersonalLocked.asStateFlow()
+    private suspend fun reloadShowOnlyPersonalLocked() = withContext(ioDispatcher) {
+        accountSettings?.let {
+            _showOnlyPersonalLocked.value = it.getShowOnlyPersonalLocked()
+        }
+    }
+
+    val accountName = accountRepository.getAccountNameFlow(accountId)
+
+    init {
+        viewModelScope.launch {
+            reloadShowOnlyPersonal()
+            reloadShowOnlyPersonalLocked()
+        }
+    }
+
+    val cardDavSvc = serviceRepository
+        .getCardDavServiceFlow(accountId)
+        .stateIn(viewModelScope, initialValue = null, started = SharingStarted.Eagerly)
+    private val bindableAddressBookHomesets = getBindableHomesetsFromService(cardDavSvc)
+    val canCreateAddressBook = bindableAddressBookHomesets.map { homeSets ->
+        homeSets.isNotEmpty()
+    }
+    val cardDavProgress: Flow<AccountProgress> = accountProgressUseCase(
+        accountId = accountId,
+        serviceFlow = cardDavSvc,
+        dataTypes = listOf(SyncDataType.CONTACTS)
+    )
+    val addressBooks = getServiceCollectionPager(
+        cardDavSvc,
+        Collection.TYPE_ADDRESSBOOK,
+        showOnlyPersonal,
+        viewModelScope
+    )
+
+    val calDavSvc = serviceRepository
+        .getCalDavServiceFlow(accountId)
+        .stateIn(viewModelScope, initialValue = null, started = SharingStarted.Eagerly)
+    private val bindableCalendarHomesets = getBindableHomesetsFromService(calDavSvc)
+    val canCreateCalendar = bindableCalendarHomesets.map { homeSets ->
+        homeSets.isNotEmpty()
+    }
+    val tasksProvider = tasksAppManager.currentProviderFlow()
+    val calDavProgress = accountProgressUseCase(
+        accountId = accountId,
+        serviceFlow = calDavSvc,
+        dataTypes = listOf(SyncDataType.EVENTS, SyncDataType.TASKS)
+    )
+    val calendars = getServiceCollectionPager(
+        calDavSvc,
+        Collection.TYPE_CALENDAR,
+        showOnlyPersonal,
+        viewModelScope
+    )
+    val subscriptions = getServiceCollectionPager(
+        calDavSvc,
+        Collection.TYPE_WEBCAL,
+        showOnlyPersonal,
+        viewModelScope
+    )
+
+
+    var error by mutableStateOf<String?>(null)
+        private set
+
+    fun resetError() { error = null }
+
+
+    var showNoWebcalApp by mutableStateOf(false)
+        private set
+
+    fun noWebcalApp() { showNoWebcalApp = true }
+    fun resetShowNoWebcalApp() { showNoWebcalApp = false }
+
+
+    // actions
+
+    /** Deletes the account from the system (won't touch collections on the server). */
+    fun deleteAccount() {
+        viewModelScope.launch {
+            accountRepository.delete(accountId)
+        }
+    }
+
+    fun refreshCollections() {
+        cardDavSvc.value?.let { svc ->
+            RefreshCollectionsWorker.enqueue(context, svc.id)
+        }
+        calDavSvc.value?.let { svc ->
+            RefreshCollectionsWorker.enqueue(context, svc.id)
+        }
+    }
+
+    /**
+     * Renames the account identified by [accountId] to given name.
+     *
+     * @param newName new account name
+     */
+    fun renameAccount(newName: String) {
+        viewModelScope.launch {
+            try {
+                val newAccountId = accountRepository.rename(accountId, newName)
+
+                // synchronize again
+                syncWorkerManager.enqueueOneTimeAllAuthorities(newAccountId, manual = true)
+            } catch (e: Exception) {
+                logger.log(Level.SEVERE, "Couldn't rename account", e)
+                error = e.localizedMessage
+            }
+        }
+    }
+
+    /** Request to turn off synchronization of a collection that waits for user confirmation */
+    var disableCollectionSyncRequest by mutableStateOf<DisableCollectionSyncRequest?>(null)
+        private set
+
+    /**
+     * Turns synchronization of a collection on, or asks for confirmation (see [disableCollectionSyncRequest])
+     * before turning it off because that removes local data.
+     */
+    fun setCollectionSync(id: Long, sync: Boolean) {
+        viewModelScope.launch {
+            if (sync) {
+                collectionRepository.setSync(id, true)
+                collectionSelectedUseCase.get().handleWithDelay(id)
+            } else {
+                val collection = collectionRepository.getAsync(id) ?: return@launch
+                val request = DisableCollectionSyncRequest(
+                    collectionId = id,
+                    title = collection.title()
+                )
+                disableCollectionSyncRequest = request
+
+                // show dialog immediately and count only once available (may take a while)
+                val unsyncedChanges = localChangesCounter.countUnsyncedChanges(accountId, collection)
+                if (disableCollectionSyncRequest === request)
+                    disableCollectionSyncRequest = request.copy(unsyncedChanges = unsyncedChanges)
+            }
+        }
+    }
+
+    fun confirmDisableCollectionSync() {
+        val request = disableCollectionSyncRequest ?: return
+        disableCollectionSyncRequest = null
+        viewModelScope.launch {
+            collectionRepository.setSync(request.collectionId, false)
+            collectionSelectedUseCase.get().handleWithDelay(request.collectionId)
+        }
+    }
+
+    fun dismissDisableCollectionSync() {
+        disableCollectionSyncRequest = null
+    }
+
+    fun sync() {
+        viewModelScope.launch {
+            syncWorkerManager.enqueueOneTimeAllAuthorities(accountId, manual = true)
+        }
+    }
+
+}

@@ -1,0 +1,442 @@
+package io.github.aimindseye.tenseven.platform
+
+import android.Manifest
+import android.content.ComponentName
+import android.content.Context
+import android.content.pm.PackageManager
+import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
+import android.net.Uri
+import android.provider.MediaStore
+import android.text.format.DateFormat
+import android.text.format.DateUtils
+import io.github.aimindseye.tenseven.conversations.ConversationAccess
+import io.github.aimindseye.tenseven.conversations.ConversationHub
+import io.github.aimindseye.tenseven.conversations.ConversationListenerService
+import io.github.aimindseye.tenseven.conversations.MailSummary
+import io.github.aimindseye.tenseven.live.AppUnreadCount
+import io.github.aimindseye.tenseven.live.LiveAvailability
+import io.github.aimindseye.tenseven.live.LiveDatum
+import io.github.aimindseye.tenseven.live.LiveSurfaceSnapshot
+import io.github.aimindseye.tenseven.model.StartText.t
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Date
+
+class LiveSurfaceRepository(
+    context: Context,
+) {
+    private val appContext = context.applicationContext
+    private val resolver = appContext.contentResolver
+    private val frameSummaries = AppFrameSummaryRepository(appContext)
+
+    fun initialSnapshot(nowEpochMs: Long = System.currentTimeMillis()): LiveSurfaceSnapshot {
+        val loading =
+            LiveDatum(
+                title = t("loading"),
+                detail = "loading",
+                availability = LiveAvailability.LOADING,
+                observedAtEpochMs = nowEpochMs,
+            )
+
+        return LiveSurfaceSnapshot(
+            dateText =
+                DateFormat
+                    .getMediumDateFormat(appContext)
+                    .format(Date(nowEpochMs)),
+            timeText =
+                DateFormat
+                    .getTimeFormat(appContext)
+                    .format(Date(nowEpochMs)),
+            weather = loading.copy(title = t("weather")),
+            calendar = loading.copy(title = t("calendar")),
+            messages = loading.copy(title = t("hub")),
+            mail = loading.copy(title = t("mail")),
+            music = loading.copy(title = t("media")),
+            photos = loading.copy(title = t("photos")),
+            observedAtEpochMs = nowEpochMs,
+        )
+    }
+
+    suspend fun snapshot(nowEpochMs: Long = System.currentTimeMillis()): LiveSurfaceSnapshot =
+        withContext(Dispatchers.IO) {
+            LiveSurfaceSnapshot(
+                dateText =
+                    DateFormat
+                        .getMediumDateFormat(appContext)
+                        .format(Date(nowEpochMs)),
+                timeText =
+                    DateFormat
+                        .getTimeFormat(appContext)
+                        .format(Date(nowEpochMs)),
+                // Android has no weather source of its own: the tile opens the default weather app.
+                weather =
+                    LiveDatum(
+                        title = t("weather"),
+                        detail = "unavailable",
+                        availability = LiveAvailability.UNAVAILABLE,
+                    ),
+                calendar = nextCalendarEvent(nowEpochMs),
+                messages =
+                    providerSnapshot(
+                        uri = MESSAGES_URI,
+                        fallbackTitle = t("hub"),
+                    ).let { provider ->
+                        if (provider.availability == LiveAvailability.LIVE || provider.availability == LiveAvailability.EMPTY) {
+                            provider
+                        } else {
+                            ownMessages(nowEpochMs, provider)
+                        }
+                    },
+                mail = latestMail(nowEpochMs),
+                music = nowPlaying(),
+                photos =
+                    mediaCount(
+                        permission = Manifest.permission.READ_MEDIA_IMAGES,
+                        uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        title = t("photos"),
+                        noun = "photo",
+                    ),
+                observedAtEpochMs = nowEpochMs,
+                hubApps = hubAppCounts(),
+                calendarPackages = calendarPackages(),
+                appSummaries = frameSummaries.snapshot(nowEpochMs),
+            )
+        }
+
+    /** The next calendar event in the coming week, from the phone's calendar (needs the Calendar permission). */
+    private fun nextCalendarEvent(nowEpochMs: Long): LiveDatum {
+        val title = t("calendar")
+        if (appContext.checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            return LiveDatum(title, t("permission_required"), LiveAvailability.PERMISSION_REQUIRED)
+        }
+        return try {
+            val selected = StartStateRepository(appContext).loadHubSelectedCalendarIds()
+            val event = HubCalendarRepository(appContext).upcoming(nowEpochMs, selected).firstOrNull()
+            if (event == null) {
+                LiveDatum(title, NO_EVENTS, LiveAvailability.EMPTY, nowEpochMs)
+            } else {
+                val name = event.title
+                val begin = event.beginsAt
+                val allDay = event.allDay
+                val flags =
+                    if (allDay) {
+                        DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_ABBREV_ALL
+                    } else {
+                        DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_SHOW_WEEKDAY or
+                            DateUtils.FORMAT_ABBREV_ALL
+                    }
+                // An all-day event's times are midnight UTC, so format it in UTC to keep its date.
+                val whenText =
+                    if (allDay) {
+                        DateUtils
+                            .formatDateRange(
+                                appContext,
+                                java.util.Formatter(StringBuilder(), java.util.Locale.getDefault()),
+                                begin,
+                                begin,
+                                flags,
+                                "UTC",
+                            ).toString()
+                    } else {
+                        DateUtils.formatDateTime(appContext, begin, flags)
+                    }
+                LiveDatum(title, "$name · $whenText", LiveAvailability.LIVE, nowEpochMs)
+            }
+        } catch (_: SecurityException) {
+            LiveDatum(title, t("permission_required"), LiveAvailability.PERMISSION_REQUIRED)
+        } catch (_: RuntimeException) {
+            LiveDatum(title, t("provider_error"), LiveAvailability.ERROR)
+        }
+    }
+
+    private fun calendarPackages(): Set<String> =
+        runCatching {
+            appContext.packageManager
+                .queryIntentActivities(
+                    android.content.Intent.makeMainSelectorActivity(
+                        android.content.Intent.ACTION_MAIN,
+                        DefaultApps
+                            .CALENDAR,
+                    ),
+                    PackageManager.MATCH_ALL,
+                ).map { it.activityInfo.packageName }
+                .toSet()
+        }.getOrDefault(emptySet())
+
+    /**
+     * What is playing, from the active media sessions. Android only lists them to an app that holds notification
+     * access, which Tenseven's own listener provides once the user turns it on.
+     */
+    private fun nowPlaying(): LiveDatum {
+        val title = t("media")
+        return try {
+            val manager = appContext.getSystemService(MediaSessionManager::class.java)
+            val listener = ComponentName(appContext, ConversationListenerService::class.java)
+            val controllers = manager?.getActiveSessions(listener).orEmpty()
+            val active =
+                controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: controllers.firstOrNull()
+            val metadata = active?.metadata
+            val track = metadata?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE).orEmpty()
+            val artist = metadata?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST).orEmpty()
+            if (active == null || track.isBlank()) {
+                LiveDatum(title, NOTHING_PLAYING, LiveAvailability.EMPTY, System.currentTimeMillis())
+            } else {
+                val line = if (artist.isBlank()) track else "$track · $artist"
+                val playing = active.playbackState?.state == PlaybackState.STATE_PLAYING
+                LiveDatum(
+                    title,
+                    if (playing) line else "Paused: $line",
+                    LiveAvailability.LIVE,
+                    System.currentTimeMillis(),
+                    active.packageName,
+                )
+            }
+        } catch (_: SecurityException) {
+            LiveDatum(title, t("permission_required"), LiveAvailability.PERMISSION_REQUIRED)
+        } catch (_: RuntimeException) {
+            LiveDatum(title, t("provider_error"), LiveAvailability.ERROR)
+        }
+    }
+
+    /**
+     * Per-app unread counts (package and count only). Sable Hub's when it is there; otherwise Tenseven's own
+     * notification listener's, which is empty until the user grants notification access.
+     */
+    private fun hubAppCounts(): List<AppUnreadCount> {
+        ConversationHub.ensureStateLoaded(appContext)
+        // One listener-backed count source for BB7, BB10, Hub badges and the lock layer.
+        // On a platform with no listener, retain Sable Hub's existing provider fallback.
+        if (ConversationAccess.isGranted(appContext)) {
+            val lockCounts =
+                LockLayerState.counts.entries
+                    .filter { it.value > 0 }
+                    .map { AppUnreadCount(it.key, it.value) }
+                    .sortedWith(compareByDescending<AppUnreadCount> { it.count }.thenBy { it.packageName })
+                    .take(MAX_HUB_APPS)
+            if (lockCounts.isNotEmpty()) return lockCounts
+            return ConversationHub.unreadCounts(MAX_HUB_APPS)
+        }
+        return providerHubAppCounts()
+    }
+
+    /*
+     * The Mail tile: the newest unread email, from the email notifications Tenseven's listener reads (Android has
+     * no public mail data API). Without notification access the tile just opens the default email app. The text is
+     * hidden while the phone is locked.
+     */
+
+    /** The Hub's messages line when Sable Hub is not installed: unread message conversations from Tenseven's listener. */
+    private fun ownMessages(
+        nowEpochMs: Long,
+        unavailable: LiveDatum,
+    ): LiveDatum {
+        if (!ConversationAccess.isGranted(appContext)) return unavailable
+        ConversationHub.ensureStateLoaded(appContext)
+        val state = ConversationHub.state()
+        val unread =
+            ConversationHub
+                .conversations()
+                .filter { !it.isEmail && !state.isSnoozed(it.id, nowEpochMs) && state.unreadCount(it) > 0 }
+        val count = unread.sumOf { state.unreadCount(it) }
+        val newest = unread.maxByOrNull { it.latestMessage?.timestamp ?: it.latestNotification.postedAt }
+        val locked = appContext.getSystemService(android.app.KeyguardManager::class.java)?.isDeviceLocked == true
+        return LiveDatum(
+            title = t("hub"),
+            detail = MailSummary.messagesHeadline(count, newest?.name, newest?.latestMessage?.text, locked),
+            availability = if (count > 0) LiveAvailability.LIVE else LiveAvailability.EMPTY,
+            observedAtEpochMs = nowEpochMs,
+        )
+    }
+
+    private fun latestMail(nowEpochMs: Long): LiveDatum {
+        val title = t("mail")
+        if (!ConversationAccess.isGranted(appContext)) return LiveDatum(title, "unavailable", LiveAvailability.UNAVAILABLE)
+        ConversationHub.ensureStateLoaded(appContext)
+        val state = ConversationHub.state()
+        val mail = ConversationHub.conversations().filter { it.isEmail && !state.isSnoozed(it.id, nowEpochMs) }
+        val unread = mail.filter { state.unreadCount(it) > 0 }
+        val count = unread.sumOf { state.unreadCount(it) }
+        val newest = unread.maxByOrNull { it.latestMessage?.timestamp ?: it.latestNotification.postedAt }
+        val locked = appContext.getSystemService(android.app.KeyguardManager::class.java)?.isDeviceLocked == true
+        return LiveDatum(
+            title = title,
+            detail = MailSummary.headline(count, newest?.name, newest?.latestMessage?.text, locked),
+            availability = if (count > 0) LiveAvailability.LIVE else LiveAvailability.EMPTY,
+            observedAtEpochMs = nowEpochMs,
+        )
+    }
+
+    private fun providerHubAppCounts(): List<AppUnreadCount> =
+        runCatching {
+            resolver.query(HUB_APPS_URI, arrayOf("package", "count"), null, null, null)?.use { cursor ->
+                val pkg = cursor.getColumnIndexOrThrow("package")
+                val count = cursor.getColumnIndexOrThrow("count")
+                buildList {
+                    while (cursor.moveToNext() && size < MAX_HUB_APPS) {
+                        val name = cursor.getString(pkg)?.trim().orEmpty()
+                        val value = cursor.getInt(count)
+                        if (name.isNotEmpty() && value > 0) add(AppUnreadCount(name, value))
+                    }
+                }
+            }
+        }.getOrNull().orEmpty()
+
+    private fun providerSnapshot(
+        uri: Uri,
+        fallbackTitle: String,
+    ): LiveDatum =
+        runCatching {
+            resolver
+                .query(
+                    uri,
+                    arrayOf(
+                        "title",
+                        "detail",
+                        "availability",
+                        "observed_at",
+                    ),
+                    null,
+                    null,
+                    null,
+                )?.use { cursor ->
+                    if (!cursor.moveToFirst()) return@use null
+
+                    val title =
+                        cursor
+                            .getString(
+                                cursor.getColumnIndexOrThrow("title"),
+                            )?.trim()
+                            .orEmpty()
+                            .ifEmpty { fallbackTitle }
+                    val detail =
+                        cursor
+                            .getString(
+                                cursor.getColumnIndexOrThrow("detail"),
+                            )?.trim()
+                            .orEmpty()
+                            .ifEmpty { "unavailable" }
+                    val availability =
+                        cursor
+                            .getString(
+                                cursor.getColumnIndexOrThrow("availability"),
+                            ).toLiveAvailability()
+                    val observedAt =
+                        cursor
+                            .getColumnIndex("observed_at")
+                            .takeIf { it >= 0 }
+                            ?.let(cursor::getLong)
+                            ?: 0L
+
+                    LiveDatum(
+                        title = title,
+                        detail = detail,
+                        availability = availability,
+                        observedAtEpochMs = observedAt,
+                    )
+                }
+        }.getOrNull()
+            ?: LiveDatum(
+                title = fallbackTitle,
+                detail = "unavailable",
+                availability = LiveAvailability.UNAVAILABLE,
+            )
+
+    private fun String?.toLiveAvailability(): LiveAvailability =
+        when (this?.uppercase()) {
+            "LIVE", "STALE" -> LiveAvailability.LIVE
+            "EMPTY" -> LiveAvailability.EMPTY
+            "PERMISSION_REQUIRED" -> LiveAvailability.PERMISSION_REQUIRED
+            "LOADING", "FETCHING", "LOCAL" -> LiveAvailability.LOADING
+            "ERROR", "FAILED" -> LiveAvailability.ERROR
+            else -> LiveAvailability.UNAVAILABLE
+        }
+
+    private fun mediaCount(
+        permission: String,
+        uri: Uri,
+        title: String,
+        noun: String,
+    ): LiveDatum {
+        if (
+            appContext.checkSelfPermission(permission) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return LiveDatum(
+                title = title,
+                detail = t("permission_required"),
+                availability = LiveAvailability.PERMISSION_REQUIRED,
+            )
+        }
+
+        return try {
+            val count =
+                resolver
+                    .query(
+                        uri,
+                        arrayOf(MediaStore.MediaColumns._ID),
+                        null,
+                        null,
+                        null,
+                    )?.use { cursor -> cursor.count } ?: 0
+
+            LiveDatum(
+                title = title,
+                detail =
+                    if (count == 0) {
+                        "no " + noun + "s found"
+                    } else {
+                        count.toString() +
+                            " " +
+                            if (count == 1) noun else noun + "s"
+                    },
+                availability =
+                    if (count == 0) {
+                        LiveAvailability.EMPTY
+                    } else {
+                        LiveAvailability.LIVE
+                    },
+                observedAtEpochMs = System.currentTimeMillis(),
+            )
+        } catch (_: SecurityException) {
+            LiveDatum(
+                title = title,
+                detail = t("permission_required"),
+                availability = LiveAvailability.PERMISSION_REQUIRED,
+            )
+        } catch (_: RuntimeException) {
+            LiveDatum(
+                title = title,
+                detail = t("provider_error"),
+                availability = LiveAvailability.ERROR,
+            )
+        }
+    }
+
+    companion object {
+        val CALENDAR_URI: Uri =
+            Uri.parse("content://org.sableos.calendar.snapshot/current")
+        val MESSAGES_URI: Uri =
+            Uri.parse("content://org.sableos.hub.snapshot/current")
+
+        /** Per-app unread counts; Hub notifies [MESSAGES_URI] when they change. */
+        val HUB_APPS_URI: Uri =
+            Uri.parse("content://org.sableos.hub.snapshot/apps")
+        private const val MAX_HUB_APPS = 32
+        private const val NO_EVENTS = "no events this week"
+        private const val NOTHING_PLAYING = "nothing playing"
+        val MAIL_URI: Uri =
+            Uri.parse("content://org.sableos.mail.snapshot/current")
+        val MEDIA_URI: Uri =
+            Uri.parse("content://org.sableos.media.snapshot/current")
+
+        val OBSERVED_URIS: List<Uri> =
+            listOf(
+                CALENDAR_URI,
+                MESSAGES_URI,
+                MAIL_URI,
+                MEDIA_URI,
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            )
+    }
+}

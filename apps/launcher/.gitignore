@@ -1,0 +1,29 @@
+# Gradle and Android
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.cxx/
+.externalNativeBuild/
+
+# Signing material and device files must never be committed
+*.jks
+keystore.properties
+*.keystore
+*.pk8
+*.apk
+*.aab
+*.img
+
+# OS and editors
+.DS_Store
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+
+# Local physical-device qualification output, never automatic compatibility proof.
+/qualification-evidence/

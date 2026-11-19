@@ -1,0 +1,309 @@
+package io.github.sds100.keymapper.base.constraints
+
+import android.media.AudioManager
+import android.os.Build
+import io.github.sds100.keymapper.base.system.accessibility.IAccessibilityService
+import io.github.sds100.keymapper.base.variables.VariableComparison
+import io.github.sds100.keymapper.base.variables.VariablesUseCase
+import io.github.sds100.keymapper.common.utils.Orientation
+import io.github.sds100.keymapper.common.utils.PhysicalOrientation
+import io.github.sds100.keymapper.common.utils.SizeKM
+import io.github.sds100.keymapper.common.utils.firstBlocking
+import io.github.sds100.keymapper.system.bluetooth.BluetoothDeviceInfo
+import io.github.sds100.keymapper.system.camera.CameraAdapter
+import io.github.sds100.keymapper.system.devices.DevicesAdapter
+import io.github.sds100.keymapper.system.display.DisplayAdapter
+import io.github.sds100.keymapper.system.display.DisplayInfo
+import io.github.sds100.keymapper.system.foldable.FoldableAdapter
+import io.github.sds100.keymapper.system.foldable.HingeState
+import io.github.sds100.keymapper.system.foldable.isClosed
+import io.github.sds100.keymapper.system.foldable.isOpen
+import io.github.sds100.keymapper.system.inputmethod.InputMethodAdapter
+import io.github.sds100.keymapper.system.lock.LockScreenAdapter
+import io.github.sds100.keymapper.system.media.MediaAdapter
+import io.github.sds100.keymapper.system.network.NetworkAdapter
+import io.github.sds100.keymapper.system.notifications.NotificationAdapter
+import io.github.sds100.keymapper.system.notifications.PostedNotification
+import io.github.sds100.keymapper.system.phone.CallState
+import io.github.sds100.keymapper.system.phone.PhoneAdapter
+import io.github.sds100.keymapper.system.power.PowerAdapter
+import io.github.sds100.keymapper.system.volume.DndMode
+import io.github.sds100.keymapper.system.volume.RingerMode
+import io.github.sds100.keymapper.system.volume.VolumeAdapter
+import java.time.LocalTime
+
+/**
+ * This allows constraints to be checked lazily because some system calls take a significant amount of time.
+ */
+class LazyConstraintSnapshot(
+    private val accessibilityService: IAccessibilityService,
+    mediaAdapter: MediaAdapter,
+    devicesAdapter: DevicesAdapter,
+    private val displayAdapter: DisplayAdapter,
+    networkAdapter: NetworkAdapter,
+    private val cameraAdapter: CameraAdapter,
+    inputMethodAdapter: InputMethodAdapter,
+    lockScreenAdapter: LockScreenAdapter,
+    phoneAdapter: PhoneAdapter,
+    powerAdapter: PowerAdapter,
+    private val foldableAdapter: FoldableAdapter,
+    volumeAdapter: VolumeAdapter,
+    notificationAdapter: NotificationAdapter,
+    variablesUseCase: VariablesUseCase,
+) : ConstraintSnapshot {
+    private val appInForeground: String? by lazy { accessibilityService.rootNode?.packageName }
+    private val connectedBluetoothDevices: Set<BluetoothDeviceInfo> by lazy {
+        devicesAdapter.connectedBluetoothDevices.value
+    }
+    private val orientation: Orientation by lazy { getActiveDisplay()!!.rotation }
+    private val physicalOrientation: PhysicalOrientation by lazy {
+        displayAdapter.cachedPhysicalOrientation
+    }
+    private val isScreenOn: Boolean by lazy { displayAdapter.isScreenOn.firstBlocking() }
+    private val displaySize: SizeKM by lazy {
+        getActiveDisplay()!!.physicalSize
+    }
+
+    private val appsPlayingMedia: List<String> by lazy {
+        mediaAdapter.getActiveMediaSessionPackages()
+    }
+
+    private val audioVolumeStreams: Set<Int> by lazy {
+        mediaAdapter.getActiveAudioVolumeStreams()
+    }
+
+    private val isWifiEnabled: Boolean by lazy { networkAdapter.isWifiEnabled() }
+    private val connectedWifiSSID: String? by lazy {
+        networkAdapter.connectedWifiSSIDFlow.firstBlocking()
+    }
+    private val chosenImeId: String? by lazy { inputMethodAdapter.chosenIme.value?.id }
+    private val isKeyboardShowing: Boolean by lazy {
+        accessibilityService.isInputMethodVisible.firstBlocking()
+    }
+    private val callState: CallState? by lazy { phoneAdapter.getCallState() }
+    private val isCharging: Boolean by lazy { powerAdapter.isCharging.value }
+    private val ringerMode: RingerMode by lazy { volumeAdapter.ringerMode }
+    private val dndMode: DndMode? by lazy { volumeAdapter.dndMode }
+
+    private val isLocked: Boolean by lazy {
+        lockScreenAdapter.isLocked()
+    }
+
+    private val isLockscreenShowing: Boolean by lazy {
+        lockScreenAdapter.isLockScreenShowing()
+    }
+
+    private val isNotificationShadeExpanded: Boolean by lazy {
+        accessibilityService.isNotificationShadeExpanded.firstBlocking()
+    }
+
+    private val activeNotifications: List<PostedNotification> by lazy {
+        notificationAdapter.activeNotifications.value
+    }
+
+    private val variables: Map<String, Long> by lazy { variablesUseCase.getValues() }
+
+    private val localTime = LocalTime.now()
+
+    private fun isMediaPlaying(): Boolean {
+        return audioVolumeStreams.contains(AudioManager.STREAM_MUSIC) ||
+            appsPlayingMedia.isNotEmpty()
+    }
+
+    override fun isSatisfied(constraint: Constraint): Boolean {
+        val isSatisfied = when (constraint.data) {
+            is ConstraintData.AppInForeground -> appInForeground == constraint.data.packageName
+
+            is ConstraintData.AppPlayingMedia ->
+                appsPlayingMedia.contains(constraint.data.packageName) ||
+                    (appInForeground == constraint.data.packageName && isMediaPlaying())
+
+            is ConstraintData.MediaPlaying -> isMediaPlaying()
+
+            is ConstraintData.BtDeviceConnected -> {
+                connectedBluetoothDevices.any { it.address == constraint.data.bluetoothAddress }
+            }
+
+            is ConstraintData.OrientationCustom -> orientation == constraint.data.orientation
+
+            is ConstraintData.OrientationLandscape ->
+                orientation == Orientation.ORIENTATION_90 ||
+                    orientation == Orientation.ORIENTATION_270
+
+            is ConstraintData.OrientationPortrait ->
+                orientation == Orientation.ORIENTATION_0 ||
+                    orientation == Orientation.ORIENTATION_180
+
+            is ConstraintData.PhysicalOrientation ->
+                physicalOrientation == constraint.data.physicalOrientation
+
+            is ConstraintData.ScreenOn -> isScreenOn
+
+            // Compare the resolution regardless of orientation so that the constraint
+            // holds whether the device is in portrait or landscape.
+            is ConstraintData.DisplayResolution ->
+                (
+                    displaySize.width == constraint.data.width &&
+                        displaySize.height == constraint.data.height
+                    ) ||
+                    (
+                        displaySize.width == constraint.data.height &&
+                            displaySize.height == constraint.data.width
+                        )
+
+            is ConstraintData.FlashlightOn -> cameraAdapter.isFlashlightOn(constraint.data.lens)
+
+            is ConstraintData.WifiConnected -> {
+                if (constraint.data.ssid == null) {
+                    // connected to any network
+                    connectedWifiSSID != null
+                } else {
+                    connectedWifiSSID == constraint.data.ssid
+                }
+            }
+
+            is ConstraintData.WifiOn -> isWifiEnabled
+
+            is ConstraintData.ImeChosen -> chosenImeId == constraint.data.imeId
+
+            is ConstraintData.KeyboardShowing -> isKeyboardShowing
+
+            is ConstraintData.DeviceIsLocked -> isLocked
+
+            is ConstraintData.InPhoneCall ->
+                callState == CallState.IN_PHONE_CALL ||
+                    audioVolumeStreams.contains(AudioManager.STREAM_VOICE_CALL)
+
+            is ConstraintData.NotInPhoneCall ->
+                callState == CallState.NONE &&
+                    !audioVolumeStreams.contains(AudioManager.STREAM_VOICE_CALL)
+
+            is ConstraintData.PhoneRinging ->
+                callState == CallState.RINGING ||
+                    audioVolumeStreams.contains(AudioManager.STREAM_RING)
+
+            is ConstraintData.RingerMode -> ringerMode == constraint.data.ringerMode
+
+            is ConstraintData.DoNotDisturb ->
+                if (constraint.data.dndMode == null) {
+                    dndMode != null
+                } else {
+                    dndMode == constraint.data.dndMode
+                }
+
+            is ConstraintData.Charging -> isCharging
+
+            is ConstraintData.HingeClosed -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    when (val state = foldableAdapter.hingeState.value) {
+                        is HingeState.Available -> state.isClosed()
+                        is HingeState.Unavailable -> false
+                    }
+                } else {
+                    false
+                }
+            }
+
+            is ConstraintData.HingeOpen -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    when (val state = foldableAdapter.hingeState.value) {
+                        is HingeState.Available -> state.isOpen()
+                        is HingeState.Unavailable -> false
+                    }
+                } else {
+                    false
+                }
+            }
+
+            // The keyguard manager still reports the lock screen as showing if you are in
+            // an another activity like the camera app while the phone is locked.
+            is ConstraintData.LockScreenShowing ->
+                isLockscreenShowing &&
+                    appInForeground == "com.android.systemui"
+
+            is ConstraintData.NotificationPanelShowing -> isNotificationShadeExpanded
+
+            is ConstraintData.NotificationPosted -> if (constraint.isNot) {
+                // Some notifications will not match, such as from the system. The text will
+                // be replaced with a stub saying it is sensitive content.
+
+                // If it is not then none of the notifications can match.
+                return activeNotifications.none {
+                    NotificationConstraintMatcher.matches(it, constraint.data)
+                }
+            } else {
+                return activeNotifications.any {
+                    NotificationConstraintMatcher.matches(it, constraint.data)
+                }
+            }
+
+            is ConstraintData.Time ->
+                if (constraint.data.startTime.isAfter(constraint.data.endTime)) {
+                    localTime.isAfter(constraint.data.startTime) ||
+                        localTime.isBefore(constraint.data.endTime)
+                } else {
+                    localTime.isAfter(constraint.data.startTime) &&
+                        localTime.isBefore(constraint.data.endTime)
+                }
+
+            is ConstraintData.Variable -> {
+                // A variable that has never been set counts as 0.
+                val currentValue = variables[constraint.data.name] ?: 0L
+
+                when (constraint.data.comparison) {
+                    VariableComparison.EQUALS -> currentValue == constraint.data.value
+                    VariableComparison.GREATER_THAN -> currentValue > constraint.data.value
+                    VariableComparison.LESS_THAN -> currentValue < constraint.data.value
+                }
+            }
+        }
+
+        return isSatisfied != constraint.isNot
+    }
+
+    private fun getActiveDisplay(): DisplayInfo? {
+        return displayAdapter.getDisplay(accessibilityService.getActiveDisplayId())
+    }
+}
+
+interface ConstraintSnapshot {
+    /**
+     * Whether the constraint is satisfied, taking into account whether it is inverted.
+     */
+    fun isSatisfied(constraint: Constraint): Boolean
+}
+
+/**
+ * Whether multiple constraint states are satisfied. This does an AND on the
+ * constraint states.
+ */
+fun ConstraintSnapshot.isSatisfied(vararg constraintState: ConstraintState): Boolean {
+    for (state in constraintState) {
+        if (!isStateSatisfied(state)) {
+            return false
+        }
+    }
+
+    return true
+}
+
+private fun ConstraintSnapshot.isStateSatisfied(state: ConstraintState): Boolean {
+    // Empty groups are ignored and if there are no constraints then it is still satisfied.
+    val groups = state.groups.filter { it.constraints.isNotEmpty() }
+
+    if (groups.isEmpty()) {
+        return true
+    }
+
+    return when (state.mode) {
+        ConstraintMode.AND -> groups.all { isGroupSatisfied(it) }
+        ConstraintMode.OR -> groups.any { isGroupSatisfied(it) }
+    }
+}
+
+private fun ConstraintSnapshot.isGroupSatisfied(group: ConstraintGroup): Boolean {
+    return when (group.mode) {
+        ConstraintMode.AND -> group.constraints.all { isSatisfied(it) }
+        ConstraintMode.OR -> group.constraints.any { isSatisfied(it) }
+    }
+}

@@ -1,0 +1,256 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+package at.bitfire.davdroid.sync
+
+import android.app.PendingIntent
+import android.app.TaskStackBuilder
+import android.content.Context
+import android.content.Intent
+import android.provider.CalendarContract
+import android.provider.ContactsContract
+import android.provider.Settings
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.net.toUri
+import at.bitfire.dav4jvm.ktor.exception.UnauthorizedException
+import at.bitfire.davdroid.R
+import at.bitfire.davdroid.accounts.AccountId
+import at.bitfire.davdroid.repository.AccountRepository
+import at.bitfire.davdroid.resource.local.LocalResource
+import at.bitfire.davdroid.ui.DebugInfoActivity
+import at.bitfire.davdroid.ui.NotificationRegistry
+import at.bitfire.davdroid.ui.account.AccountSettingsActivity
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.qualifiers.ApplicationContext
+import io.ktor.http.Url
+import java.io.IOException
+import java.util.logging.Logger
+
+class SyncNotificationManager @AssistedInject constructor(
+    @Assisted val accountId: AccountId,
+    private val accountRepository: AccountRepository,
+    @ApplicationContext private val context: Context,
+    private val logger: Logger,
+    private val notificationRegistry: NotificationRegistry
+) {
+
+    @AssistedFactory
+    interface Factory {
+        fun create(accountId: AccountId): SyncNotificationManager
+    }
+
+    /**
+     * Tries to inform the user that the content provider is missing or disabled.
+     *
+     * Use [dismissProviderError] to dismiss the notification.
+     *
+     * @param authority The authority of the content provider.
+     */
+    suspend fun notifyProviderError(authority: String) {
+        val (titleResource, textResource) = when (authority) {
+            ContactsContract.AUTHORITY ->
+                R.string.sync_warning_contacts_storage_disabled_title to
+                R.string.sync_warning_contacts_storage_disabled_description
+            CalendarContract.AUTHORITY ->
+                R.string.sync_warning_calendar_storage_disabled_title to
+                R.string.sync_warning_calendar_storage_disabled_description
+            else -> {
+                logger.warning("Content provider error for unknown authority: $authority")
+                return
+            }
+        }
+
+        val accountName = accountRepository.getAccountName(accountId)
+        notificationRegistry.notifyIfPossible(NotificationRegistry.NOTIFY_SYNC_ERROR, tag = authority) {
+            NotificationCompat.Builder(context, notificationRegistry.CHANNEL_SYNC_ERRORS)
+                .setSmallIcon(R.drawable.ic_sync_problem_notify)
+                .setContentTitle(context.getString(titleResource))
+                .setContentText(context.getString(textResource))
+                .setSubText(accountName)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setCategory(NotificationCompat.CATEGORY_ERROR)
+                .setAutoCancel(true)
+                .addAction(NotificationCompat.Action(
+                    android.R.drawable.ic_menu_view,
+                    context.getString(R.string.sync_warning_manage_apps),
+                    PendingIntent.getActivity(context, 0,
+                        Intent(Settings.ACTION_APPLICATION_SETTINGS),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                ))
+                .build()
+        }
+    }
+
+    /**
+     * Dismisses the notification for content provider errors.
+     *
+     * @param authority The authority of the content provider used as notification tag.
+     */
+    fun dismissProviderError(authority: String) =
+        dismissNotification(authority)
+
+    /**
+     * Notifies the user that an exception occurred during synchronization. Includes the affected
+     * local resource, its collection, the URL, the exception and a user message.
+     *
+     * Use [dismissCollectionError] to dismiss the notification.
+     *
+     * @param syncDataType      The type of data which was synced.
+     * @param collectionId      ID of the affected collection, used to derive the notification tag.
+     * @param message           The message to show to the user.
+     * @param title             The title of the notification (usually the affected collection's title).
+     * @param e                 The exception that occurred.
+     * @param local             The affected local resource.
+     * @param remote            The remote URL that caused the exception.
+     */
+    suspend fun notifyException(
+        syncDataType: SyncDataType,
+        collectionId: Long,
+        message: String,
+        title: String,
+        e: Throwable,
+        local: LocalResource?,
+        remote: Url?
+    ) {
+        val accountName = accountRepository.getAccountName(accountId)
+        notificationRegistry.notifyIfPossible(NotificationRegistry.NOTIFY_SYNC_ERROR, tag = buildTag(collectionId)) {
+            val contentIntent: Intent
+            if (e is UnauthorizedException) {
+                contentIntent = AccountSettingsActivity.createIntent(context, accountId)
+            } else {
+                contentIntent = buildDebugInfoIntent(syncDataType, e, local, remote)
+            }
+
+            // to make the PendingIntent unique
+            contentIntent.data = "davdroid:exception/${e.hashCode()}".toUri()
+
+            val channel: String
+            val priority: Int
+            if (e is IOException) {
+                channel = notificationRegistry.CHANNEL_SYNC_IO_ERRORS
+                priority = NotificationCompat.PRIORITY_MIN
+            } else {
+                channel = notificationRegistry.CHANNEL_SYNC_ERRORS
+                priority = NotificationCompat.PRIORITY_DEFAULT
+            }
+
+            val builder = NotificationCompat.Builder(context, channel)
+            builder.setSmallIcon(R.drawable.ic_sync_problem_notify)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setStyle(NotificationCompat.BigTextStyle(builder).bigText(message))
+                .setSubText(accountName)
+                .setOnlyAlertOnce(true)
+                .setContentIntent(
+                    TaskStackBuilder.create(context)
+                        .addNextIntentWithParentStack(contentIntent)
+                        .getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                )
+                .setPriority(priority)
+                .setCategory(NotificationCompat.CATEGORY_ERROR)
+
+            builder.build()
+        }
+    }
+
+    /**
+     * Sends a notification to inform the user that a resource couldn't be processed during sync
+     * and was ignored.
+     *
+     * @param dataType          The type of data which was synced.
+     * @param collectionId      ID of the affected collection, used to derive the notification tag.
+     * @param e                 The exception that occurred while processing the resource.
+     * @param remote            URL of the resource that couldn't be processed, if it could be resolved.
+     * @param title             The title of the notification.
+     */
+    suspend fun notifyInvalidResource(
+        dataType: SyncDataType,
+        collectionId: Long,
+        e: Throwable,
+        remote: Url?,
+        title: String
+    ) {
+        val accountName = accountRepository.getAccountName(accountId)
+        notificationRegistry.notifyIfPossible(
+            NotificationRegistry.NOTIFY_INVALID_RESOURCE,
+            tag = buildTag(collectionId)
+        ) {
+            val intent = buildDebugInfoIntent(dataType, e, null, remote)
+
+            val builder = NotificationCompat.Builder(context, notificationRegistry.CHANNEL_SYNC_WARNINGS)
+            builder.setSmallIcon(R.drawable.ic_warning_notify)
+                .setContentTitle(title)
+                .setContentText(context.getString(R.string.sync_invalid_resources_ignoring))
+                .setSubText(accountName)
+                .setContentIntent(
+                    TaskStackBuilder.create(context)
+                        .addNextIntent(intent)
+                        .getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                )
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
+                .priority = NotificationCompat.PRIORITY_LOW
+            builder.build()
+        }
+    }
+
+    /**
+     * Dismisses the (error) notification for a specific collection.
+     *
+     * @param collectionId ID of the collection whose notification should be dismissed.
+     */
+    fun dismissCollectionError(collectionId: Long) =
+        dismissNotification(buildTag(collectionId))
+
+
+    // helpers
+
+    /**
+     * Builds the notification tag for a given collection. Used to uniquely identify (and dismiss)
+     * sync error/warning notifications for that collection.
+     */
+    private fun buildTag(collectionId: Long) = "collection-$collectionId"
+
+    /**
+     * Dismisses the sync error notification for a specific tag.
+     */
+    private fun dismissNotification(tag: String) = NotificationManagerCompat.from(context)
+        .cancel(tag, NotificationRegistry.NOTIFY_SYNC_ERROR)
+
+    /**
+     * Builds intent to go to debug information with the given exception, resource and remote address.
+     */
+    private fun buildDebugInfoIntent(
+        dataType: SyncDataType,
+        e: Throwable,
+        local: LocalResource?,
+        remote: Url?
+    ): Intent {
+        val builder = DebugInfoActivity.IntentBuilder(context)
+            .withAccount(accountId)
+            .withSyncDataType(dataType)
+            .withCause(e)
+
+        if (local != null)
+            try {
+                // Add local resource summary, if available
+                builder.withLocalResource(local.getDebugSummary())
+
+                // Add URI to view local resource, if available
+                builder.withLocalResourceUri(local.getViewUri(context))
+            } catch (_: Throwable) {
+                // Ignore all potential exceptions that arise from providing information about the local resource
+            }
+
+        if (remote != null)
+            builder.withRemoteResource(remote)
+
+        return builder.build()
+    }
+
+}

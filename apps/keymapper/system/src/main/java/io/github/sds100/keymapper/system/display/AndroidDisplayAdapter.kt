@@ -1,0 +1,356 @@
+package io.github.sds100.keymapper.system.display
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.Point
+import android.hardware.display.DisplayManager
+import android.os.Build
+import android.provider.Settings
+import android.view.Display
+import android.view.OrientationEventListener
+import android.view.Surface
+import androidx.core.content.ContextCompat
+import androidx.core.content.getSystemService
+import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.sds100.keymapper.common.utils.KMError
+import io.github.sds100.keymapper.common.utils.KMResult
+import io.github.sds100.keymapper.common.utils.Orientation
+import io.github.sds100.keymapper.common.utils.PhysicalOrientation
+import io.github.sds100.keymapper.common.utils.SettingsUtils
+import io.github.sds100.keymapper.common.utils.SizeKM
+import io.github.sds100.keymapper.common.utils.Success
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/**
+ * Android implementation of DisplayAdapter.
+ *
+ * This is a Singleton that lives for the lifetime of the application.
+ * Listeners (DisplayManager.DisplayListener, BroadcastReceiver, OrientationEventListener)
+ * are intentionally not unregistered because the adapter needs to continuously track
+ * display state changes throughout the app's lifecycle.
+ */
+@Singleton
+class AndroidDisplayAdapter @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val coroutineScope: CoroutineScope,
+) : DisplayAdapter {
+    companion object {
+
+        /**
+         * Tolerance in degrees for orientation detection.
+         * This helps avoid rapid switching at orientation boundaries.
+         */
+        private const val ORIENTATION_TOLERANCE = 45
+    }
+
+    private val ctx = context.applicationContext
+
+    private val broadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            intent ?: return
+            context ?: return
+
+            when (intent.action) {
+                Intent.ACTION_SCREEN_ON -> {
+                    // This intent is received before the assistant activity is launched so
+                    // wait 100ms before updating. This is so that one can use the screen-off
+                    // constraint with the assistant triggers.
+                    coroutineScope.launch {
+                        delay(100)
+
+                        isScreenOn.update { true }
+                    }
+                }
+
+                Intent.ACTION_SCREEN_OFF -> {
+                    isAmbientDisplayEnabled.update { isAodEnabled() }
+                    isScreenOn.update { false }
+                }
+            }
+        }
+    }
+
+    override val isScreenOn = MutableStateFlow(true)
+
+    private val displayManager: DisplayManager = ctx.getSystemService()!!
+
+    private val _physicalOrientation = MutableStateFlow(PhysicalOrientation.PORTRAIT)
+    override val physicalOrientation: Flow<PhysicalOrientation> = _physicalOrientation
+    override val cachedPhysicalOrientation: PhysicalOrientation
+        get() = _physicalOrientation.value
+
+    override var activityDisplayId: Int? = null
+
+    override val isAmbientDisplayEnabled: MutableStateFlow<Boolean> =
+        MutableStateFlow(isAodEnabled())
+
+    override val displays: MutableStateFlow<List<DisplayInfo>> =
+        MutableStateFlow(fetchAllDisplayInfo())
+
+    private val orientationEventListener = object : OrientationEventListener(ctx) {
+        override fun onOrientationChanged(orientationDegrees: Int) {
+            if (orientationDegrees == ORIENTATION_UNKNOWN) {
+                return
+            }
+
+            val newPhysicalOrientation = degreesToPhysicalOrientation(orientationDegrees)
+            _physicalOrientation.update { newPhysicalOrientation }
+        }
+    }
+
+    init {
+        displayManager.registerDisplayListener(
+            object : DisplayManager.DisplayListener {
+                override fun onDisplayAdded(displayId: Int) {
+                    onDisplaysChanged()
+                }
+
+                override fun onDisplayRemoved(displayId: Int) {
+                    onDisplaysChanged()
+                }
+
+                override fun onDisplayChanged(displayId: Int) {
+                    onDisplaysChanged()
+
+                    // This listener API has lower latency than the broadcast receiver so also use this.
+                    val isScreenStateOn = displayManager.displays.first().state == Display.STATE_ON
+                    isScreenOn.update { isScreenStateOn }
+                }
+            },
+            null,
+        )
+
+        val filter = IntentFilter()
+        filter.addAction(Intent.ACTION_SCREEN_ON)
+        filter.addAction(Intent.ACTION_SCREEN_OFF)
+
+        ContextCompat.registerReceiver(
+            ctx,
+            broadcastReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+
+        // Enable physical orientation detection
+        if (orientationEventListener.canDetectOrientation()) {
+            orientationEventListener.enable()
+        }
+    }
+
+    override fun isAutoRotateEnabled(): Boolean =
+        SettingsUtils.getSystemSetting<Int>(ctx, Settings.System.ACCELEROMETER_ROTATION) == 1
+
+    override fun enableAutoRotate(): KMResult<*> {
+        val success = SettingsUtils.putSystemSetting(ctx, Settings.System.ACCELEROMETER_ROTATION, 1)
+
+        if (success) {
+            return Success(Unit)
+        } else {
+            return KMError.FailedToModifySystemSetting(Settings.System.ACCELEROMETER_ROTATION)
+        }
+    }
+
+    override fun disableAutoRotate(): KMResult<*> {
+        val success = SettingsUtils.putSystemSetting(ctx, Settings.System.ACCELEROMETER_ROTATION, 0)
+
+        if (success) {
+            return Success(Unit)
+        } else {
+            return KMError.FailedToModifySystemSetting(Settings.System.ACCELEROMETER_ROTATION)
+        }
+    }
+
+    override fun setOrientation(orientation: Orientation): KMResult<*> {
+        val sdkRotationValue = when (orientation) {
+            Orientation.ORIENTATION_0 -> Surface.ROTATION_0
+            Orientation.ORIENTATION_90 -> Surface.ROTATION_90
+            Orientation.ORIENTATION_180 -> Surface.ROTATION_180
+            Orientation.ORIENTATION_270 -> Surface.ROTATION_270
+        }
+
+        val success =
+            SettingsUtils.putSystemSetting(ctx, Settings.System.USER_ROTATION, sdkRotationValue)
+
+        if (success) {
+            return Success(Unit)
+        } else {
+            return KMError.FailedToModifySystemSetting(Settings.System.USER_ROTATION)
+        }
+    }
+
+    override fun isAutoBrightnessEnabled(): Boolean = SettingsUtils.getSystemSetting<Int>(
+        ctx,
+        Settings.System.SCREEN_BRIGHTNESS_MODE,
+    ) == Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC
+
+    override fun increaseBrightness(stepPercent: Float, display: Int): KMResult<*> {
+        // auto-brightness must be disabled
+        disableAutoBrightness()
+
+        return setBrightness(stepPercent, display)
+    }
+
+    override fun decreaseBrightness(stepPercent: Float, display: Int): KMResult<*> {
+        // auto-brightness must be disabled
+        disableAutoBrightness()
+
+        return setBrightness(-stepPercent, display)
+    }
+
+    private fun setBrightness(delta: Float, display: Int): KMResult<*> {
+        val currentBrightness = getDisplayBrightness(display)
+
+        val newBrightness: Float = (currentBrightness + delta).coerceIn(0f, 1f)
+
+        if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
+            displayManager.setBrightness(
+                display,
+                newBrightness * 100,
+                DisplayManager.BRIGHTNESS_UNIT_PERCENTAGE,
+            )
+
+            return Success(Unit)
+        } else {
+            val rawBrightness: Int = (newBrightness * 255).roundToInt().coerceIn(1, 255)
+
+            val success = SettingsUtils.putSystemSetting(
+                ctx,
+                Settings.System.SCREEN_BRIGHTNESS,
+                rawBrightness,
+            )
+
+            return if (success) {
+                Success(Unit)
+            } else {
+                KMError.FailedToModifySystemSetting(Settings.System.SCREEN_BRIGHTNESS)
+            }
+        }
+    }
+
+    override fun enableAutoBrightness(): KMResult<*> =
+        setBrightnessMode(Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC)
+
+    override fun disableAutoBrightness(): KMResult<*> =
+        setBrightnessMode(Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
+
+    private fun setBrightnessMode(mode: Int): KMResult<*> {
+        val success =
+            SettingsUtils.putSystemSetting(ctx, Settings.System.SCREEN_BRIGHTNESS_MODE, mode)
+
+        return if (success) {
+            Success(Unit)
+        } else {
+            KMError.FailedToModifySystemSetting(Settings.System.SCREEN_BRIGHTNESS_MODE)
+        }
+    }
+
+    private fun getDisplayBrightness(displayId: Int): Float {
+        return if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
+            displayManager.getBrightness(
+                displayId,
+                DisplayManager.BRIGHTNESS_UNIT_PERCENTAGE,
+            ) / 100f
+        } else {
+            val rawBrightness =
+                SettingsUtils.getSystemSetting<Int>(ctx, Settings.System.SCREEN_BRIGHTNESS)
+                    ?: return 255f
+
+            rawBrightness / 255f
+        }
+    }
+
+    private fun isAodEnabled(): Boolean {
+        return SettingsUtils.getSecureSetting<Int>(ctx, "doze_always_on") == 1
+    }
+
+    private fun onDisplaysChanged() {
+        displays.value = fetchAllDisplayInfo()
+    }
+
+    override fun getDisplay(id: Int): DisplayInfo? {
+        return displayManager.getDisplay(id)?.let { buildDisplayInfo(it) }
+    }
+
+    /**
+     * Converts sensor orientation degrees to PhysicalOrientation.
+     *
+     * The orientation degrees from OrientationEventListener represent how much
+     * the device is rotated from its natural orientation:
+     * - 0°: Device is upright (portrait for most phones)
+     * - 90°: Device is rotated 90° counter-clockwise (landscape, home button on right)
+     * - 180°: Device is upside down (portrait inverted)
+     * - 270°: Device is rotated 90° clockwise (landscape, home button on left)
+     *
+     * Using a tolerance helps avoid rapid orientation changes at boundaries.
+     */
+    private fun degreesToPhysicalOrientation(degrees: Int): PhysicalOrientation {
+        // OrientationEventListener returns 0-359 degrees.
+        // Handle wraparound at 0/360 boundary for portrait detection.
+        // Degrees outside the defined tolerance zones (e.g., 45-89° between portrait and landscape)
+        // are intentionally kept as the current orientation to provide hysteresis and prevent
+        // rapid orientation switching when the device is tilted at boundary angles.
+        return when {
+            degrees >= (360 - ORIENTATION_TOLERANCE) ||
+                degrees < ORIENTATION_TOLERANCE ->
+                PhysicalOrientation.PORTRAIT
+
+            degrees in (90 - ORIENTATION_TOLERANCE) until (90 + ORIENTATION_TOLERANCE) ->
+                PhysicalOrientation.LANDSCAPE
+
+            degrees in (180 - ORIENTATION_TOLERANCE) until (180 + ORIENTATION_TOLERANCE) ->
+                PhysicalOrientation.PORTRAIT_INVERTED
+
+            degrees in (270 - ORIENTATION_TOLERANCE) until (270 + ORIENTATION_TOLERANCE) ->
+                PhysicalOrientation.LANDSCAPE_INVERTED
+
+            else -> _physicalOrientation.value // Keep current orientation in transition zone
+        }
+    }
+
+    private fun fetchAllDisplayInfo(): List<DisplayInfo> {
+        return displayManager.displays?.filterNotNull()?.map(::buildDisplayInfo) ?: emptyList()
+    }
+
+    private fun buildDisplayInfo(display: Display): DisplayInfo {
+        val rotation = getDisplayOrientation(display)
+        val logicalSize = Point().also { display.getRealSize(it) }
+
+        return DisplayInfo(
+            id = display.displayId,
+            physicalSize = SizeKM(
+                width = display.mode.physicalWidth,
+                height = display.mode.physicalHeight,
+            ),
+            // getRealSize is in the current rotation so rotate it back to the natural orientation.
+            logicalSize = SizeKM(logicalSize.x, logicalSize.y).rotate(rotation),
+            rotation = rotation,
+            supportedSizes = getSupportedResolutions(display),
+        )
+    }
+
+    private fun getDisplayOrientation(display: Display): Orientation {
+        return when (val sdkRotation = display.rotation) {
+            Surface.ROTATION_0 -> Orientation.ORIENTATION_0
+            Surface.ROTATION_90 -> Orientation.ORIENTATION_90
+            Surface.ROTATION_180 -> Orientation.ORIENTATION_180
+            Surface.ROTATION_270 -> Orientation.ORIENTATION_270
+            else -> throw Exception("Don't know how to convert $sdkRotation to Orientation")
+        }
+    }
+
+    private fun getSupportedResolutions(display: Display): Set<SizeKM> {
+        return display.supportedModes
+            .map { mode -> SizeKM(mode.physicalWidth, mode.physicalHeight) }
+            .toSet()
+    }
+}

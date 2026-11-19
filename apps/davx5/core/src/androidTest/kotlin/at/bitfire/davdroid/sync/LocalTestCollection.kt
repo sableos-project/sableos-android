@@ -1,0 +1,50 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+package at.bitfire.davdroid.sync
+
+import at.bitfire.davdroid.resource.local.LocalCollection
+import at.bitfire.davdroid.resource.local.SyncState
+import kotlinx.coroutines.flow.asFlow
+
+class LocalTestCollection(
+    override val dbCollectionId: Long = 0L
+): LocalCollection<LocalTestResource> {
+
+    override var lastSyncState: SyncState? = null
+
+    val entries = mutableListOf<LocalTestResource>()
+
+    override val readOnly = false
+
+    override fun findDeleted() = entries.filter { it.deleted }.asFlow()
+
+    override fun findDirty() = entries.filter { it.dirty }.asFlow()
+
+    override suspend fun findByName(name: String) = entries.firstOrNull { it.fileName == name }
+
+    override suspend fun markNotDirty(flags: Int): Int {
+        var updated = 0
+        for (notDirty in entries.filter { !it.dirty }) {
+            notDirty.flags = flags
+            updated++
+        }
+        return updated
+    }
+
+    override suspend fun removeNotDirtyMarked(flags: Int): Int {
+        val numBefore = entries.size
+        entries.removeIf { !it.dirty && it.flags == flags }
+        return numBefore - entries.size
+    }
+
+    override suspend fun forgetETags() {
+    }
+
+    override fun countAll() = entries.size
+    override fun countDeleted() = entries.count { it.deleted }
+    override fun countModified() = entries.count { it.dirty && !it.deleted }
+    override fun countDirty() = entries.count { it.dirty }
+
+}

@@ -1,0 +1,329 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Optional Home weather; normal Internet permission, no GPS or location access. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Optional foreground approximate device location for Home weather. Never background or fine location. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Wallpaper-backed Home photo counts (optional; asked for when the user turns that on). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- Hub page Contacts tab: names, favourites and one number per person, read on the device and never
+         stored. Revocable in Settings; the tab then asks again. -->
+    <!-- Sets one of Tenseven's own wallpapers when the user picks one in Launcher Settings. A normal permission, granted at install. -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Only for the optional lock layer: lets it start over the lock screen when the screen wakes. Off until the user turns it on. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!-- SableOS: the platform-signed home's permissions, as Sable Start held them: Active Frames'
+         live pictures from the system task snapshot, and Private Space and work-profile rows. -->
+    <uses-permission android:name="android.permission.REAL_GET_TASKS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.REORDER_TASKS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.REMOVE_TASKS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.START_TASKS_FROM_RECENTS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.READ_FRAME_BUFFER" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_TASKS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.OBSERVE_GRANT_REVOKE_PERMISSIONS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.MODIFY_QUIET_MODE" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="org.sableos.permission.SPEED_DIAL" />
+    <!-- SableOS system menu: the app's Menu key, and the shade. -->
+    <uses-permission android:name="android.permission.INJECT_EVENTS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+    <!-- POST_NOTIFICATIONS is optional; overdue tasks remain in-app without it. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- SableOS: the home grants itself its permissions once (SableHomeAccess, platform certificate). -->
+    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.MANAGE_APP_OPS_MODES" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.MANAGE_NOTIFICATION_LISTENERS" tools:ignore="ProtectedPermissions" />
+    <!-- SableOS: Extra dim at the bottom of the brightness slider (platform certificate). -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
+
+    <!-- Active Frames recent-apps row. A special-access permission: without this line Android does not list
+         Tenseven under Settings, Usage access, and "appops set" is ignored. The user still grants it there. -->
+
+    <!-- Lets the user give Tenseven Do Not Disturb access, which Android requires before an app may pick Silent. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- All Apps: hand uninstall to the system uninstaller (which confirms again). -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
+    <!-- Private Space in All Apps: see the private profile. Android grants this to the default Home app only;
+         the system asks for the private space credential itself when unlocking. -->
+    <uses-permission android:name="android.permission.ACCESS_HIDDEN_PROFILES" />
+
+    <!--
+      Not requested here, on purpose. The SableOS build of Sable Start holds signature permissions
+      (INTERACT_ACROSS_USERS, OBSERVE_GRANT_REVOKE_PERMISSIONS, MODIFY_QUIET_MODE, REAL_GET_TASKS, REORDER_TASKS,
+      REMOVE_TASKS, START_TASKS_FROM_RECENTS, READ_FRAME_BUFFER, org.sableos.permission.SPEED_DIAL) because it is
+      platform-signed. An ordinary install cannot hold them, Android Lint rejects them, and the code that uses
+      them already falls back (Active Frames list only this app's tasks, work-profile privacy rows read
+      "unavailable"). Replacements built from public APIs are on the roadmap (docs/ARCHITECTURE.md).
+    -->
+
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+
+
+    <queries>
+        <intent><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- Icon packs advertise these actions (Nova and ADW contracts); only used to list packs in Appearance. -->
+        <intent>
+            <action android:name="com.novalauncher.THEME" />
+        </intent>
+        <intent>
+            <action android:name="org.adw.ActivityStarter.THEMES" />
+        </intent>
+        <!-- The default apps the BlackBerry 7 home starts with (Calendar, Browser, Gallery, Music, Camera). -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.APP_CALENDAR" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.APP_BROWSER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.APP_GALLERY" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.APP_MUSIC" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <!-- The phone's default Mail and Contacts apps, found by category for the Hub. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.APP_EMAIL" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.APP_CONTACTS" />
+        </intent>
+        <!-- Optional Sable companions: when installed, their live tiles and Hub data appear on Home. -->
+        <provider android:authorities="org.sableos.appearance" />
+        <provider android:authorities="org.sableos.calendar.snapshot" />
+        <provider android:authorities="org.sableos.hub.snapshot" />
+        <provider android:authorities="org.sableos.hub.connected_apps" />
+        <provider android:authorities="org.sableos.mail.snapshot" />
+        <provider android:authorities="org.sableos.mail.hub" />
+        <provider android:authorities="org.sableos.media.snapshot" />
+        <provider android:authorities="org.sableos.dialer.speeddial" />
+        <package android:name="org.sableos.messages" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@mipmap/ic_sable_home"
+        android:roundIcon="@mipmap/ic_sable_home_round"
+        android:label="@string/tenseven_app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SableLauncher"
+        android:usesCleartextTraffic="false">
+
+        <activity android:name=".DeviceCompatibilityActivity" android:exported="false" />
+
+        <!-- Remind scheduler is independent of the optional Notes and Tasks launcher icons. -->
+        <receiver android:name=".tasks.TaskAlarmReceiver" android:enabled="true" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+        <activity android:name=".tasks.TasksActivity" android:exported="false"
+            android:taskAffinity="io.github.aimindseye.tenseven.tasks"
+            android:label="TenSeven Tasks" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity
+            android:name="io.github.aimindseye.tenseven.SableStartActivity"
+            android:clearTaskOnLaunch="true"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true">
+
+            <intent-filter android:priority="10">
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- Quick bar and Edit Home entry points. -->
+            <intent-filter>
+                <action android:name="org.sableos.start.action.EDIT_QUICK_BAR" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="org.sableos.start.action.EDIT_HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- Active Frames: the Recents key on SableOS; reachable from Home on other systems. -->
+            <intent-filter>
+                <action android:name="org.sableos.start.action.SHOW_ACTIVE_FRAMES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- The Hub page (All, Messages, Calls, Contacts), optionally on a tab
+                 (extra org.sableos.start.extra.HUB_FILTER). -->
+            <intent-filter>
+                <action android:name="org.sableos.start.action.SHOW_HUB" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- SableOS: Command, from Alt+Space in any app (frameworks/base 0319). -->
+            <intent-filter>
+                <action android:name="org.sableos.start.action.COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Home screen style (BlackBerry 10 or BlackBerry 7 layout), opened from setup and Start's menu. -->
+        <activity
+            android:name="io.github.aimindseye.tenseven.HomeStyleActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/home_screen_style">
+            <intent-filter>
+                <action android:name="org.sableos.start.action.CHOOSE_HOME_STYLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Launcher Settings: style cards, Home, Widgets, Device and Privacy, from the menus of both homes. -->
+        <activity
+            android:name=".LauncherSettingsActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/launcher_settings">
+            <!-- What "Open" in Android's app info starts (getLaunchIntentForPackage tries INFO before LAUNCHER). Without
+                 it the first enabled extra app with a launcher entry, such as Calc Plus, opens instead. INFO adds no icon. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.INFO" />
+            </intent-filter>
+        </activity>
+
+        <!-- Tenseven's own icon in All Apps (and what "Open" in app info starts): it opens Home. -->
+        <activity-alias
+            android:name=".LauncherEntry"
+            android:exported="true"
+            android:label="@string/tenseven_app_name"
+            android:targetActivity=".SableStartActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Hub settings: clear the Hub, choose which apps feed it, and whether message text may be shown. -->
+        <activity
+            android:name=".HubSettingsActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="@string/hub_settings" />
+
+        <!-- The optional lock layer: a BlackBerry-style cover over the system lock screen. The real lock stays underneath. -->
+        <activity
+            android:name=".LockLayerActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Tenseven.LockLayer"
+            android:turnScreenOn="true" />
+
+        <!-- First-run setup and "Setup and permissions": the home role, then each optional permission. -->
+        <activity
+            android:name=".OnboardingActivity"
+            android:exported="false"
+            android:label="@string/setup_menu" />
+
+        <!-- Double-tap to lock. Off until the user enables it in Accessibility settings; it can only lock the screen. -->
+        <service
+            android:name=".platform.LockScreenAccessibilityService"
+            android:exported="true"
+            android:label="@string/lock_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/lock_accessibility_service" />
+        </service>
+
+
+        <!-- Backup and restore of launcher settings through the system file picker. -->
+        <activity
+            android:name=".BackupActivity"
+            android:exported="false"
+            android:label="@string/backup_menu" />
+
+        <!-- Notification access, optional and off until the user grants it: groups message and email
+             notifications into conversations for the Hub bar. In memory only, nothing is stored or sent. -->
+        <service
+            android:name=".conversations.ConversationListenerService"
+            android:exported="true"
+            android:label="@string/tenseven_app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+        <activity android:name=".FrameIntegrationsActivity" android:exported="false" />
+
+
+
+        <!-- SableOS: the system menu, from Alt+BlackBerry key in any app (frameworks/base 0324). -->
+        <activity
+            android:name=".SableSystemMenuActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <!-- SableOS: Hub over any app (hold the Recents key; frameworks/base 0326). -->
+        <activity
+            android:name=".SableHubPeekActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <!-- SableOS cover API: apps say what their own Active Frame shows (in memory only). -->
+        <provider
+            android:name=".frames.SableCoverProvider"
+            android:authorities="org.sableos.launcher.covers"
+            android:exported="true" />
+        <!-- SableOS: first-boot setup's Look step saves the home style. -->
+        <receiver
+            android:name=".SableLookReceiver"
+            android:exported="true"
+            android:permission="android.permission.WRITE_SECURE_SETTINGS">
+            <intent-filter>
+                <action android:name="org.sableos.start.action.SET_LOOK" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

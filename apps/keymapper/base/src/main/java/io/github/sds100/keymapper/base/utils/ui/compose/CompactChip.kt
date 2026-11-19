@@ -1,0 +1,126 @@
+package io.github.sds100.keymapper.base.utils.ui.compose
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Error
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import io.github.sds100.keymapper.base.home.chipHeight
+
+@Composable
+fun CompactChip(
+    modifier: Modifier = Modifier,
+    text: String,
+    icon: (@Composable () -> Unit)? = null,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    borderStroke: BorderStroke? = null,
+    onClick: (() -> Unit)? = null,
+    enabled: Boolean = false,
+    actionContent: (@Composable () -> Unit)? = null,
+) {
+    CompositionLocalProvider(
+        LocalMinimumInteractiveComponentSize provides 16.dp,
+    ) {
+        if (onClick == null || !enabled) {
+            Surface(
+                modifier = modifier.height(chipHeight),
+                color = containerColor,
+                contentColor = contentColor,
+                border = borderStroke,
+                shape = AssistChipDefaults.shape,
+            ) {
+                CompactChipContent(icon, text, contentColor, actionContent = actionContent)
+            }
+        } else {
+            Surface(
+                modifier = modifier.height(chipHeight),
+                color = containerColor,
+                contentColor = contentColor,
+                border = borderStroke,
+                shape = AssistChipDefaults.shape,
+                onClick = onClick,
+            ) {
+                CompactChipContent(icon, text, contentColor, actionContent = actionContent)
+            }
+        }
+    }
+}
+
+@Composable
+fun ErrorCompactChip(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    text: String,
+    enabled: Boolean,
+    actionContent: (@Composable () -> Unit)? = null,
+) {
+    CompactChip(
+        modifier = modifier,
+        text = text,
+        containerColor = containerColor,
+        contentColor = contentColor,
+        icon = {
+            Icon(
+                modifier = Modifier.fillMaxHeight(),
+                imageVector = Icons.Outlined.Error,
+                tint = MaterialTheme.colorScheme.error,
+                contentDescription = null,
+            )
+        },
+        onClick = onClick,
+        enabled = enabled,
+        actionContent = actionContent,
+    )
+}
+
+@Composable
+private fun CompactChipContent(
+    icon: @Composable (() -> Unit)?,
+    text: String,
+    contentColor: Color,
+    actionContent: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            icon()
+            Spacer(Modifier.width(4.dp))
+        }
+
+        Text(
+            modifier = Modifier.weight(1f, fill = false),
+            text = text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.labelLarge,
+            color = contentColor,
+        )
+
+        if (actionContent != null) {
+            Spacer(modifier = Modifier.width(4.dp))
+            actionContent()
+        }
+    }
+}

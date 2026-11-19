@@ -1,0 +1,227 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+plugins {
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.mikepenz.aboutLibraries.android)
+    id("davx5.common-buildconfig")
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// Translations are maintained in davx5-translations and pulled in as the l10n submodule.
+// The English original strings stay in core/src/main/res/values/strings.xml.
+val translationsDir = file("$rootDir/l10n/translations/ose")
+// Credits are updated automatically in the davx5-translations workflow, and pulled in as the l10n submodule.
+// This directory should be included as "asset"
+val creditsDir = file("$rootDir/l10n/credits")
+
+android {
+    defaultConfig {
+        testInstrumentationRunner = "at.bitfire.davdroid.HiltTestRunner"
+
+        // include these rules in the app that uses the core library
+        consumerProguardFile("core-proguard-rules.pro")
+    }
+
+    buildFeatures {
+        buildConfig = true
+        compose = true
+    }
+
+    // Java namespace for our classes (not to be confused with Android package ID)
+    namespace = "at.bitfire.davdroid"
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+        }
+    }
+
+    lint {
+        disable += arrayOf("GoogleAppIndexingWarning", "ImpliedQuantity", "MissingQuantity", "MissingTranslation", "ExtraTranslation", "RtlEnabled", "RtlHardcoded", "Typos")
+    }
+
+    packaging {
+        resources {
+            // multiple (test) dependencies have LICENSE files at same location
+            merges += arrayOf("META-INF/LICENSE*")
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            res.directories += translationsDir.path
+            assets.directories += creditsDir.path
+        }
+        getByName("androidTest") {
+            kotlin.directories +=  "$projectDir/src/sharedTest/kotlin"
+            assets.srcDir("$projectDir/schemas")
+        }
+        getByName("test") {
+            kotlin.directories +=  "$projectDir/src/sharedTest/kotlin"
+        }
+    }
+
+    @Suppress("UnstableApiUsage")
+    testOptions {
+        managedDevices {
+            localDevices {
+                create("virtual") {
+                    device = "Pixel 3"
+                    // TBD: API level 35 and higher causes network tests to fail sometimes, see https://github.com/bitfireAT/davx5-ose/issues/1525
+                    // Suspected reason: https://developer.android.com/about/versions/15/behavior-changes-all#background-network-access
+                    apiLevel = 34
+                    systemImageSource = "aosp-atd"
+                }
+            }
+        }
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+aboutLibraries {
+    export {
+        // exclude timestamps for reproducible builds [https://github.com/bitfireAT/davx5-ose/issues/994]
+        excludeFields.add("generated")
+    }
+}
+
+dependencies {
+    // gradle project dependencies
+    implementation(project(":synctools"))
+
+    // Kotlin / Android
+    implementation(libs.kotlin.stdlib)
+    implementation(libs.kotlinx.coroutines)
+    implementation(libs.kotlinx.coroutines.guava)
+    coreLibraryDesugaring(libs.android.desugaring)
+
+    // Hilt
+    implementation(libs.hilt.android.base)
+    ksp(libs.androidx.hilt.compiler)
+    ksp(libs.hilt.android.compiler)
+
+    // support libs
+    implementation(libs.androidx.activityCompose)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.browser)
+    implementation(libs.androidx.core)
+    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.work)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.base)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.paging)
+    implementation(libs.androidx.paging.compose)
+    implementation(libs.androidx.preference)
+    implementation(libs.androidx.security)
+    implementation(libs.androidx.work.base)
+
+    // Jetpack Compose
+    implementation(libs.compose.accompanist.permissions)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material3.adaptive)
+    implementation(libs.androidx.compose.materialIconsExtended)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    implementation(libs.androidx.compose.ui.toolingPreview)
+
+    // Glance Widgets
+    implementation(libs.androidx.glance.base)
+    implementation(libs.androidx.glance.material3)
+
+    // Jetpack Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.base)
+    implementation(libs.androidx.room.paging)
+    ksp(libs.androidx.room.compiler)
+
+    // own libraries
+    implementation(libs.bitfire.cert4android)
+    implementation(libs.bitfire.dav4jvm) {
+        exclude(group="junit")
+        exclude(group="org.ogce", module="xpp3")    // Android has its own XmlPullParser implementation
+    }
+
+    // third-party libs
+    implementation(libs.conscrypt)
+    implementation(libs.dnsjava)
+    implementation(libs.guava)
+    implementation(libs.ktor.client.auth)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.encoding)
+    implementation(libs.ktor.client.logging)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.mikepenz.aboutLibraries.m3)
+    implementation(libs.okhttp.base)
+    implementation(libs.openid.appauth)
+    implementation(libs.unifiedpush) {
+        // UnifiedPush connector seems to be using a workaround by importing this library.
+        // Will be removed after https://github.com/tink-crypto/tink-java-apps/pull/5 is merged.
+        // See: https://codeberg.org/UnifiedPush/android-connector/src/commit/28cb0d622ed0a972996041ab9cc85b701abc48c6/connector/build.gradle#L56-L59
+        exclude(group = "com.google.crypto.tink", module = "tink")
+    }
+    implementation(libs.unifiedpush.fcm)
+
+    // force some versions for compatibility with our minSdk level (see version catalog for details)
+    implementation(libs.commons.codec)
+    implementation(libs.commons.lang)
+
+    // for tests
+    kspAndroidTest(libs.androidx.hilt.compiler)
+    kspAndroidTest(libs.hilt.android.compiler)
+    androidTestImplementation(libs.androidx.arch.core.testing)
+    androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.work.testing)
+    androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.ktor.client.mock)
+    androidTestImplementation(libs.mockk.android)
+    androidTestImplementation(testFixtures(project(":synctools")))
+
+    testImplementation(libs.bitfire.dav4jvm)
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.mockk)
+    testImplementation(libs.robolectric)
+    testImplementation(testFixtures(project(":synctools")))
+}
+
+// AGP silently ignores a resource directory that doesn't exist, so a clone without submodules
+// would build a perfectly fine English-only app. Fail such builds instead.
+val verifyTranslations by tasks.registering {
+    val dir = translationsDir   // local copy: the check below must not capture the build script
+
+    doLast {
+        require(!dir.list().isNullOrEmpty()) {
+            "l10n/translations/ose is missing or empty.\nRun: git submodule update --init --recursive"
+        }
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn(verifyTranslations)
+}
+
+tasks.withType<Test>().configureEach {
+    // activate verbose logging for tests
+    systemProperty("java.util.logging.config.file", "$projectDir/src/test/resources/logging.properties")
+}

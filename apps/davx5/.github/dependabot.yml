@@ -1,0 +1,43 @@
+version: 2
+updates:
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    # Workflow files stored in the default location of `.github/workflows`
+    # You don't need to specify `/.github/workflows` for `directory`. You can use `directory: "/"`.
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "[CI] "
+    labels:
+      - "ci-cd"
+      - "dependencies"
+    groups:
+      ci-actions:
+        patterns: ["*"]
+        
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:             # don't create "java" label (default for gradle ecosystem)
+      - "dependencies"
+    groups:
+      app-dependencies:
+        patterns: ["*"]
+    ignore:
+      # dependencies without semantic versioning
+      - dependency-name: "com.github.bitfireat:cert4android"
+
+  # Bump the l10n submodule pointer, so new translations arrive as a reviewable PR
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    schedule:
+      interval: "cron"
+      cronjob: "0 6 1,15 * *"   # about every two weeks
+    commit-message:
+      prefix: "[l10n] "
+    labels:
+      - "dependencies"
+    cooldown:
+      default-days: 0   # the l10n submodule has frequent Weblate commits; always pick the latest

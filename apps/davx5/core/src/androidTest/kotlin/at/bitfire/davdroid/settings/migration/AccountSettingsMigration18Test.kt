@@ -1,0 +1,129 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+package at.bitfire.davdroid.settings.migration
+
+import android.accounts.Account
+import android.accounts.AccountManager
+import android.content.Context
+import at.bitfire.davdroid.R
+import at.bitfire.davdroid.accounts.LegacyAccount
+import at.bitfire.davdroid.db.AppDatabase
+import at.bitfire.davdroid.db.Collection
+import at.bitfire.davdroid.db.Service
+import at.bitfire.davdroid.di.AndroidServicesModule
+import at.bitfire.davdroid.settings.AccountSettingsStore
+import at.bitfire.davdroid.settings.migration.AccountSettingsMigration18.Companion.USER_DATA_ACCOUNT_NAME
+import at.bitfire.davdroid.settings.migration.AccountSettingsMigration18.Companion.USER_DATA_ACCOUNT_TYPE
+import at.bitfire.davdroid.settings.migration.AccountSettingsMigration18.Companion.USER_DATA_COLLECTION_ID
+import at.bitfire.davdroid.util.DavUtils.toUrl
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.android.testing.BindValue
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
+import dagger.hilt.android.testing.UninstallModules
+import io.mockk.every
+import io.mockk.impl.annotations.MockK
+import io.mockk.junit4.MockKRule
+import io.mockk.verify
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import javax.inject.Inject
+
+@HiltAndroidTest
+@UninstallModules(AndroidServicesModule::class)
+class AccountSettingsMigration18Test {
+
+    private val accountId = LegacyAccount(Account("test", "test"))
+
+    @BindValue @MockK(relaxed = true)
+    lateinit var accountManager: AccountManager
+
+    @Inject @ApplicationContext
+    lateinit var context: Context
+
+    @Inject
+    lateinit var db: AppDatabase
+
+    @Inject
+    lateinit var migration: AccountSettingsMigration18
+
+    @MockK
+    lateinit var store: AccountSettingsStore
+
+    @get:Rule
+    val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule
+    val mockkRule = MockKRule(this)
+
+    @Before
+    fun setUp() {
+        hiltRule.inject()
+    }
+
+
+    @Test
+    fun testMigrate_AddressBook_InvalidCollection() {
+        val addressBookAccountType = context.getString(R.string.account_type_address_book)
+        var addressBookAccount = Account("Address Book", addressBookAccountType)
+
+        every { accountManager.getAccountsByType(addressBookAccountType) } returns arrayOf(addressBookAccount)
+        every { accountManager.getUserData(addressBookAccount, USER_DATA_COLLECTION_ID) } returns "123"
+
+        migration.migrate(accountId, store)
+
+        verify(exactly = 0) {
+            accountManager.setUserData(addressBookAccount, any(), any())
+        }
+    }
+
+    @Test
+    fun testMigrate_AddressBook_NoCollection() {
+        val addressBookAccountType = context.getString(R.string.account_type_address_book)
+        var addressBookAccount = Account("Address Book", addressBookAccountType)
+
+        every { accountManager.getAccountsByType(addressBookAccountType) } returns arrayOf(addressBookAccount)
+        every { accountManager.getUserData(addressBookAccount, USER_DATA_COLLECTION_ID) } returns "123"
+
+        migration.migrate(accountId, store)
+
+        verify(exactly = 0) {
+            accountManager.setUserData(addressBookAccount, any(), any())
+        }
+    }
+
+    @Test
+    fun testMigrate_AddressBook_ValidCollection() {
+        db.serviceDao().insertOrReplaceBlocking(
+            Service(
+            id = 10,
+            accountName = accountId.androidAccount.name,
+            type = Service.TYPE_CARDDAV,
+            principal = null
+        ))
+        db.collectionDao().insertOrUpdateByUrlBlocking(
+            Collection(
+            id = 100,
+            serviceId = 10,
+            url = "http://example.com/address-book/".toUrl(),
+            type = Collection.TYPE_ADDRESSBOOK
+        ))
+
+        val addressBookAccountType = context.getString(R.string.account_type_address_book)
+        var addressBookAccount = Account("Address Book", addressBookAccountType)
+
+        every { accountManager.getAccountsByType(addressBookAccountType) } returns arrayOf(addressBookAccount)
+        every { accountManager.getUserData(addressBookAccount, USER_DATA_COLLECTION_ID) } returns "100"
+
+        migration.migrate(accountId, store)
+
+        verify {
+            accountManager.setUserData(addressBookAccount, USER_DATA_ACCOUNT_NAME, accountId.androidAccount.name)
+            accountManager.setUserData(addressBookAccount, USER_DATA_ACCOUNT_TYPE, accountId.androidAccount.type)
+        }
+    }
+
+}

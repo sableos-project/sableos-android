@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">ICSx⁵</string>
+
+    <string name="account_name">Calendar subscriptions</string>
+    <string name="account_type" translatable="false">at.bitfire.icsdroid</string>
+
+    <!-- common strings -->
+    <string name="action_more">More</string>
+    <string name="calendar_permissions_required">Calendar access</string>
+    <string name="calendar_permissions_required_text">Allows accessing the database.</string>
+    <string name="notification_permissions_required">Notification permissions</string>
+    <string name="notification_permissions_required_text">Notifies you about errors.</string>
+    <string name="no_browser">No browser installed</string>
+    <string name="notification_channel_sync_problem">Sync problems</string>
+    <string name="permissions_grant">Grant</string>
+    <string name="install_browser">Please install a Web browser</string>
+    <string name="required_annotation">Required</string>
+
+    <!-- SubscriptionScreen -->
+    <string name="title_activity_calendar_list">My subscriptions</string>
+    <string name="calendar_list_empty_info">To subscribe to a Webcal feed, use the + button or open a Webcal URL.</string>
+    <string name="calendar_list_info">About ICSx⁵</string>
+    <string name="calendar_list_not_synced_yet">not synchronized yet</string>
+    <string name="calendar_list_set_sync_interval">Set sync. interval</string>
+    <string name="calendar_list_force_sync">Force sync</string>
+    <string name="calendar_list_backup">Backup</string>
+    <string name="calendar_list_backup_export">Export Backup</string>
+    <string name="calendar_list_backup_import">Import Backup</string>
+    <string name="calendar_list_battery_whitelist_title">Battery optimization</string>
+    <string name="calendar_list_battery_whitelist_text">Battery optimizations may prevent sync intervals shorter than a day. Set %s to \"Not optimized\".</string>
+    <string name="calendar_list_battery_whitelist_open_settings">Open settings</string>
+    <string name="calendar_list_autorevoke_permissions_title">Auto-Revoke Permissions</string>
+    <string name="calendar_list_autorevoke_permissions_text">Android revokes permissions of rarely opened apps. Please disable for %s.</string>
+    <string name="calendar_list_autorevoke_permissions_instruction">Click Permissions > uncheck \"Remove permissions if app isn\'t used\"</string>
+    <!-- settings, currently in SubscriptionsScreen -->
+    <string name="calendar_list_privacy_policy">Privacy policy</string>
+    <string name="set_sync_interval_title">Set sync. interval:</string>
+    <string-array name="set_sync_interval_seconds" translatable="false">
+        <item>-1</item>
+        <item>900</item>
+        <item>3600</item>
+        <item>7200</item>
+        <item>14400</item>
+        <item>86400</item>
+        <item>604800</item>
+    </string-array>
+    <string-array name="set_sync_interval_names">
+        <item>Only manually</item>
+        <item>Every 15 minutes</item>
+        <item>Every hour</item>
+        <item>Every 2 hours</item>
+        <item>Every 4 hours</item>
+        <item>Once a day</item>
+        <item>Once a week</item>
+    </string-array>
+    <string name="settings_force_dark_theme">Force dark theme</string>
+
+    <!-- AddSubscriptionScreen -->
+    <string name="activity_add_calendar">Subscribe to calendar</string>
+    <string name="activity_add_calendar_subscribe">Subscribe</string>
+    <string name="add_calendar_subscribe_url">Subscribe to URL</string>
+    <string name="add_calendar_subscribe_file">Subscribe to file</string>
+    <string name="add_calendar_need_valid_uri">Valid URI required</string>
+    <string name="add_calendar_authentication_title">Authentication</string>
+    <string name="add_calendar_authentication_without_https_warning">Third parties can easily intercept your credentials. Use HTTPS for secure authentication.</string>
+    <string name="add_calendar_created">Subscribed successfully</string>
+    <string name="add_calendar_password">Password</string>
+    <string name="add_calendar_password_hide">Hide password</string>
+    <string name="add_calendar_password_show">Show password</string>
+    <string name="add_calendar_requires_authentication">Requires authentication</string>
+    <string name="add_calendar_title">Title &amp; Color</string>
+    <string name="add_calendar_title_hint">Calendar name</string>
+    <string name="add_calendar_pick_color">Pick color</string>
+    <string name="add_calendar_pick_url_label">Webcal address</string>
+    <string name="add_calendar_pick_file_label">File path</string>
+    <string name="add_calendar_url_sample" translatable="false">https://example.com/webcal.ics</string>
+    <string name="add_calendar_pick_file">Pick file</string>
+    <string name="add_calendar_user_name">User name</string>
+    <string name="add_calendar_validating">Validating calendar resource…</string>
+    <string name="add_calendar_alarms_title">Alarms</string>
+    <string name="add_calendar_alarms_ignore_title">Ignore alerts embedded in the calendar</string>
+    <string name="add_calendar_alarms_ignore_description">If enabled, all the incoming alarms from the server will be dismissed.</string>
+    <string name="add_calendar_alarms_default_all_day_title">Add a default alarm for all-day events</string>
+    <string name="default_alarm_dialog_title">Add default alarm</string>
+    <string name="default_alarm_dialog_message">This will add an alarm for all events</string>
+    <string name="default_alarm_dialog_hint">Minutes before event</string>
+    <string name="add_calendar_advanced_title">Advanced</string>
+    <string name="add_calendar_description_title">Ignore DESCRIPTION field</string>
+    <string name="add_calendar_description_summary">If enabled, the DESCRIPTION field will be removed from events. Helpful if it contains spammy information.</string>
+    <string name="add_calendar_custom_user_agent_title">Use custom user agent</string>
+    <string name="add_calendar_custom_user_agent_label">Custom user agent string</string>
+    <string name="add_calendar_custom_user_agent_description">Replace the default user agent with a custom one.</string>
+
+    <!-- AlertDialog -->
+    <string name="alert_share_details">Share details</string>
+
+    <!-- EditSubscriptionScreen -->
+    <string name="activity_edit_calendar">Edit subscription</string>
+    <string name="edit_calendar_cancel">Cancel</string>
+    <string name="edit_calendar_delete">Unsubscribe</string>
+    <string name="edit_calendar_deleted">Unsubscribed successfully</string>
+    <string name="edit_calendar_dismiss">Dismiss</string>
+    <string name="edit_calendar_really_delete">Do you really want to unsubscribe from this calendar?</string>
+    <string name="edit_calendar_edit">Edit</string>
+    <string name="edit_calendar_need_valid_credentials">Username and password required</string>
+    <string name="edit_calendar_need_username">Username required</string>
+    <string name="edit_calendar_need_password">Password required</string>
+    <string name="edit_calendar_save">Save</string>
+    <string name="edit_calendar_saved">Changes saved</string>
+    <string name="edit_calendar_send_url">Send URL</string>
+    <string name="edit_calendar_unsaved_changes">There are unsaved changes.</string>
+
+    <!-- synchronization -->
+    <string name="sync_error_title">Synchronization error</string>
+    <string name="sync_permission_required">Permission required</string>
+    <string name="sync_permission_required_sync_calendar">Needing permission to sync your calendar</string>
+    <string name="could_not_open_storage_file">Couldn\'t open file from storage</string>
+
+    <!-- InfoScreen -->
+    <string name="activity_app_info">App info</string>
+    <string name="app_info_version">Version %1$s-%2$s</string>
+    <string name="app_info_copyright">© Ricki Hirner, Bernhard Stockmann (bitfire web engineering GmbH) and contributors</string>
+    <string name="app_info_gplv3" translatable="false">GPLv3</string>
+    <string name="app_info_gplv3_note"><![CDATA["
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <a href="https://www.gnu.org/licenses/">https://www.gnu.org/licenses/</a>.
+    "]]></string>
+    <string name="app_info_donate">Donate</string>
+    <string name="app_info_web_site">Web site</string>
+    <string name="app_info_mastodon" translatable="false">Mastodon</string>
+
+    <string name="donate_title">Open-Source Information</string>
+    <string name="donate_message">We\'re happy that you use ICSx⁵, which is open-source software (GPLv3). Because it was and still is much work to develop and maintain ICSx⁵, please consider a donation.</string>
+    <string name="donate_now">Show donation page</string>
+    <string name="donate_later">Maybe later</string>
+
+    <string name="backup_warning_title">Attention!</string>
+    <string name="backup_warning_message">The import process may override any subscriptions you have currently added. This cannot be undone. Do you want to continue?</string>
+    <string name="backup_exporting">Exporting…</string>
+    <string name="backup_exported">Backup exported!</string>
+    <string name="backup_importing">Importing…</string>
+    <string name="backup_import_error_json">Import error! File is corrupted or invalid.</string>
+    <string name="backup_import_error_security">Import error! File is not accessible.</string>
+    <string name="backup_import_error_io">Import error! Cannot read file.</string>
+    <string name="backup_export_error_io">Export error! Cannot write file.</string>
+    <plurals name="backup_imported">
+        <item quantity="one">%d subscription imported</item>
+        <item quantity="other">%d subscriptions imported</item>
+    </plurals>
+
+    <!-- Snowfall Winter Easter Egg -->
+    <string name="snowfall_disable">Disable Snowfall</string>
+    <string name="snowfall_enable">Enable Snowfall</string>
+
+</resources>

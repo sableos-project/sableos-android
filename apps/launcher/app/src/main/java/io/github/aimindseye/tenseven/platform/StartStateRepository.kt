@@ -1,0 +1,661 @@
+package io.github.aimindseye.tenseven.platform
+
+import android.content.Context
+import android.content.SharedPreferences
+import androidx.core.content.edit
+import io.github.aimindseye.tenseven.model.BackupValue
+import io.github.aimindseye.tenseven.model.Bb7Home
+import io.github.aimindseye.tenseven.model.Bb7IconSize
+import io.github.aimindseye.tenseven.model.Bb7Panel
+import io.github.aimindseye.tenseven.model.Bb7Panels
+import io.github.aimindseye.tenseven.model.Bb7Scrim
+import io.github.aimindseye.tenseven.model.CustomTheme
+import io.github.aimindseye.tenseven.model.CustomThemes
+import io.github.aimindseye.tenseven.model.GridColumns
+import io.github.aimindseye.tenseven.model.HomeDisplayPolicy
+import io.github.aimindseye.tenseven.model.HomeStyle
+import io.github.aimindseye.tenseven.model.LauncherBackup
+import io.github.aimindseye.tenseven.model.ThemePresets
+import io.github.aimindseye.tenseven.model.WallpaperSets
+import io.github.aimindseye.tenseven.model.WidgetList
+
+private const val HOME_WEATHER_CITY_INPUT_LIMIT = 90
+
+/**
+ * Stores launcher-only presentation state.
+ *
+ * Global Sable appearance is intentionally NOT stored here. Appearance is
+ * owned by the privileged Settings-hosted org.sableos.appearance provider so
+ * Launcher3 cannot become the operating system's theme authority.
+ *
+ * Recent activity intentionally stays in-memory so Sable Start does not build
+ * a persistent app-usage history.
+ */
+class StartStateRepository(
+    context: Context,
+) {
+    private val hubSources = HubSourceRepository(context)
+    private val profileResolver = context.applicationContext.contentResolver
+    private val preferences =
+        context.applicationContext.getSharedPreferences(
+            PREFERENCES_NAME,
+            Context.MODE_PRIVATE,
+        )
+
+    fun loadFrameSettings(): io.github.aimindseye.tenseven.frames.FrameSettings =
+        io.github.aimindseye.tenseven.frames
+            .FrameSettings(
+                liveSummaries = preferences.getBoolean("frames_live", true),
+                newMessages = preferences.getBoolean("frames_messages", true),
+                snapshots = true,
+                openApps = preferences.getBoolean("frames_open", true),
+                rememberReturnedApps = preferences.getBoolean("frames_recents", true),
+                maximum = preferences.getInt("frames_maximum", 8),
+            ).normalized()
+
+    fun saveFrameSettings(value: io.github.aimindseye.tenseven.frames.FrameSettings) {
+        val settings = value.normalized()
+        preferences.edit {
+            putBoolean("frames_live", settings.liveSummaries)
+            putBoolean("frames_messages", settings.newMessages)
+            putBoolean("frames_snapshots", settings.snapshots)
+            putBoolean("frames_open", settings.openApps)
+            putBoolean("frames_recents", settings.rememberReturnedApps)
+            putInt("frames_maximum", settings.maximum)
+        }
+    }
+
+    fun loadFrameDismissals(): Map<String, Long> =
+        io.github.aimindseye.tenseven.frames.FrameDismissals.decode(
+            preferences.getString("frames_dismissed", null),
+        )
+
+    fun saveFrameDismissals(value: Map<String, Long>) {
+        preferences.edit {
+            putString(
+                "frames_dismissed",
+                io.github.aimindseye.tenseven.frames.FrameDismissals
+                    .encode(value),
+            )
+        }
+    }
+
+    fun loadFavoriteKeys(): Set<String> {
+        val explicit =
+            preferences.getStringSet(
+                KEY_FAVORITE_APPS,
+                null,
+            )
+        if (explicit != null) {
+            return explicit.toSet()
+        }
+
+        return preferences
+            .getStringSet(
+                KEY_PINNED_APPS_LEGACY,
+                emptySet(),
+            ).orEmpty()
+            .toSet()
+    }
+
+    fun saveFavoriteKeys(keys: Set<String>) {
+        preferences
+            .edit {
+                putStringSet(
+                    KEY_FAVORITE_APPS,
+                    keys.toSet(),
+                ).remove(KEY_PINNED_APPS_LEGACY)
+            }
+    }
+
+    /**
+     * Null means the user has never customized Start tiles and the production
+     * UI should resolve the current preferred/default set from installed apps.
+     * An empty set is an explicit user choice to keep Start tile-free.
+     */
+    fun loadStartTileKeys(): Set<String>? {
+        if (!preferences.contains(KEY_START_TILES)) {
+            return null
+        }
+
+        return preferences
+            .getStringSet(
+                KEY_START_TILES,
+                emptySet(),
+            ).orEmpty()
+            .toSet()
+    }
+
+    fun saveStartTileKeys(keys: Set<String>) {
+        preferences
+            .edit {
+                putStringSet(
+                    KEY_START_TILES,
+                    keys.toSet(),
+                )
+            }
+    }
+
+    /**
+     * Ordered quick bar slot tokens (see QuickBar). Null means never
+     * customised, so the UI shows the default bar. Stored as one string
+     * because a string set would lose the order.
+     */
+    fun loadQuickBar(): List<String>? =
+        preferences
+            .getString(KEY_QUICK_BAR, null)
+            ?.split(QUICK_BAR_SEPARATOR)
+            ?.filter { it.isNotEmpty() }
+
+    fun saveQuickBar(tokens: List<String>?) {
+        preferences
+            .edit {
+                if (tokens == null) {
+                    remove(KEY_QUICK_BAR)
+                } else {
+                    putString(KEY_QUICK_BAR, tokens.joinToString(QUICK_BAR_SEPARATOR))
+                }
+            }
+    }
+
+    /** Ordered Home apps (see HomeApps); null means never customised. */
+    fun loadHomeApps(): List<String>? = loadOrdered(KEY_HOME_APPS)
+
+    fun saveHomeApps(keys: List<String>?) = saveOrdered(KEY_HOME_APPS, keys)
+
+    /** Rows of icons on the BlackBerry 7 home screen (see Bb7Home.MAX_HOME_ROWS). */
+    fun loadBb7HomeRows(): Int =
+        preferences.getInt(KEY_BB7_HOME_ROWS, Bb7Home.MIN_HOME_ROWS).coerceIn(Bb7Home.MIN_HOME_ROWS, Bb7Home.MAX_HOME_ROWS)
+
+    fun saveBb7HomeRows(rows: Int) {
+        preferences.edit().putInt(KEY_BB7_HOME_ROWS, rows).apply()
+    }
+
+    /** The BlackBerry 7 tray's panels, in order (see Bb7Panels). */
+    fun loadBb7Panels(): List<Bb7Panel> = Bb7Panels.decode(preferences.getString(KEY_BB7_PANELS, null))
+
+    fun saveBb7Panels(panels: List<Bb7Panel>) {
+        preferences.edit().putString(KEY_BB7_PANELS, Bb7Panels.encode(panels)).apply()
+    }
+
+    /** How dark the BlackBerry 7 banner and tray are over the wallpaper (see Bb7Scrim). */
+    fun loadBb7Scrim(): Int = Bb7Scrim.clamp(preferences.getInt(KEY_BB7_SCRIM, Bb7Scrim.DEFAULT))
+
+    fun saveBb7Scrim(level: Int) {
+        preferences.edit().putInt(KEY_BB7_SCRIM, Bb7Scrim.clamp(level)).apply()
+    }
+
+    /** The app grid order (AppGrid, the BB10 layout); null means never customised. */
+    fun loadGridOrder(): List<String>? = loadOrdered(KEY_GRID_ORDER)
+
+    fun saveGridOrder(keys: List<String>?) = saveOrdered(KEY_GRID_ORDER, keys)
+
+    /** Ordered Glance widgets, shown as Active Frames while no app is running (see GlanceWidgets); null means never customised. */
+    fun loadGlanceWidgets(): List<String>? = loadOrdered(KEY_GLANCE_WIDGETS)
+
+    fun saveGlanceWidgets(widgets: List<String>?) = saveOrdered(KEY_GLANCE_WIDGETS, widgets)
+
+    /** Home modules the user hid in Edit Home (see HomeLayout); null means never customised. */
+    fun loadHiddenHomeSections(): Set<String>? =
+        if (preferences.contains(KEY_HOME_HIDDEN_SECTIONS)) {
+            preferences.getStringSet(KEY_HOME_HIDDEN_SECTIONS, emptySet()).orEmpty().toSet()
+        } else {
+            null
+        }
+
+    fun saveHiddenHomeSections(sections: Set<String>?) {
+        preferences
+            .edit {
+                if (sections == null) {
+                    remove(KEY_HOME_HIDDEN_SECTIONS)
+                } else {
+                    putStringSet(KEY_HOME_HIDDEN_SECTIONS, sections.toSet())
+                }
+            }
+    }
+
+    /** "list" or "tiles" (see HomeLayout); null means never customised. */
+    fun loadHomeMode(): String? = preferences.getString(KEY_HOME_MODE, null)
+
+    fun saveHomeMode(mode: String) {
+        preferences.edit().putString(KEY_HOME_MODE, mode).apply()
+    }
+
+    /** BlackBerry 10 or BlackBerry 7 home (HomeStyle); the BB10 layout until the user picks. */
+    fun loadHomeStyle(): HomeStyle =
+        HomeStyle.fromStableValue(
+            runCatching { android.provider.Settings.Secure.getString(profileResolver, "sable_profile") }.getOrNull()
+                ?: preferences.getString(KEY_HOME_STYLE, null),
+        )
+
+    fun saveHomeStyle(style: HomeStyle) {
+        preferences.edit().putString(KEY_HOME_STYLE, style.stableValue).apply()
+        runCatching { android.provider.Settings.Secure.putString(profileResolver, "sable_profile", style.stableValue) }
+    }
+
+    /** Safe launcher-owned font preset: do not alter Android system font scale. */
+    fun loadLauncherTextSize(): io.github.aimindseye.tenseven.model.LauncherTextSize =
+        io.github.aimindseye.tenseven.model.LauncherTextSize.decode(
+            preferences.getString("launcher_text_size", null),
+        )
+
+    fun saveLauncherTextSize(value: io.github.aimindseye.tenseven.model.LauncherTextSize) {
+        preferences.edit { putString("launcher_text_size", value.name) }
+    }
+
+    /** Opt-in city, never inferred from location or IP address. */
+    fun loadHomeWeatherEnabled(): Boolean = preferences.getBoolean("home_weather_enabled", false)
+
+    fun saveHomeWeatherEnabled(enabled: Boolean) {
+        preferences.edit { putBoolean("home_weather_enabled", enabled) }
+    }
+
+    fun loadHomeWeatherCity(): String = preferences.getString("home_weather_city", "").orEmpty()
+
+    fun saveHomeWeatherCity(value: String) {
+        preferences.edit { putString("home_weather_city", value.trim().take(HOME_WEATHER_CITY_INPUT_LIMIT)) }
+    }
+
+    /** Whether the setup flow has been shown (finished, skipped or backed out of); it opens once on first run. */
+    fun loadOnboardingDone(): Boolean = preferences.getBoolean(KEY_ONBOARDING_DONE, false)
+
+    fun saveOnboardingDone() {
+        preferences.edit().putBoolean(KEY_ONBOARDING_DONE, true).apply()
+    }
+
+    /** Observes Home weather and font changes without requiring a restart of Settings or Home. */
+    fun onHomeReadabilityChanged(listener: () -> Unit): () -> Unit {
+        val callback =
+            SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                when (key) {
+                    "launcher_text_size", "home_weather_enabled", "home_weather_city",
+                    "home_weather_use_device_location", "home_status_size",
+                    -> listener()
+                }
+            }
+        preferences.registerOnSharedPreferenceChangeListener(callback)
+        return { preferences.unregisterOnSharedPreferenceChangeListener(callback) }
+    }
+
+    /** Explicit opt-in; manual city remains available when permission is denied or unavailable. */
+    fun loadHomeWeatherUseDeviceLocation(): Boolean = preferences.getBoolean("home_weather_use_device_location", false)
+
+    fun saveHomeWeatherUseDeviceLocation(enabled: Boolean) {
+        preferences.edit { putBoolean("home_weather_use_device_location", enabled) }
+    }
+
+    /** One status readout size for BB7/BB10; no migration of dial selections needed. */
+    fun loadHomeStatusSize(): io.github.aimindseye.tenseven.model.HomeStatusSize =
+        io.github.aimindseye.tenseven.model.HomeStatusSize
+            .decode(preferences.getString("home_status_size", null))
+
+    fun saveHomeStatusSize(size: io.github.aimindseye.tenseven.model.HomeStatusSize) {
+        preferences.edit { putString("home_status_size", size.stableValue) }
+    }
+
+    /** Double-tap on empty Home space locks the screen (needs the accessibility service); off until chosen. */
+    fun loadDoubleTapLock(): Boolean = preferences.getBoolean(KEY_DOUBLE_TAP_LOCK, false)
+
+    fun saveDoubleTapLock(enabled: Boolean) {
+        preferences.edit().putBoolean(KEY_DOUBLE_TAP_LOCK, enabled).apply()
+    }
+
+    /** Package name of the chosen icon pack, or null for each app's own icon. */
+    fun loadIconPack(): String? = preferences.getString(KEY_ICON_PACK, null)?.takeIf { it.isNotBlank() }
+
+    fun saveIconPack(packageName: String?) {
+        preferences
+            .edit {
+                if (packageName.isNullOrBlank()) remove(KEY_ICON_PACK) else putString(KEY_ICON_PACK, packageName)
+            }
+    }
+
+    /** Release 2 defaults to TenSeven/Tabler glyphs; persisted Original remains an explicit opt-out. */
+    fun loadIconPresentation(): io.github.aimindseye.tenseven.model.IconPresentation =
+        io.github.aimindseye.tenseven.model.IconPresentation.decode(
+            preferences.getString(KEY_ICON_PRESENTATION, null),
+        )
+
+    fun saveIconPresentation(style: io.github.aimindseye.tenseven.model.IconPresentation) {
+        preferences.edit().putString(KEY_ICON_PRESENTATION, style.key).apply()
+    }
+
+    /** Whether typing on a home screen starts a search (default on). */
+    fun loadTypeToSearch(): Boolean = preferences.getInt(KEY_TYPE_TO_SEARCH, 1) != 0
+
+    fun saveTypeToSearch(enabled: Boolean) {
+        preferences.edit().putInt(KEY_TYPE_TO_SEARCH, if (enabled) 1 else 0).apply()
+    }
+
+    fun loadBb7IconSize(): Bb7IconSize =
+        Bb7IconSize.fromStable(
+            preferences.getInt(
+                KEY_BB7_ICON_SIZE,
+                Bb7IconSize
+                    .DEFAULT.stable,
+            ),
+        )
+
+    fun saveBb7IconSize(size: Bb7IconSize) {
+        preferences.edit().putInt(KEY_BB7_ICON_SIZE, size.stable).apply()
+    }
+
+    /** Apps placed in the empty space of the BlackBerry 7 home screen, in order (stable keys). */
+    fun loadBb7Desktop(): List<String> = Bb7Home.desktopShortcuts(loadOrdered(KEY_BB7_DESKTOP).orEmpty())
+
+    fun saveBb7Desktop(keys: List<String>) = saveOrdered(KEY_BB7_DESKTOP, Bb7Home.desktopShortcuts(keys))
+
+    /** Icon grid: columns (0 = as many as fit) and whether icons carry their names. */
+    fun loadGridColumns(): Int = GridColumns.normalize(preferences.getInt(KEY_GRID_COLUMNS, GridColumns.AUTO))
+
+    fun saveGridColumns(columns: Int) {
+        preferences.edit().putInt(KEY_GRID_COLUMNS, GridColumns.normalize(columns)).apply()
+    }
+
+    /** The Tenseven lock layer shown over the system lock screen when the screen wakes; off until chosen. */
+    fun loadLockLayer(): Boolean = preferences.getInt(KEY_LOCK_LAYER, 0) != 0
+
+    fun saveLockLayer(enabled: Boolean) {
+        preferences.edit().putInt(KEY_LOCK_LAYER, if (enabled) 1 else 0).apply()
+    }
+
+    /** Explicit selection is separate from theme and Android WallpaperManager. */
+    fun loadWallpaperSetId(): String =
+        WallpaperSets.selectedId(
+            preferences.getString(KEY_WALLPAPER_SET, null),
+            ThemePresets.matching(loadAppearanceMode(), loadAppearanceAccent()).wallpaperId,
+        )
+
+    fun saveWallpaperSetId(id: String) {
+        require(WallpaperSets.ALL.any { it.id == id }) { "Unknown wallpaper: $id" }
+        preferences.edit().putString(KEY_WALLPAPER_SET, id).apply()
+    }
+
+    /** Whether the BlackBerry 10 home lets the wallpaper show through, dimmed. On by default. */
+    fun loadHomeWallpaper(): Boolean = preferences.getInt(KEY_HOME_WALLPAPER, 0) != 0
+
+    fun saveHomeWallpaper(shown: Boolean) {
+        preferences.edit().putInt(KEY_HOME_WALLPAPER, if (shown) 1 else 0).apply()
+    }
+
+    fun loadGridLabels(): Boolean = preferences.getInt(KEY_GRID_LABELS, 1) != 0
+
+    fun saveGridLabels(shown: Boolean) {
+        preferences.edit().putInt(KEY_GRID_LABELS, if (shown) 1 else 0).apply()
+    }
+
+    /** Compatibility view of automatic observed sources or the optional saved manual selection. */
+    fun loadHubEnabledApps(): Set<String> = hubSources.enabledPackages()
+
+    fun saveHubEnabledApps(packages: Set<String>) {
+        hubSources.saveManual(packages)
+    }
+
+    /** Shared Home metrics, migrated from the currently selected style on first read. */
+    fun loadHomeDials(): Set<String> =
+        HomeDisplayPolicy.normalizedDials(
+            preferences.getStringSet("home_status_metrics_shared", null)
+                ?: preferences.getStringSet(HomeDisplayPolicy.dialPreference(loadHomeStyle()), null)
+                ?: HomeDisplayPolicy.DEFAULT_DIALS,
+        )
+
+    /** Candidate-only legacy read for protected Active Frames. Shared dials ignore style. */
+    @Suppress("UnusedParameter", "UNUSED_PARAMETER")
+    fun loadHomeDials(style: HomeStyle): Set<String> = loadHomeDials()
+
+    fun saveHomeDials(selected: Set<String>) {
+        preferences
+            .edit {
+                putStringSet(
+                    "home_status_metrics_shared",
+                    HomeDisplayPolicy.normalizedDials(selected),
+                )
+            }
+    }
+
+    /** SableOS: the status dials and the status line are removed, so Home status is always Hidden. */
+    fun loadHomeStatusMode(): io.github.aimindseye.tenseven.model.HomeStatusMode =
+        io.github.aimindseye.tenseven.model.HomeStatusMode.Hidden
+
+    fun saveHomeStatusMode(mode: io.github.aimindseye.tenseven.model.HomeStatusMode) {
+        preferences.edit { putString("home_status_mode_shared", mode.key) }
+    }
+
+    /** Per-user Hub Compose preference. Android remains the authority for the chosen default app. */
+    internal fun loadHubComposeMode(): io.github.aimindseye.tenseven.model.HubComposeMode =
+        io.github.aimindseye.tenseven.model.HubComposeMode.decode(
+            preferences.getString("hub_compose_mode_2", null),
+        )
+
+    internal fun saveHubComposeMode(mode: io.github.aimindseye.tenseven.model.HubComposeMode) {
+        preferences.edit { putString("hub_compose_mode_2", mode.key) }
+    }
+
+    /** D4r3: the Home duplicate notification shelf is retired. Hub remains the entry point.
+     * The old stored preference is deliberately not erased so upgrades and backups remain compatible.
+     */
+    @Suppress("UnusedParameter", "UNUSED_PARAMETER")
+    fun loadHomeNotificationStrip(style: HomeStyle): Boolean = false
+
+    fun saveHomeNotificationStrip(
+        style: HomeStyle,
+        enabled: Boolean,
+    ) {
+        preferences.edit().putInt(HomeDisplayPolicy.stripPreference(style), if (enabled) 1 else 0).apply()
+    }
+
+    fun loadHomeNotificationExpanded(style: HomeStyle): Boolean =
+        preferences.getInt(HomeDisplayPolicy.stripExpandedPreference(style), 0) != 0
+
+    fun saveHomeNotificationExpanded(
+        style: HomeStyle,
+        expanded: Boolean,
+    ) {
+        preferences.edit().putInt(HomeDisplayPolicy.stripExpandedPreference(style), if (expanded) 1 else 0).apply()
+    }
+
+    /** null selects all visible calendars; empty selects none. IDs stay on-device (never backed up). */
+    fun loadHubSelectedCalendarIds(): Set<Long>? =
+        if (preferences.contains(KEY_HUB_SELECTED_CALENDARS)) {
+            preferences
+                .getStringSet(KEY_HUB_SELECTED_CALENDARS, emptySet())
+                .orEmpty()
+                .mapNotNull { it.toLongOrNull() }
+                .toSet()
+        } else {
+            null
+        }
+
+    fun saveHubSelectedCalendarIds(ids: Set<Long>?) {
+        preferences
+            .edit()
+            .apply {
+                if (ids == null) {
+                    remove(KEY_HUB_SELECTED_CALENDARS)
+                } else {
+                    putStringSet(KEY_HUB_SELECTED_CALENDARS, ids.map { it.toString() }.toSet())
+                }
+            }.apply()
+    }
+
+    /** Calendar Peek is optional: never read CalendarProvider until the user enables this. */
+    fun loadHubCalendarPeek(): Boolean = preferences.getInt(KEY_HUB_CALENDAR_PEEK, 0) != 0
+
+    fun saveHubCalendarPeek(enabled: Boolean) {
+        preferences.edit().putInt(KEY_HUB_CALENDAR_PEEK, if (enabled) 1 else 0).apply()
+    }
+
+    /** Whether the Hub peek on the home screen shows message text (off: names and counts only). */
+    fun loadHubPeekText(): Boolean = preferences.getInt(KEY_HUB_PEEK_TEXT, 0) != 0
+
+    fun saveHubPeekText(shown: Boolean) {
+        preferences.edit().putInt(KEY_HUB_PEEK_TEXT, if (shown) 1 else 0).apply()
+    }
+
+    /** Android widget ids shown as tiles on the BlackBerry 10 home. Device-specific, so never part of a backup. */
+    fun loadHomeWidgetIds(): List<Int> = WidgetList.parse(preferences.getString(KEY_HOME_WIDGET_IDS, null))
+
+    fun saveHomeWidgetIds(ids: List<Int>) {
+        preferences.edit().putString(KEY_HOME_WIDGET_IDS, WidgetList.format(ids)).apply()
+    }
+
+    /** The theme chosen in Tenseven (mode and accent, stable values); null means follow the system's Sable appearance. */
+    fun loadAppearanceMode(): String? = preferences.getString(KEY_APPEARANCE_MODE, null)
+
+    fun loadAppearanceAccent(): String? = preferences.getString(KEY_APPEARANCE_ACCENT, null)
+
+    /** Choosing a built-in theme also clears any imported theme that was chosen. */
+    fun saveAppearance(
+        mode: String?,
+        accent: String?,
+    ) {
+        preferences
+            .edit()
+            .apply {
+                if (mode == null) remove(KEY_APPEARANCE_MODE) else putString(KEY_APPEARANCE_MODE, mode)
+                if (accent == null) remove(KEY_APPEARANCE_ACCENT) else putString(KEY_APPEARANCE_ACCENT, accent)
+                remove(KEY_APPEARANCE_CUSTOM)
+            }.apply()
+    }
+
+    /** The imported themes (a JSON array, see [CustomThemes.formatStored]); included in a backup. */
+    fun loadCustomThemes(): List<CustomTheme> = CustomThemes.parseStored(preferences.getString(KEY_CUSTOM_THEMES, null))
+
+    fun saveCustomThemes(themes: List<CustomTheme>) {
+        preferences.edit().putString(KEY_CUSTOM_THEMES, CustomThemes.formatStored(themes)).apply()
+    }
+
+    /** The id of the imported theme in use, or null when a built-in theme is. */
+    fun loadActiveCustomThemeId(): String? = preferences.getString(KEY_APPEARANCE_CUSTOM, null)
+
+    /** Uses the imported [theme]: its mode, the "custom" accent, and its id. */
+    fun saveActiveCustomTheme(theme: CustomTheme) {
+        preferences
+            .edit()
+            .putString(KEY_APPEARANCE_MODE, theme.mode)
+            .putString(KEY_APPEARANCE_ACCENT, CustomThemes.ACCENT_VALUE)
+            .putString(KEY_APPEARANCE_CUSTOM, theme.id)
+            .apply()
+    }
+
+    /** Calls [listener] when the theme choice changes; the returned function stops listening. */
+    fun onAppearanceChanged(listener: () -> Unit): () -> Unit {
+        val callback =
+            SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                when (key) {
+                    KEY_APPEARANCE_MODE, KEY_APPEARANCE_ACCENT,
+                    KEY_APPEARANCE_CUSTOM, KEY_CUSTOM_THEMES,
+                    -> listener()
+                }
+            }
+        preferences.registerOnSharedPreferenceChangeListener(callback)
+        return { preferences.unregisterOnSharedPreferenceChangeListener(callback) }
+    }
+
+    /** Whether the Widgets page is the page left of Hub (default on). */
+    fun loadWidgetsPage(): Boolean = preferences.getInt(KEY_WIDGETS_PAGE, 1) != 0
+
+    fun saveWidgetsPage(enabled: Boolean) {
+        preferences.edit().putInt(KEY_WIDGETS_PAGE, if (enabled) 1 else 0).apply()
+    }
+
+    /** Android widget ids this launcher allocated, in display order. Device-specific, so never part of a backup. */
+    fun loadWidgetIds(): List<Int> = WidgetList.parse(preferences.getString(KEY_WIDGET_IDS, null))
+
+    fun saveWidgetIds(ids: List<Int>) {
+        preferences.edit().putString(KEY_WIDGET_IDS, WidgetList.format(ids)).apply()
+    }
+
+    /** The settings a backup carries (see LauncherBackup); nothing else in preferences is read. */
+    fun exportSettings(): Map<String, BackupValue> = LauncherBackup.select(preferences.all)
+
+    /** Replaces every backed-up setting with [settings]: keys the file lacks go back to their defaults. */
+    fun restoreSettings(settings: Map<String, BackupValue>) {
+        preferences
+            .edit()
+            .apply {
+                LauncherBackup.keys.forEach { remove(it) }
+                settings.forEach { (key, value) ->
+                    if (key in LauncherBackup.keys) {
+                        when (value) {
+                            is BackupValue.Text -> putString(key, value.value)
+                            is BackupValue.Number -> putInt(key, value.value)
+                            is BackupValue.Items -> putStringSet(key, value.values)
+                        }
+                    }
+                }
+            }.apply()
+    }
+
+    private fun loadOrdered(key: String): List<String>? =
+        preferences
+            .getString(key, null)
+            ?.split(QUICK_BAR_SEPARATOR)
+            ?.filter { it.isNotEmpty() }
+
+    private fun saveOrdered(
+        key: String,
+        values: List<String>?,
+    ) {
+        preferences
+            .edit()
+            .apply {
+                if (values == null) {
+                    remove(key)
+                } else {
+                    putString(key, values.joinToString(QUICK_BAR_SEPARATOR))
+                }
+            }.apply()
+    }
+
+    companion object {
+        const val PREFERENCES_NAME = "sable_start_state"
+        const val KEY_FAVORITE_APPS = "favorite_apps"
+        const val KEY_START_TILES = "start_tiles"
+        const val KEY_PINNED_APPS_LEGACY = "pinned_apps"
+        const val KEY_QUICK_BAR = "quick_bar"
+        const val QUICK_BAR_SEPARATOR = "\n"
+        const val KEY_HOME_APPS = "home_apps"
+        const val KEY_BB7_HOME_ROWS = "bb7_home_rows"
+        const val KEY_BB7_PANELS = "bb7_panels"
+        const val KEY_BB7_SCRIM = "bb7_scrim"
+        const val KEY_HOME_DIALS_BB7 = "home_dials_bb7"
+        const val KEY_HOME_DIALS_BB10 = "home_dials_bb10"
+        const val KEY_HOME_NOTIFICATION_STRIP_BB7 = "home_notification_strip_bb7"
+        const val KEY_HOME_NOTIFICATION_STRIP_BB10 = "home_notification_strip_bb10"
+        const val KEY_HOME_NOTIFICATION_EXPANDED_BB7 = "home_notification_expanded_bb7"
+        const val KEY_HOME_NOTIFICATION_EXPANDED_BB10 = "home_notification_expanded_bb10"
+        const val KEY_TYPE_TO_SEARCH = "type_to_search"
+        const val KEY_BB7_ICON_SIZE = "bb7_icon_size"
+        const val KEY_WIDGETS_PAGE = "widgets_page"
+        const val KEY_BB7_DESKTOP = "bb7_desktop"
+        const val KEY_GRID_COLUMNS = "grid_columns"
+        const val KEY_GRID_LABELS = "grid_labels"
+        const val KEY_LOCK_LAYER = "lock_layer"
+        const val KEY_HOME_WALLPAPER = "home_wallpaper"
+        const val KEY_WALLPAPER_SET = "wallpaper_set"
+        const val KEY_HUB_EXCLUDED = "hub_excluded_apps" // legacy backup compatibility; never used as consent
+        const val KEY_HUB_ENABLED = "hub_enabled_apps"
+        const val KEY_HUB_PEEK_TEXT = "hub_peek_text"
+        const val KEY_HUB_CALENDAR_PEEK = "hub_calendar_peek"
+        const val KEY_HUB_SELECTED_CALENDARS = "hub_selected_calendar_ids_device"
+        const val KEY_HOME_WIDGET_IDS = "home_widget_ids"
+        const val KEY_APPEARANCE_MODE = "appearance_mode"
+        const val KEY_APPEARANCE_ACCENT = "appearance_accent"
+        const val KEY_APPEARANCE_CUSTOM = "appearance_custom"
+        const val KEY_CUSTOM_THEMES = "custom_themes"
+        const val KEY_WIDGET_IDS = "widget_ids"
+        const val KEY_GLANCE_WIDGETS = "glance_widgets"
+
+        // v2: the BB10 Home shows the status dials by default; sets saved by the
+        // three-page Home hid them without the user choosing, so they are not read.
+        const val KEY_HOME_HIDDEN_SECTIONS = "home_hidden_sections_v2"
+        const val KEY_HOME_MODE = "home_mode"
+        const val KEY_HOME_STYLE = "home_style"
+        const val KEY_ONBOARDING_DONE = "onboarding_done"
+        const val KEY_ICON_PACK = "icon_pack"
+        const val KEY_ICON_PRESENTATION = "icon_presentation"
+        const val KEY_DOUBLE_TAP_LOCK = "double_tap_lock"
+        const val KEY_GRID_ORDER = "grid_order"
+    }
+}

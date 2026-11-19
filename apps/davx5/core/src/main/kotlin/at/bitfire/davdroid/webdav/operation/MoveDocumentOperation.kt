@@ -1,0 +1,67 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+package at.bitfire.davdroid.webdav.operation
+
+import android.content.Context
+import at.bitfire.dav4jvm.ktor.DavResource
+import at.bitfire.dav4jvm.ktor.exception.HttpException
+import at.bitfire.davdroid.db.AppDatabase
+import at.bitfire.davdroid.webdav.DavHttpClientBuilder
+import at.bitfire.davdroid.webdav.DocumentProviderUtils
+import at.bitfire.davdroid.webdav.throwForDocumentProvider
+import dagger.hilt.android.qualifiers.ApplicationContext
+import io.ktor.http.URLBuilder
+import io.ktor.http.appendPathSegments
+import java.io.FileNotFoundException
+import java.util.logging.Logger
+import javax.inject.Inject
+
+class MoveDocumentOperation @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val db: AppDatabase,
+    private val davClientBuilder: DavHttpClientBuilder,
+    private val logger: Logger
+) {
+
+    private val documentDao = db.webDavDocumentDao()
+
+    suspend operator fun invoke(
+        sourceDocumentId: String,
+        sourceParentDocumentId: String,
+        targetParentDocumentId: String
+    ): String {
+        logger.fine("WebDAV moveDocument $sourceDocumentId $sourceParentDocumentId $targetParentDocumentId")
+        val doc = documentDao.get(sourceDocumentId.toLong()) ?: throw FileNotFoundException()
+        val dstParent = documentDao.get(targetParentDocumentId.toLong()) ?: throw FileNotFoundException()
+
+        if (doc.mountId != dstParent.mountId)
+            throw UnsupportedOperationException("Can't MOVE between WebDAV servers")
+
+        davClientBuilder
+            .build(doc.mountId)
+            .use { httpClient ->
+                val newLocation = URLBuilder(dstParent.toKtorUrl(db))
+                    .appendPathSegments(doc.name)
+                    .build()
+
+                val dav = DavResource(httpClient, doc.toKtorUrl(db))
+                try {
+                    dav.move(newLocation, false) {
+                        // successfully moved
+                    }
+
+                    documentDao.update(doc.copy(parentId = dstParent.id))
+
+                    DocumentProviderUtils.notifyFolderChanged(context, sourceParentDocumentId)
+                    DocumentProviderUtils.notifyFolderChanged(context, targetParentDocumentId)
+                } catch (e: HttpException) {
+                    e.throwForDocumentProvider(context)
+                }
+            }
+
+        return doc.id.toString()
+    }
+
+}

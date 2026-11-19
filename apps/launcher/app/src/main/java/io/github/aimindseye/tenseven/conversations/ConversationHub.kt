@@ -1,0 +1,266 @@
+// Derived from MinkLauncher OpenSource (github.com/katoaapps/openminilaunch, commit b9b26f7,
+// features/conversations/NotificationHub.kt), Copyright 2026 Katoa Apps, Apache License 2.0.
+// Changed: package; no Compose state (plain list plus change listeners); demo data removed; replies kept in
+// memory and sent through the notification's own reply action; unread counts for the Hub bar added.
+package io.github.aimindseye.tenseven.conversations
+
+import android.app.ActivityOptions
+import android.app.RemoteInput
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import io.github.aimindseye.tenseven.live.AppUnreadCount
+import io.github.aimindseye.tenseven.platform.currentHubReplyTarget
+import io.github.aimindseye.tenseven.platform.markHubSourceRead
+import io.github.aimindseye.tenseven.platform.sendHubPendingIntent
+import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.math.abs
+
+/**
+ * The conversations currently in the notification shade, kept in memory only: nothing is written to disk,
+ * and everything is dropped when notification access is revoked or the process ends.
+ */
+object ConversationHub {
+    private val lock = Any()
+    private var items: List<HubNotification> = emptyList()
+    private var sentReplies: List<ConversationMessage> = emptyList()
+    private val listeners = CopyOnWriteArrayList<() -> Unit>()
+
+    @Volatile
+    private var state: ConversationState = ConversationState.EMPTY
+
+    @Volatile
+    private var stateLoaded = false
+
+    /** Reads what was marked read or snoozed, once per process. */
+    fun ensureStateLoaded(context: Context) {
+        SableMailFeed.start(context) { listeners.forEach { it() } }
+        SableHubHistory.init(context)
+        if (stateLoaded) return
+        synchronized(lock) {
+            if (!stateLoaded) {
+                state = ConversationStateStore(context).load().prune(System.currentTimeMillis())
+                stateLoaded = true
+            }
+        }
+    }
+
+    fun state(): ConversationState = state
+
+    private fun changeState(
+        context: Context,
+        change: (ConversationState) -> ConversationState,
+    ) {
+        ensureStateLoaded(context)
+        val next = synchronized(lock) { change(state).also { state = it } }
+        ConversationStateStore(context).save(next)
+        listeners.forEach { it() }
+    }
+
+    /**
+     * Marks the conversation read: sends the "mark as read" action the app put on its notification (when it has
+     * one), and stops counting what is already here. Newer messages count again.
+     */
+    fun markRead(
+        context: Context,
+        conversation: HubConversation,
+    ) {
+        conversation.notifications.forEach { n ->
+            markHubSourceRead(context, n)
+            SableMailFeed.markRead(context, n)
+        }
+        val now = maxOf(System.currentTimeMillis(), conversation.messages.maxOfOrNull(ConversationMessage::timestamp) ?: 0L)
+        changeState(context) { it.markRead(conversation.id, now) }
+    }
+
+    fun snooze(
+        context: Context,
+        conversation: HubConversation,
+        until: Long,
+    ) = changeState(context) { it.snooze(conversation.id, until) }
+
+    fun wake(
+        context: Context,
+        conversation: HubConversation,
+    ) = changeState(context) { it.wake(conversation.id) }
+
+    fun notifications(): List<HubNotification> = synchronized(lock) { SableHubHistory.view(SableMailFeed.merge(items)) }
+
+    fun conversations(): List<HubConversation> = synchronized(lock) {
+            SableHubHistory.rows(buildConversations(SableHubHistory.view(SableMailFeed.merge(items)), sentReplies))
+        }
+
+    /** Package and count per app, most unread first. No message text. */
+    fun unreadCounts(maxApps: Int = DEFAULT_MAX_APPS): List<AppUnreadCount> =
+        countUnread(notifications(), maxApps, state, System.currentTimeMillis())
+
+    fun addChangeListener(listener: () -> Unit) {
+        listeners += listener
+    }
+
+    fun removeChangeListener(listener: () -> Unit) {
+        listeners -= listener
+    }
+
+    internal fun replace(newItems: List<HubNotification>) = update { newItems.sortedByDescending(HubNotification::postedAt) }
+
+    internal fun upsert(item: HubNotification) =
+        update { old ->
+            (
+                old.filterNot {
+                    it.key == item.key
+                } + item
+            ).sortedByDescending(HubNotification::postedAt)
+        }
+
+    internal fun remove(key: String) = update { old -> old.filterNot { it.key == key } }
+
+    internal fun clear() = update { emptyList() }
+
+    /** Forgets what the Hub holds for apps the user turned off, now. Their notifications in the shade are untouched. */
+    internal fun dropPackages(packages: Set<String>) {
+        SableHubHistory.forget(packages)
+        update { old -> old.filterNot { it.packageName in packages } }
+    }
+
+    /** The "Clear the Hub now" button: the Hub's in-memory copy goes; the shade keeps its notifications. */
+    fun clearNow() {
+        SableHubHistory.clear()
+        clear()
+    }
+
+    private fun update(change: (List<HubNotification>) -> List<HubNotification>) {
+        synchronized(lock) {
+            items = change(items)
+            SableHubHistory.record(items)
+            // A reply belongs to a conversation that is still in the shade; drop the rest.
+            val active = items.map(HubNotification::conversationId).toSet()
+            sentReplies = sentReplies.filter { it.conversationId in active }
+        }
+        listeners.forEach { it() }
+    }
+
+    /** Opens the app at the conversation, through the notification's own intent. False when it has none. */
+    fun open(
+        context: Context,
+        item: HubNotification,
+    ): Boolean = sendHubPendingIntent(context, item.contentIntent)
+
+    /**
+     * Sends [text] through the conversation's reply action, the same one the notification's own Reply button
+     * uses, and shows it in the conversation. False when there is no reply action or the app refused.
+     */
+    fun reply(
+        context: Context,
+        conversation: HubConversation,
+        text: String,
+    ): Boolean {
+        val clean = text.trim()
+        val target = currentHubReplyTarget(context, conversation)
+        val action = target?.replyAction
+        val inputs: Array<RemoteInput>? = action?.remoteInputs?.filter(RemoteInput::getAllowFreeFormInput)?.toTypedArray()
+        if (clean.isEmpty() || target == null || action == null || inputs.isNullOrEmpty()) return false
+        val sent =
+            runCatching {
+                val results = Bundle().apply { inputs.forEach { putCharSequence(it.resultKey, clean) } }
+                val fillIn = Intent()
+                RemoteInput.addResultsToIntent(inputs, fillIn, results)
+                action.actionIntent.send(context, 0, fillIn)
+                true
+            }.getOrDefault(false)
+        if (sent) {
+            val now = System.currentTimeMillis()
+            val message =
+                ConversationMessage(
+                    id = "local|${conversation.id}|$now|${System.nanoTime()}",
+                    conversationId = conversation.id,
+                    notificationKey = target.key,
+                    packageName = target.packageName,
+                    appName = target.appName,
+                    text = clean,
+                    timestamp = now,
+                    senderName = null,
+                    isOutgoing = true,
+                )
+            synchronized(lock) { sentReplies = sentReplies + message }
+            listeners.forEach { it() }
+        }
+        return sent
+    }
+
+    /** SableOS: the conversation counts as unread again, from its newest incoming message. */
+    fun markUnread(
+        context: Context,
+        conversation: HubConversation,
+    ) {
+        val at = SableHubKeep.unreadMark(conversation) ?: return
+        changeState(context) { it.markRead(conversation.id, at) }
+    }
+
+    /** SableOS: Delete takes the row out of the Hub and its notifications out of the shade. */
+    fun delete(
+        context: Context,
+        conversation: HubConversation,
+    ) {
+        ensureStateLoaded(context)
+        SableHubHistory.delete(conversation.notifications)
+        ConversationListenerService.cancelKeys(conversation.notifications.map(HubNotification::key))
+        notifyChanged()
+    }
+
+    fun notifyChanged() = listeners.forEach { it() }
+
+    const val DEFAULT_MAX_APPS = 32
+}
+
+/** Groups notifications into conversations; [replies] are the user's own, kept until the app echoes them. */
+internal fun buildConversations(
+    source: List<HubNotification>,
+    replies: List<ConversationMessage> = emptyList(),
+): List<HubConversation> =
+    source
+        .groupBy(HubNotification::conversationId)
+        .map { (id, grouped) ->
+            val ordered = grouped.sortedByDescending(HubNotification::postedAt)
+            val fromApps = grouped.flatMap(HubNotification::messages)
+            val local = replies.filter { it.conversationId == id && !isEchoed(it, fromApps) }
+            HubConversation(
+                id = id,
+                name = ordered.first().conversationName,
+                notifications = ordered,
+                messages = (fromApps + local).distinctBy(ConversationMessage::id).sortedBy(ConversationMessage::timestamp),
+            )
+        }.sortedByDescending { it.latestMessage?.timestamp ?: it.latestNotification.postedAt }
+
+/** Once the app lists our reply among its own messages, the local copy would show it twice. */
+private fun isEchoed(
+    reply: ConversationMessage,
+    fromApps: List<ConversationMessage>,
+): Boolean =
+    fromApps.any {
+        it.isOutgoing && it.text == reply.text && abs(
+            it.timestamp -
+                reply
+                    .timestamp,
+        ) < ECHO_WINDOW_MS
+    }
+
+private const val ECHO_WINDOW_MS = 120_000L
+
+/** New incoming messages per app: ongoing notifications, outgoing messages, history, snoozed and read ones do not count. */
+internal fun countUnread(
+    source: List<HubNotification>,
+    maxApps: Int,
+    state: ConversationState = ConversationState.EMPTY,
+    now: Long = 0L,
+): List<AppUnreadCount> =
+    source
+        .filterNot(HubNotification::isOngoing)
+        .filterNot { state.isSnoozed(it.conversationId, now) }
+        .groupBy(HubNotification::packageName)
+        .mapValues { (_, items) -> items.sumOf { n -> state.unreadCount(n) } }
+        .filterValues { it > 0 }
+        .entries
+        .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        .take(maxApps)
+        .map { AppUnreadCount(it.key, it.value) }

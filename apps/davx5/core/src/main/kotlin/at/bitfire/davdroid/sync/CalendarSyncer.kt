@@ -1,0 +1,102 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+package at.bitfire.davdroid.sync
+
+import at.bitfire.davdroid.accounts.AccountId
+import at.bitfire.davdroid.db.Collection
+import at.bitfire.davdroid.db.Service
+import at.bitfire.davdroid.resource.local.LocalCalendar
+import at.bitfire.davdroid.resource.local.LocalCalendarStore
+import at.bitfire.davdroid.resource.remote.CalDavCollection
+import at.bitfire.davdroid.resource.remote.CalendarQueryFilter
+import at.bitfire.synctools.storage.LocalStorageClient
+import at.bitfire.synctools.storage.calendar.AndroidCalendarProvider
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import net.fortuna.ical4j.model.Component
+import java.time.ZonedDateTime
+import java.util.logging.Level
+
+/**
+ * Sync logic for calendars
+ */
+class CalendarSyncer @AssistedInject constructor(
+    @Assisted accountId: AccountId,
+    @Assisted resync: ResyncType?,
+    @Assisted syncResult: SyncResult,
+    @Assisted settings: SyncSettings,
+    calendarStore: LocalCalendarStore,
+    private val calendarSyncManagerFactory: CalendarSyncManager.Factory
+) : Syncer<LocalCalendarStore, LocalCalendar>(accountId, resync, syncResult, settings) {
+
+    @AssistedFactory
+    interface Factory {
+        fun create(
+            accountId: AccountId,
+            resyncType: ResyncType?,
+            syncResult: SyncResult,
+            settings: SyncSettings
+        ): CalendarSyncer
+    }
+
+    override val dataStore = calendarStore
+
+    override val serviceType: String
+        get() = Service.TYPE_CALDAV
+
+
+    override fun prepare(client: LocalStorageClient): Boolean {
+        // Update colors
+        val account = androidAccountManager.getAndroidAccount(accountId)
+        val calendarProvider = AndroidCalendarProvider(account, client)
+        if (settings.eventColors)
+            calendarProvider.provideCss3ColorIndices()
+        else
+            calendarProvider.removeColorIndices()
+        return true
+    }
+
+    override fun getDbSyncCollections(serviceId: Long): List<Collection> =
+        collectionRepository.getSyncCalendars(serviceId)
+
+    override suspend fun syncCollection(
+        client: LocalStorageClient,
+        localCollection: LocalCalendar,
+        remoteCollectionInfo: Collection
+    ) {
+        logger.log(
+            Level.INFO,
+            "Synchronizing calendar #{0}, DB Collection ID: {1}, URL: {2}",
+            arrayOf<Any?>(
+                localCollection.androidCalendar.id,
+                localCollection.dbCollectionId,
+                localCollection.androidCalendar.name
+            )
+        )
+
+        // calculate time range limit
+        val limitStart = settings.timeRangePastDays?.let { pastDays ->
+            ZonedDateTime.now().minusDays(pastDays.toLong()).toInstant()
+        }
+
+        val syncManager = calendarSyncManagerFactory.calendarSyncManager(
+            accountId = accountId,
+            httpClient = httpClient,
+            syncResult = syncResult,
+            localCalendar = localCollection,
+            collectionInfo = remoteCollectionInfo,
+            remoteCollection = CalDavCollection(
+                httpClient = httpClient,
+                url = remoteCollectionInfo.url,
+                filter = CalendarQueryFilter(components = listOf(Component.VEVENT), timeRangeStart = limitStart)
+            ),
+            resync = resync,
+            settings = settings
+        )
+        syncManager.performSync()
+    }
+
+}

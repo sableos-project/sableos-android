@@ -1,0 +1,161 @@
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.util.Properties
+
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kover)
+}
+
+// One Full release APK (signed on the owner's Mac) and a separate debug build.
+base {
+    archivesName.set("Tenseven-Launcher")
+}
+
+// Release signing. The key never lives in this repository: either a keystore.properties file at the repository root
+// (git-ignored) with storeFile, storePassword, keyAlias and keyPassword, or the environment variables
+// TENSEVEN_KEYSTORE, TENSEVEN_KEYSTORE_PASSWORD, TENSEVEN_KEY_ALIAS and TENSEVEN_KEY_PASSWORD. With neither, the
+// release build is left unsigned, as in CI. See docs/BUILD.md.
+val keystoreProperties =
+    Properties().apply {
+        val file = rootProject.file("keystore.properties")
+        if (file.isFile) file.inputStream().use { load(it) }
+    }
+
+fun signingValue(
+    property: String,
+    variable: String,
+): String? = (keystoreProperties.getProperty(property) ?: System.getenv(variable))?.takeIf { it.isNotBlank() }
+
+val releaseStoreFile = signingValue("storeFile", "TENSEVEN_KEYSTORE")
+val releaseStorePassword = signingValue("storePassword", "TENSEVEN_KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "TENSEVEN_KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "TENSEVEN_KEY_PASSWORD")
+val releaseSigned =
+    releaseStoreFile != null && releaseStorePassword != null && releaseKeyAlias != null && releaseKeyPassword != null
+
+android {
+    // The R class and BuildConfig package; the Kotlin sources use the same package.
+    namespace = "io.github.aimindseye.tenseven"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "org.sableos.launcher"
+        minSdk = 34
+        targetSdk = 36
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Full-only P1 qualification build; update code and name for every distributed test APK.
+        versionCode = 18
+        versionName = "2.0-sable"
+    }
+
+    signingConfigs {
+        if (releaseSigned) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+        release {
+            // R8: shrinks, optimises and obfuscates (renames) the app's code, and removes unused resources.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (releaseSigned) signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
+    buildFeatures {
+        compose = true
+        resValues = true
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError = rootProject.extra["strictQuality"] as Boolean
+        ignoreTestSources = true
+    }
+}
+
+dependencies {
+    constraints {
+        implementation(libs.androidx.core.ktx)
+        implementation(libs.androidx.collection)
+        implementation(libs.androidx.collection.jvm)
+        implementation(libs.androidx.collection.ktx)
+        implementation(libs.androidx.lifecycle.common)
+        implementation(libs.androidx.lifecycle.common.java8)
+        implementation(libs.androidx.lifecycle.common.jvm)
+        implementation(libs.androidx.lifecycle.process)
+        implementation(libs.androidx.lifecycle.runtime)
+        implementation(libs.androidx.lifecycle.runtime.android)
+        implementation(libs.androidx.lifecycle.runtime.ktx)
+        implementation(libs.androidx.lifecycle.runtime.ktx.android)
+    }
+
+    implementation(project(":design"))
+
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation("androidx.compose.runtime:runtime")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.animation:animation")
+    implementation("androidx.compose.material3:material3")
+
+    testImplementation(libs.junit)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+/** The SHA-256 certificate registered for this app in Android Developer Console. */
+val registeredTensevenCertificateSha256 =
+    "9b2047390e5aa77537b8e8875cdfd3c2c72d0a0715e172a7f77457fc4300f292"
+
+// CI intentionally assembles unsigned candidates. When real signing credentials are supplied,
+// fail before packaging if they do not belong to the registered Tenseven release key.
+if (releaseSigned) {
+    val verifyRegisteredReleaseKey by tasks.registering {
+        group = "verification"
+        description = "Verify the signing keystore matches the registered Tenseven certificate"
+        doLast {
+            val file = rootProject.file(releaseStoreFile!!)
+            check(file.isFile) { "Signing keystore is missing" }
+            val keystore = KeyStore.getInstance(file, releaseStorePassword!!.toCharArray())
+            val certificate =
+                keystore.getCertificate(releaseKeyAlias!!)
+                    ?: error("Release key alias was not found")
+            val actual =
+                MessageDigest
+                    .getInstance("SHA-256")
+                    .digest(certificate.encoded)
+                    .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            check(actual == registeredTensevenCertificateSha256) {
+                "Wrong release signing certificate: expected registered SHA-256; got $actual"
+            }
+            println("Registered Tenseven signing certificate verified: $actual")
+        }
+    }
+    tasks.matching { it.name in setOf("packageRelease", "signReleaseBundle") }.configureEach {
+        dependsOn(verifyRegisteredReleaseKey)
+    }
+}

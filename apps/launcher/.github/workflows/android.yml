@@ -1,0 +1,110 @@
+name: Android
+
+# Builds the Tenseven launcher and runs the quality gates SableOS runs for its own apps: unit tests,
+# Android Lint, detekt, ktlint and Kover. detekt, ktlint and Lint only report until the repository
+# variable TENSEVEN_STRICT_QUALITY is set to true (Settings > Secrets and variables > Actions >
+# Variables); compile errors and failing unit tests always fail the job.
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'design/**'
+      - 'config/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.editorconfig'
+      - '.github/workflows/android.yml'
+      - 'tools/verify-release-apks.sh'
+      - '!**/*.md'
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'design/**'
+      - 'config/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.editorconfig'
+      - '.github/workflows/android.yml'
+      - 'tools/verify-release-apks.sh'
+      - '!**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build, test and check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK 36
+        run: |
+          set -euo pipefail
+          sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          "$sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Build, test and check
+        env:
+          STRICT: ${{ vars.TENSEVEN_STRICT_QUALITY || 'false' }}
+        # --continue reports every failing gate in one run.
+        run: >-
+          ./gradlew --no-daemon --console=plain --continue "-Ptenseven.strictQuality=$STRICT"
+          :design:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease
+          :design:lintDebug :app:lintDebug
+          detekt ktlintCheck
+          :design:koverXmlReportDebug :app:koverXmlReportDebug
+      - name: Verify compiled Full APK manifest
+        run: |
+          bash tools/verify-release-apks.sh --ci-unsigned \
+            app/build/outputs/apk/release/Tenseven-Launcher-release-unsigned.apk
+      - name: Kover line coverage (baseline, no threshold)
+        run: |
+          python3 - <<'PY'
+          import os, xml.etree.ElementTree as ET
+          lines = []
+          for module in ("design", "app"):
+              r = ET.parse(f"{module}/build/reports/kover/reportDebug.xml").getroot()
+              c = next(x for x in r.findall("counter") if x.attrib.get("type") == "LINE")
+              cov, mis = int(c.attrib["covered"]), int(c.attrib["missed"])
+              pct = cov * 100.0 / (cov + mis) if cov + mis else 0.0
+              print(f"KOVER_LINE_PERCENT_{module.upper()}={pct:.2f}")
+              lines.append(f"Kover line coverage ({module}): **{pct:.2f}%** ({cov}/{cov + mis}), baseline only")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("\n".join(lines) + "\n")
+          PY
+      - name: Upload APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tenseven-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports
+          path: |
+            **/build/reports/
+            **/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14

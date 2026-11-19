@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.SableMail.Startup" parent="Theme.Thunderbird.DayNight" />
+    <style name="Theme.SableMail.DayNight.Dialog.Translucent" parent="Theme.Thunderbird.DayNight.Dialog.Translucent" />
+
+    <style name="Theme.SableMail.Light.Blue" parent="Theme.Thunderbird.Light">
+        <item name="colorPrimary">#4D9CFF</item>
+        <item name="colorOnPrimary">#06111F</item>
+        <item name="colorPrimaryContainer">#4D9CFF</item>
+        <item name="colorOnPrimaryContainer">#06111F</item>
+        <item name="colorSecondary">#4D9CFF</item>
+        <item name="colorOnSecondary">#06111F</item>
+        <item name="colorSecondaryContainer">#4D9CFF</item>
+        <item name="colorOnSecondaryContainer">#06111F</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Blue.Dialog" parent="Theme.Thunderbird.Light.Dialog">
+        <item name="colorPrimary">#4D9CFF</item>
+        <item name="colorOnPrimary">#06111F</item>
+        <item name="colorPrimaryContainer">#4D9CFF</item>
+        <item name="colorOnPrimaryContainer">#06111F</item>
+        <item name="colorSecondary">#4D9CFF</item>
+        <item name="colorOnSecondary">#06111F</item>
+        <item name="colorSecondaryContainer">#4D9CFF</item>
+        <item name="colorOnSecondaryContainer">#06111F</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Blue.Dialog.Translucent" parent="Theme.Thunderbird.Light.Dialog.Translucent">
+        <item name="colorPrimary">#4D9CFF</item>
+        <item name="colorOnPrimary">#06111F</item>
+        <item name="colorPrimaryContainer">#4D9CFF</item>
+        <item name="colorOnPrimaryContainer">#06111F</item>
+        <item name="colorSecondary">#4D9CFF</item>
+        <item name="colorOnSecondary">#06111F</item>
+        <item name="colorSecondaryContainer">#4D9CFF</item>
+        <item name="colorOnSecondaryContainer">#06111F</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Blue" parent="Theme.Thunderbird.Dark">
+        <item name="colorPrimary">#4D9CFF</item>
+        <item name="colorOnPrimary">#06111F</item>
+        <item name="colorPrimaryContainer">#4D9CFF</item>
+        <item name="colorOnPrimaryContainer">#06111F</item>
+        <item name="colorSecondary">#4D9CFF</item>
+        <item name="colorOnSecondary">#06111F</item>
+        <item name="colorSecondaryContainer">#4D9CFF</item>
+        <item name="colorOnSecondaryContainer">#06111F</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Blue.Dialog" parent="Theme.Thunderbird.Dark.Dialog">
+        <item name="colorPrimary">#4D9CFF</item>
+        <item name="colorOnPrimary">#06111F</item>
+        <item name="colorPrimaryContainer">#4D9CFF</item>
+        <item name="colorOnPrimaryContainer">#06111F</item>
+        <item name="colorSecondary">#4D9CFF</item>
+        <item name="colorOnSecondary">#06111F</item>
+        <item name="colorSecondaryContainer">#4D9CFF</item>
+        <item name="colorOnSecondaryContainer">#06111F</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Blue.Dialog.Translucent" parent="Theme.Thunderbird.Dark.Dialog.Translucent">
+        <item name="colorPrimary">#4D9CFF</item>
+        <item name="colorOnPrimary">#06111F</item>
+        <item name="colorPrimaryContainer">#4D9CFF</item>
+        <item name="colorOnPrimaryContainer">#06111F</item>
+        <item name="colorSecondary">#4D9CFF</item>
+        <item name="colorOnSecondary">#06111F</item>
+        <item name="colorSecondaryContainer">#4D9CFF</item>
+        <item name="colorOnSecondaryContainer">#06111F</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Green" parent="Theme.Thunderbird.Light">
+        <item name="colorPrimary">#35C66B</item>
+        <item name="colorOnPrimary">#04140A</item>
+        <item name="colorPrimaryContainer">#35C66B</item>
+        <item name="colorOnPrimaryContainer">#04140A</item>
+        <item name="colorSecondary">#35C66B</item>
+        <item name="colorOnSecondary">#04140A</item>
+        <item name="colorSecondaryContainer">#35C66B</item>
+        <item name="colorOnSecondaryContainer">#04140A</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Green.Dialog" parent="Theme.Thunderbird.Light.Dialog">
+        <item name="colorPrimary">#35C66B</item>
+        <item name="colorOnPrimary">#04140A</item>
+        <item name="colorPrimaryContainer">#35C66B</item>
+        <item name="colorOnPrimaryContainer">#04140A</item>
+        <item name="colorSecondary">#35C66B</item>
+        <item name="colorOnSecondary">#04140A</item>
+        <item name="colorSecondaryContainer">#35C66B</item>
+        <item name="colorOnSecondaryContainer">#04140A</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Green.Dialog.Translucent" parent="Theme.Thunderbird.Light.Dialog.Translucent">
+        <item name="colorPrimary">#35C66B</item>
+        <item name="colorOnPrimary">#04140A</item>
+        <item name="colorPrimaryContainer">#35C66B</item>
+        <item name="colorOnPrimaryContainer">#04140A</item>
+        <item name="colorSecondary">#35C66B</item>
+        <item name="colorOnSecondary">#04140A</item>
+        <item name="colorSecondaryContainer">#35C66B</item>
+        <item name="colorOnSecondaryContainer">#04140A</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Green" parent="Theme.Thunderbird.Dark">
+        <item name="colorPrimary">#35C66B</item>
+        <item name="colorOnPrimary">#04140A</item>
+        <item name="colorPrimaryContainer">#35C66B</item>
+        <item name="colorOnPrimaryContainer">#04140A</item>
+        <item name="colorSecondary">#35C66B</item>
+        <item name="colorOnSecondary">#04140A</item>
+        <item name="colorSecondaryContainer">#35C66B</item>
+        <item name="colorOnSecondaryContainer">#04140A</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Green.Dialog" parent="Theme.Thunderbird.Dark.Dialog">
+        <item name="colorPrimary">#35C66B</item>
+        <item name="colorOnPrimary">#04140A</item>
+        <item name="colorPrimaryContainer">#35C66B</item>
+        <item name="colorOnPrimaryContainer">#04140A</item>
+        <item name="colorSecondary">#35C66B</item>
+        <item name="colorOnSecondary">#04140A</item>
+        <item name="colorSecondaryContainer">#35C66B</item>
+        <item name="colorOnSecondaryContainer">#04140A</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Green.Dialog.Translucent" parent="Theme.Thunderbird.Dark.Dialog.Translucent">
+        <item name="colorPrimary">#35C66B</item>
+        <item name="colorOnPrimary">#04140A</item>
+        <item name="colorPrimaryContainer">#35C66B</item>
+        <item name="colorOnPrimaryContainer">#04140A</item>
+        <item name="colorSecondary">#35C66B</item>
+        <item name="colorOnSecondary">#04140A</item>
+        <item name="colorSecondaryContainer">#35C66B</item>
+        <item name="colorOnSecondaryContainer">#04140A</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Purple" parent="Theme.Thunderbird.Light">
+        <item name="colorPrimary">#7A42E8</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#7A42E8</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#7A42E8</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#7A42E8</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Purple.Dialog" parent="Theme.Thunderbird.Light.Dialog">
+        <item name="colorPrimary">#7A42E8</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#7A42E8</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#7A42E8</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#7A42E8</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Purple.Dialog.Translucent" parent="Theme.Thunderbird.Light.Dialog.Translucent">
+        <item name="colorPrimary">#7A42E8</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#7A42E8</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#7A42E8</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#7A42E8</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Purple" parent="Theme.Thunderbird.Dark">
+        <item name="colorPrimary">#7A42E8</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#7A42E8</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#7A42E8</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#7A42E8</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Purple.Dialog" parent="Theme.Thunderbird.Dark.Dialog">
+        <item name="colorPrimary">#7A42E8</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#7A42E8</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#7A42E8</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#7A42E8</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Purple.Dialog.Translucent" parent="Theme.Thunderbird.Dark.Dialog.Translucent">
+        <item name="colorPrimary">#7A42E8</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#7A42E8</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#7A42E8</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#7A42E8</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Orange" parent="Theme.Thunderbird.Light">
+        <item name="colorPrimary">#F28C45</item>
+        <item name="colorOnPrimary">#1D0C02</item>
+        <item name="colorPrimaryContainer">#F28C45</item>
+        <item name="colorOnPrimaryContainer">#1D0C02</item>
+        <item name="colorSecondary">#F28C45</item>
+        <item name="colorOnSecondary">#1D0C02</item>
+        <item name="colorSecondaryContainer">#F28C45</item>
+        <item name="colorOnSecondaryContainer">#1D0C02</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Orange.Dialog" parent="Theme.Thunderbird.Light.Dialog">
+        <item name="colorPrimary">#F28C45</item>
+        <item name="colorOnPrimary">#1D0C02</item>
+        <item name="colorPrimaryContainer">#F28C45</item>
+        <item name="colorOnPrimaryContainer">#1D0C02</item>
+        <item name="colorSecondary">#F28C45</item>
+        <item name="colorOnSecondary">#1D0C02</item>
+        <item name="colorSecondaryContainer">#F28C45</item>
+        <item name="colorOnSecondaryContainer">#1D0C02</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Orange.Dialog.Translucent" parent="Theme.Thunderbird.Light.Dialog.Translucent">
+        <item name="colorPrimary">#F28C45</item>
+        <item name="colorOnPrimary">#1D0C02</item>
+        <item name="colorPrimaryContainer">#F28C45</item>
+        <item name="colorOnPrimaryContainer">#1D0C02</item>
+        <item name="colorSecondary">#F28C45</item>
+        <item name="colorOnSecondary">#1D0C02</item>
+        <item name="colorSecondaryContainer">#F28C45</item>
+        <item name="colorOnSecondaryContainer">#1D0C02</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Orange" parent="Theme.Thunderbird.Dark">
+        <item name="colorPrimary">#F28C45</item>
+        <item name="colorOnPrimary">#1D0C02</item>
+        <item name="colorPrimaryContainer">#F28C45</item>
+        <item name="colorOnPrimaryContainer">#1D0C02</item>
+        <item name="colorSecondary">#F28C45</item>
+        <item name="colorOnSecondary">#1D0C02</item>
+        <item name="colorSecondaryContainer">#F28C45</item>
+        <item name="colorOnSecondaryContainer">#1D0C02</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Orange.Dialog" parent="Theme.Thunderbird.Dark.Dialog">
+        <item name="colorPrimary">#F28C45</item>
+        <item name="colorOnPrimary">#1D0C02</item>
+        <item name="colorPrimaryContainer">#F28C45</item>
+        <item name="colorOnPrimaryContainer">#1D0C02</item>
+        <item name="colorSecondary">#F28C45</item>
+        <item name="colorOnSecondary">#1D0C02</item>
+        <item name="colorSecondaryContainer">#F28C45</item>
+        <item name="colorOnSecondaryContainer">#1D0C02</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Orange.Dialog.Translucent" parent="Theme.Thunderbird.Dark.Dialog.Translucent">
+        <item name="colorPrimary">#F28C45</item>
+        <item name="colorOnPrimary">#1D0C02</item>
+        <item name="colorPrimaryContainer">#F28C45</item>
+        <item name="colorOnPrimaryContainer">#1D0C02</item>
+        <item name="colorSecondary">#F28C45</item>
+        <item name="colorOnSecondary">#1D0C02</item>
+        <item name="colorSecondaryContainer">#F28C45</item>
+        <item name="colorOnSecondaryContainer">#1D0C02</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Slate" parent="Theme.Thunderbird.Light">
+        <item name="colorPrimary">#64748B</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#64748B</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#64748B</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#64748B</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Slate.Dialog" parent="Theme.Thunderbird.Light.Dialog">
+        <item name="colorPrimary">#64748B</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#64748B</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#64748B</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#64748B</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Light.Slate.Dialog.Translucent" parent="Theme.Thunderbird.Light.Dialog.Translucent">
+        <item name="colorPrimary">#64748B</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#64748B</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#64748B</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#64748B</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Slate" parent="Theme.Thunderbird.Dark">
+        <item name="colorPrimary">#64748B</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#64748B</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#64748B</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#64748B</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Slate.Dialog" parent="Theme.Thunderbird.Dark.Dialog">
+        <item name="colorPrimary">#64748B</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#64748B</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#64748B</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#64748B</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+    <style name="Theme.SableMail.Dark.Slate.Dialog.Translucent" parent="Theme.Thunderbird.Dark.Dialog.Translucent">
+        <item name="colorPrimary">#64748B</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#64748B</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#64748B</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#64748B</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="appLogo">@drawable/ic_sable_mail</item>
+    </style>
+
+</resources>

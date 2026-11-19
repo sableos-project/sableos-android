@@ -1,0 +1,51 @@
+package io.github.aimindseye.tenseven.onboarding
+
+import android.Manifest
+import android.app.AppOpsManager
+import android.app.role.RoleManager
+import android.content.Context
+import android.os.Process
+import io.github.aimindseye.tenseven.conversations.ConversationAccess
+import io.github.aimindseye.tenseven.platform.Capabilities
+import io.github.aimindseye.tenseven.platform.CapabilityStatus
+import io.github.aimindseye.tenseven.platform.ExtraAppsControl
+
+/** Reads what has been granted, from Android. Cheap; call it again when the user comes back from Settings. */
+object SetupStatus {
+    fun read(context: Context): SetupState {
+        val capabilities =
+            io.github.aimindseye.tenseven.platform.PlatformCapabilityProbe
+                .detect(context)
+        return SetupState(
+            homeRoleHeld = isHomeRoleHeld(context),
+            contactsGranted = capabilities.contacts == CapabilityStatus.Ready,
+            photosGranted = capabilities.photos == CapabilityStatus.Ready,
+            notificationAccess = capabilities.hubNotifications == CapabilityStatus.Ready,
+            usageAccess = capabilities.usageRecents == CapabilityStatus.Ready,
+            extrasChosen = ExtraAppsControl.enabledIds(context).isNotEmpty(),
+            notificationListenerAvailable =
+                capabilities.hubNotifications != CapabilityStatus.Unavailable,
+        )
+    }
+
+    /** Photo access for the Android 14 minimum. */
+    fun photosPermission(): String = Manifest.permission.READ_MEDIA_IMAGES
+
+    fun isHomeRoleHeld(context: Context): Boolean =
+        runCatching {
+            context.getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_HOME) == true
+        }.getOrDefault(false)
+
+    fun hasUsageAccess(context: Context): Boolean =
+        runCatching {
+            val appOps = context.getSystemService(AppOpsManager::class.java) ?: return false
+            val mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+            mode == AppOpsManager.MODE_ALLOWED
+        }.getOrDefault(false)
+
+    /** The package that installed Tenseven (the Play Store, a file manager, ...), or null when Android does not say. */
+    fun installer(context: Context): String? =
+        runCatching {
+            context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName
+        }.getOrNull()
+}

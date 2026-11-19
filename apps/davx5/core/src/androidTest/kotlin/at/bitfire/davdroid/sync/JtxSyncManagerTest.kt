@@ -1,0 +1,209 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+package at.bitfire.davdroid.sync
+
+import android.content.Context
+import at.bitfire.davdroid.accounts.LegacyAccount
+import at.bitfire.davdroid.db.Collection
+import at.bitfire.davdroid.db.Service
+import at.bitfire.davdroid.network.HttpClientBuilder
+import at.bitfire.davdroid.repository.DavServiceRepository
+import at.bitfire.davdroid.resource.local.LocalJtxCollection
+import at.bitfire.davdroid.resource.local.LocalJtxCollectionStore
+import at.bitfire.davdroid.resource.remote.CalDavCollection
+import at.bitfire.davdroid.resource.remote.CalendarQueryFilter
+import at.bitfire.davdroid.sync.account.TestAccount
+import at.bitfire.davdroid.util.DavUtils.toUrl
+import at.bitfire.davdroid.util.PermissionUtils
+import at.bitfire.synctools.storage.LocalStorageClient
+import at.bitfire.synctools.storage.TaskProvider
+import at.bitfire.synctools.test.GrantPermissionOrSkipRule
+import at.techbee.jtx.JtxContract
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assume.assumeNotNull
+import org.junit.Assume.assumeTrue
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import java.io.StringReader
+import javax.inject.Inject
+
+
+/**
+ * Ensure you have jtxBoard installed on the emulator, before running these tests. Otherwise they
+ * will be skipped.
+ */
+@HiltAndroidTest
+class JtxSyncManagerTest {
+
+    @Inject
+    @ApplicationContext
+    lateinit var context: Context
+
+    @Inject
+    lateinit var httpClientBuilder: HttpClientBuilder
+
+    @Inject
+    lateinit var serviceRepository: DavServiceRepository
+
+    @Inject
+    lateinit var localJtxCollectionStore: LocalJtxCollectionStore
+
+    @Inject
+    lateinit var jtxSyncManagerFactory: JtxSyncManager.Factory
+
+    @get:Rule
+    val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule
+    val permissionRule = GrantPermissionOrSkipRule(TaskProvider.ProviderName.JtxBoard.permissions.toSet())
+
+    lateinit var accountId: LegacyAccount
+
+    private lateinit var client: LocalStorageClient
+    private lateinit var syncManager: JtxSyncManager
+    private lateinit var localJtxCollection: LocalJtxCollection
+
+    @Before
+    fun setUp() {
+        hiltRule.inject()
+
+        // Check jtxBoard permissions were granted (+jtxBoard is installed); skip test otherwise
+        assumeTrue(PermissionUtils.havePermissions(context, TaskProvider.ProviderName.JtxBoard.permissions))
+
+        // Acquire the jtx content provider
+        val providerOrNull = context.contentResolver.acquireContentProviderClient(JtxContract.AUTHORITY)
+        assumeNotNull(providerOrNull)
+        client = LocalStorageClient(providerOrNull!!)
+
+        accountId = LegacyAccount(TestAccount.create())
+
+        // Create dummy dependencies
+        val service = Service(0, accountId.androidAccount.name, Service.TYPE_CALDAV, null)
+        val serviceId = serviceRepository.insertOrReplaceBlocking(service)
+        val dbCollection = Collection(
+            0,
+            serviceId,
+            type = Collection.TYPE_CALENDAR,
+            url = "https://example.com".toUrl()
+        )
+        localJtxCollection = runBlocking { localJtxCollectionStore.create(client, dbCollection) }
+        val httpClient = httpClientBuilder.build()
+        syncManager = jtxSyncManagerFactory.jtxSyncManager(
+            accountId = accountId,
+            httpClient = httpClient,
+            syncResult = SyncResult(),
+            localCollection = localJtxCollection,
+            collectionInfo = dbCollection,
+            remoteCollection = CalDavCollection(
+                httpClient,
+                dbCollection.url,
+                CalendarQueryFilter(components = listOf("VTODO", "VJOURNAL"))
+            ),
+            resync = null,
+            settings = SyncSettingsFixtures.default()
+        )
+    }
+
+    @After
+    fun tearDown() {
+        if (this::localJtxCollection.isInitialized)
+            localJtxCollectionStore.delete(localJtxCollection)
+        serviceRepository.deleteAllBlocking()
+
+        if (this::client.isInitialized)
+            client.close()
+
+        if (this::accountId.isInitialized)
+            TestAccount.remove(accountId.androidAccount)
+    }
+
+
+    @Test
+    fun testProcessICalObject_addsVtodo() = runTest {
+        val calendar = "BEGIN:VCALENDAR\n" +
+                "PRODID:-Vivaldi Calendar V1.0//EN\n" +
+                "VERSION:2.0\n" +
+                "BEGIN:VTODO\n" +
+                "SUMMARY:Test Task (Main VTODO)\n" +
+                "DTSTAMP;VALUE=DATE-TIME:20250228T032800Z\n" +
+                "UID:47a23c66-8c1a-4b44-bbe8-ebf33f8cf80f\n" +
+                "END:VTODO\n" +
+                "END:VCALENDAR"
+
+        // Should create "demo-calendar"
+        syncManager.processICalObject("demo-calendar", "abc123", "scheduleTag", StringReader(calendar))
+
+        // Verify main VTODO is created
+        val localJtxObject = localJtxCollection.findByName("demo-calendar")!!
+        assertEquals(
+            "47a23c66-8c1a-4b44-bbe8-ebf33f8cf80f",
+            localJtxObject.jtxObjectAndExceptions.main.entityValues.getAsString(JtxContract.JtxICalObject.UID)
+        )
+        assertEquals("abc123", localJtxObject.eTag)
+        assertEquals(
+            "Test Task (Main VTODO)",
+            localJtxObject.jtxObjectAndExceptions.main.entityValues.getAsString(JtxContract.JtxICalObject.SUMMARY)
+        )
+    }
+
+    @Test
+    fun testProcessICalObject_addsRecurringVtodo_withoutDtStart() = runTest {
+        // Valid calendar example (See bitfireAT/davx5-ose#1265)
+        // Note: We don't support starting a recurrence from DUE (RFC 5545  leaves it open to interpretation)
+        val calendar = "BEGIN:VCALENDAR\n" +
+                "PRODID:-Vivaldi Calendar V1.0//EN\n" +
+                "VERSION:2.0\n" +
+                "BEGIN:VTODO\n" +
+
+                "SUMMARY:Test Task (Exception)\n" +
+                "DTSTAMP;VALUE=DATE-TIME:20250228T032800Z\n" +
+                "DUE;TZID=America/New_York:20250228T130000\n" +
+                "RECURRENCE-ID;TZID=America/New_York:20250228T130000\n" +
+                "UID:47a23c66-8c1a-4b44-bbe8-ebf33f8cf80f\n" +
+
+                "END:VTODO\n" +
+                "BEGIN:VTODO\n" +
+
+                "SUMMARY:Test Task (Main VTODO)\n" +
+                "DTSTAMP;VALUE=DATE-TIME:20250228T032800Z\n" +
+                "DUE;TZID=America/New_York:20250228T130000\n" + // Due date will NOT be assumed as start for recurrence
+                "SEQUENCE:1\n" +
+                "UID:47a23c66-8c1a-4b44-bbe8-ebf33f8cf80f\n" +
+                "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=FR;UNTIL=20250505T235959Z\n" +
+
+                "END:VTODO\n" +
+                "END:VCALENDAR"
+
+        // Create and store calendar
+        syncManager.processICalObject("demo-calendar", "abc123", "scheduleTag", StringReader(calendar))
+
+        // Verify main VTODO was created with RRULE present
+        val localJtxObject = localJtxCollection.findByName("demo-calendar")!!
+        val mainTask = localJtxObject.jtxObjectAndExceptions.main
+        assertEquals("Test Task (Main VTODO)", mainTask.entityValues.getAsString(JtxContract.JtxICalObject.SUMMARY))
+        assertEquals(
+            "FREQ=WEEKLY;UNTIL=20250505T235959Z;INTERVAL=1;BYDAY=FR",
+            mainTask.entityValues.getAsString(JtxContract.JtxICalObject.RRULE)
+        )
+
+        // Verify the RRULE exception instance was created with correct recurrence-id timezone
+        val firstException = localJtxObject.jtxObjectAndExceptions.exceptions.first()
+        assertEquals(
+            "Test Task (Exception)",
+            firstException.entityValues.getAsString(JtxContract.JtxICalObject.SUMMARY)
+        )
+        assertEquals(
+            "America/New_York",
+            firstException.entityValues.getAsString(JtxContract.JtxICalObject.RECURID_TIMEZONE)
+        )
+    }
+}

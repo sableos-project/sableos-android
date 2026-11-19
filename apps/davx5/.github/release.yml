@@ -1,0 +1,20 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: ✨ New features
+      labels:
+        - pr-feature
+    - title: 🪲 Bug fixes
+      labels:
+        - pr-bugfix
+    - title: ⛓️ Dependencies
+      labels:
+        - dependencies
+    - title: ⚙️ CI/CD
+      labels:
+        - ci-cd
+    - title: ✏️ Other changes
+      labels:
+        - "*"

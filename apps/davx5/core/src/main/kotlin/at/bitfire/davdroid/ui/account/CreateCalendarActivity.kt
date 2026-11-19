@@ -1,0 +1,58 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+package at.bitfire.davdroid.ui.account
+
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.TaskStackBuilder
+import at.bitfire.davdroid.accounts.AccountId
+import at.bitfire.davdroid.accounts.AccountIdIntentSerializer
+import at.bitfire.davdroid.ui.account.AccountActivity.Companion.editAccountActivityIntent
+import at.bitfire.davdroid.ui.composable.AppTheme
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
+class CreateCalendarActivity: AppCompatActivity() {
+
+    companion object {
+        private const val EXTRA_ACCOUNT = "account"
+        
+        fun createIntent(context: Context, accountId: AccountId): Intent {
+            return Intent(context, CreateCalendarActivity::class.java).apply {
+                AccountIdIntentSerializer.addExtra(this, EXTRA_ACCOUNT, accountId)
+            }
+        }
+    }
+
+    val accountId by lazy {
+        AccountIdIntentSerializer.fromIntent(intent, EXTRA_ACCOUNT) 
+            ?: throw IllegalArgumentException("EXTRA_ACCOUNT must be set")
+    }
+
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            AppTheme {
+                CreateCalendarScreen(
+                    accountId = accountId,
+                    onNavUp = ::onSupportNavigateUp,
+                    onFinish = ::finish
+                )
+            }
+        }
+    }
+
+    override fun supportShouldUpRecreateTask(targetIntent: Intent) = true
+
+    override fun onPrepareSupportNavigateUpTaskStack(builder: TaskStackBuilder) {
+        builder.editIntentAt(builder.intentCount - 1)?.editAccountActivityIntent(accountId)
+    }
+
+}

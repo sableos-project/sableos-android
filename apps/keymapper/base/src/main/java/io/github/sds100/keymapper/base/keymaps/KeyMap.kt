@@ -1,0 +1,165 @@
+package io.github.sds100.keymapper.base.keymaps
+
+import android.view.KeyEvent
+import io.github.sds100.keymapper.base.actions.Action
+import io.github.sds100.keymapper.base.actions.ActionData
+import io.github.sds100.keymapper.base.actions.ActionEntityMapper
+import io.github.sds100.keymapper.base.actions.canBeHeldDown
+import io.github.sds100.keymapper.base.constraints.ConstraintState
+import io.github.sds100.keymapper.base.constraints.ConstraintStateEntityMapper
+import io.github.sds100.keymapper.base.detection.KeyMapAlgorithm
+import io.github.sds100.keymapper.base.trigger.AssistantTriggerKey
+import io.github.sds100.keymapper.base.trigger.FingerprintTriggerKey
+import io.github.sds100.keymapper.base.trigger.Trigger
+import io.github.sds100.keymapper.base.trigger.TriggerEntityMapper
+import io.github.sds100.keymapper.base.trigger.TriggerKey
+import io.github.sds100.keymapper.base.vibration.VibrateEffect
+import io.github.sds100.keymapper.data.entities.FloatingButtonEntityWithLayout
+import io.github.sds100.keymapper.data.entities.KeyMapEntity
+import java.util.UUID
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class KeyMap(
+    val dbId: Long? = null,
+    val uid: String = UUID.randomUUID().toString(),
+    val trigger: Trigger = Trigger(),
+    val actionList: List<Action> = emptyList(),
+    val constraintState: ConstraintState = ConstraintState(),
+    val isEnabled: Boolean = true,
+    val groupUid: String? = null,
+    val name: String = "",
+) {
+
+    val showToast: Boolean
+        get() = trigger.showToast
+
+    val vibrate: Boolean
+        get() = trigger.vibrate
+
+    val vibrateEffect: VibrateEffect?
+        get() = trigger.vibrateEffect
+
+    fun isRepeatingActionsAllowed(): Boolean = KeyMapAlgorithm.performActionOnDown(trigger)
+
+    fun isChangingActionRepeatRateAllowed(action: Action): Boolean =
+        action.repeat && isRepeatingActionsAllowed()
+
+    fun isChangingActionRepeatDelayAllowed(action: Action): Boolean =
+        action.repeat && isRepeatingActionsAllowed()
+
+    fun isHoldingDownActionAllowed(action: Action): Boolean =
+        KeyMapAlgorithm.performActionOnDown(trigger) && action.data.canBeHeldDown()
+
+    fun isHoldingDownActionBeforeRepeatingAllowed(action: Action): Boolean =
+        action.repeat && action.holdDown && isHoldingDownActionAllowed(action)
+
+    fun isChangingRepeatModeAllowed(action: Action): Boolean =
+        action.repeat && isRepeatingActionsAllowed()
+
+    fun isChangingRepeatLimitAllowed(action: Action): Boolean =
+        action.repeat && isRepeatingActionsAllowed()
+
+    /**
+     * The release of assistant and fingerprint gesture triggers can not be detected.
+     */
+    fun isRepeatUntilReleasedAllowed(): Boolean = trigger.keys.none {
+        it is AssistantTriggerKey || it is FingerprintTriggerKey
+    }
+
+    fun isStopHoldingDownActionWhenTriggerPressedAgainAllowed(action: Action): Boolean =
+        action.holdDown && !action.repeat && isHoldingDownActionAllowed(action)
+
+    fun isDelayBeforeNextActionAllowed(): Boolean = actionList.isNotEmpty()
+}
+
+/**
+ * Whether this key map requires an input method to detect the key events.
+ * If the key map needs to answer or end a call then it must use an input method to detect
+ * the key events because volume key events are not sent to accessibility services when a call
+ * is incoming.
+ */
+fun KeyMap.requiresImeKeyEventForwarding(): Boolean {
+    val hasPhoneCallAction =
+        actionList.any { it.data is ActionData.AnswerCall || it.data is ActionData.EndCall }
+
+    val hasVolumeKeys = trigger.keys
+        .mapNotNull { it as? io.github.sds100.keymapper.base.trigger.KeyEventTriggerKey }
+        .any {
+            it.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
+                it.keyCode == KeyEvent.KEYCODE_VOLUME_UP
+        }
+
+    return hasVolumeKeys && hasPhoneCallAction
+}
+
+/**
+ * Whether this trigger key requires an input method to detect the key events.
+ * If the key map needs to answer or end a call then it must use an input method to detect
+ * the key events because volume key events are not sent to accessibility services when a call
+ * is incoming.
+ */
+fun KeyMap.requiresImeKeyEventForwardingInPhoneCall(triggerKey: TriggerKey): Boolean {
+    if (triggerKey !is io.github.sds100.keymapper.base.trigger.KeyEventTriggerKey) {
+        return false
+    }
+
+    val hasPhoneCallAction =
+        actionList.any { it.data is ActionData.AnswerCall || it.data is ActionData.EndCall }
+
+    val hasVolumeKeys = trigger.keys
+        .mapNotNull { it as? io.github.sds100.keymapper.base.trigger.KeyEventTriggerKey }
+        .any {
+            it.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
+                it.keyCode == KeyEvent.KEYCODE_VOLUME_UP
+        }
+
+    return hasVolumeKeys && hasPhoneCallAction
+}
+
+object KeyMapEntityMapper {
+    fun fromEntity(
+        entity: KeyMapEntity,
+        floatingButtons: List<FloatingButtonEntityWithLayout>,
+    ): KeyMap {
+        val actionList = entity.actionList
+            .filterNotNull()
+            .mapNotNull { ActionEntityMapper.fromEntity(it) }
+
+        val constraintState = ConstraintStateEntityMapper.fromEntityWithGroups(
+            entity.constraintList,
+            entity.constraintGroups,
+            entity.constraintMode,
+        )
+
+        return KeyMap(
+            dbId = entity.id,
+            uid = entity.uid,
+            trigger = TriggerEntityMapper.fromEntity(entity.trigger, floatingButtons),
+            actionList = actionList,
+            constraintState = constraintState,
+            isEnabled = entity.isEnabled,
+            groupUid = entity.groupUid,
+            name = entity.name ?: "",
+        )
+    }
+
+    fun toEntity(keyMap: KeyMap, dbId: Long): KeyMapEntity {
+        val actionEntityList = ActionEntityMapper.toEntity(keyMap)
+        val (constraintList, constraintGroups, constraintMode) =
+            ConstraintStateEntityMapper.toEntityWithGroups(keyMap.constraintState)
+
+        return KeyMapEntity(
+            id = dbId,
+            trigger = TriggerEntityMapper.toEntity(keyMap.trigger),
+            actionList = actionEntityList,
+            constraintList = constraintList,
+            constraintGroups = constraintGroups,
+            constraintMode = constraintMode,
+            isEnabled = keyMap.isEnabled,
+            uid = keyMap.uid,
+            groupUid = keyMap.groupUid,
+            name = keyMap.name.ifBlank { null },
+        )
+    }
+}

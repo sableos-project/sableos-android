@@ -1,0 +1,1074 @@
+package io.github.sds100.keymapper.base.actions
+
+import android.os.Build
+import android.view.KeyEvent
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Android
+import io.github.sds100.keymapper.base.R
+import io.github.sds100.keymapper.base.actions.talkback.TalkBackGestureStrings
+import io.github.sds100.keymapper.base.keymaps.KeyMap
+import io.github.sds100.keymapper.base.utils.DndModeStrings
+import io.github.sds100.keymapper.base.utils.KeyCodeStrings
+import io.github.sds100.keymapper.base.utils.RingerModeStrings
+import io.github.sds100.keymapper.base.utils.VibrateEffectStrings
+import io.github.sds100.keymapper.base.utils.VolumeStreamStrings
+import io.github.sds100.keymapper.base.utils.ui.IconInfo
+import io.github.sds100.keymapper.base.utils.ui.ResourceProvider
+import io.github.sds100.keymapper.base.utils.ui.TintType
+import io.github.sds100.keymapper.base.utils.ui.compose.ComposeIconInfo
+import io.github.sds100.keymapper.base.variables.VariableOperation
+import io.github.sds100.keymapper.base.vibration.VibrateEffect
+import io.github.sds100.keymapper.common.models.ShellExecutionMode
+import io.github.sds100.keymapper.common.utils.InputDeviceUtils
+import io.github.sds100.keymapper.common.utils.Orientation
+import io.github.sds100.keymapper.common.utils.PinchScreenType
+import io.github.sds100.keymapper.common.utils.handle
+import io.github.sds100.keymapper.common.utils.hasFlag
+import io.github.sds100.keymapper.common.utils.toPercentString
+import io.github.sds100.keymapper.common.utils.valueIfFailure
+import io.github.sds100.keymapper.system.camera.CameraLens
+import io.github.sds100.keymapper.system.intents.IntentTarget
+
+class ActionUiHelper(
+    displayActionUseCase: DisplayActionUseCase,
+    resourceProvider: ResourceProvider,
+) : ResourceProvider by resourceProvider,
+    DisplayActionUseCase by displayActionUseCase {
+
+    /**
+     * @return the custom name of the action if it has one, otherwise the generated title.
+     */
+    fun getTitle(action: Action, showDeviceDescriptors: Boolean): String {
+        return action.customName?.takeIf { it.isNotBlank() }
+            ?: getTitle(action.data, showDeviceDescriptors)
+    }
+
+    fun getTitle(action: ActionData, showDeviceDescriptors: Boolean): String = when (action) {
+        is ActionData.App -> {
+            val name = getAppName(action.packageName).valueIfFailure {
+                action.savedAppName ?: action.packageName
+            }
+
+            getString(R.string.description_open_app, name)
+        }
+
+        is ActionData.AppShortcut -> action.shortcutTitle
+
+        is ActionData.InputKeyEvent -> {
+            val keyCodeString = getKeyCodeString(action)
+
+            // only a key code can be inputted through the shell
+
+            val metaStateString = getMetaStateString(action)
+
+            if (action.device != null) {
+                val name = action.device.name.ifBlank {
+                    getString(R.string.unknown_device_name)
+                }
+
+                val nameToShow = if (showDeviceDescriptors) {
+                    InputDeviceUtils.appendDeviceDescriptorToName(
+                        action.device.descriptor,
+                        name,
+                    )
+                } else {
+                    name
+                }
+
+                getString(
+                    R.string.description_keyevent_from_device,
+                    arrayOf(metaStateString, keyCodeString, nameToShow),
+                )
+            } else {
+                getString(
+                    R.string.description_keyevent,
+                    args = arrayOf(metaStateString, keyCodeString),
+                )
+            }
+        }
+
+        is ActionData.DoNotDisturb.Enable -> {
+            val dndModeString = getString(DndModeStrings.getLabel(action.dndMode))
+            getString(
+                R.string.action_enable_dnd_mode_formatted,
+                dndModeString,
+            )
+        }
+
+        is ActionData.DoNotDisturb.Toggle -> {
+            val dndModeString = getString(DndModeStrings.getLabel(action.dndMode))
+            getString(
+                R.string.action_toggle_dnd_mode_formatted,
+                dndModeString,
+            )
+        }
+
+        ActionData.DoNotDisturb.Disable -> getString(R.string.action_disable_dnd_mode)
+
+        is ActionData.Volume.SetRingerMode -> {
+            val ringerModeString = getString(RingerModeStrings.getLabel(action.ringerMode))
+
+            getString(R.string.action_change_ringer_mode_formatted, ringerModeString)
+        }
+
+        is ActionData.Volume -> {
+            var hasShowVolumeUiFlag = false
+            val string: String
+
+            when (action) {
+                is ActionData.Volume.Down -> {
+                    if (action.showVolumeUi) {
+                        hasShowVolumeUiFlag = true
+                    }
+
+                    string = if (action.volumeStream != null) {
+                        val streamString =
+                            getString(VolumeStreamStrings.getLabel(action.volumeStream))
+                        getString(
+                            R.string.action_decrease_stream_formatted,
+                            streamString,
+                        )
+                    } else {
+                        getString(R.string.action_volume_down)
+                    }
+                }
+
+                is ActionData.Volume.Mute -> {
+                    if (action.showVolumeUi) {
+                        hasShowVolumeUiFlag = true
+                    }
+
+                    string = getString(R.string.action_volume_mute)
+                }
+
+                is ActionData.Volume.ToggleMute -> {
+                    if (action.showVolumeUi) {
+                        hasShowVolumeUiFlag = true
+                    }
+
+                    string = getString(R.string.action_toggle_mute)
+                }
+
+                is ActionData.Volume.UnMute -> {
+                    if (action.showVolumeUi) {
+                        hasShowVolumeUiFlag = true
+                    }
+
+                    string = getString(R.string.action_volume_unmute)
+                }
+
+                is ActionData.Volume.Up -> {
+                    if (action.showVolumeUi) {
+                        hasShowVolumeUiFlag = true
+                    }
+
+                    string = if (action.volumeStream != null) {
+                        val streamString =
+                            getString(VolumeStreamStrings.getLabel(action.volumeStream))
+                        getString(
+                            R.string.action_increase_stream_formatted,
+                            streamString,
+                        )
+                    } else {
+                        getString(R.string.action_volume_up)
+                    }
+                }
+
+                ActionData.Volume.CycleRingerMode -> {
+                    string = getString(R.string.action_cycle_ringer_mode)
+                }
+
+                ActionData.Volume.CycleVibrateRing -> {
+                    string = getString(R.string.action_cycle_vibrate_ring)
+                }
+
+                is ActionData.Volume.SetRingerMode -> {
+                    val ringerModeString =
+                        getString(RingerModeStrings.getLabel(action.ringerMode))
+
+                    string = getString(
+                        R.string.action_change_ringer_mode_formatted,
+                        ringerModeString,
+                    )
+                }
+
+                ActionData.Volume.ShowDialog -> {
+                    string = getString(R.string.action_volume_show_dialog)
+                }
+            }
+
+            if (hasShowVolumeUiFlag) {
+                val midDot = getString(R.string.middot)
+                "$string $midDot ${getString(R.string.flag_show_volume_dialog)}"
+            } else {
+                string
+            }
+        }
+
+        is ActionData.ControlMediaForApp -> {
+            val appName = getAppName(action.packageName).valueIfFailure {
+                action.savedAppName ?: action.packageName
+            }
+
+            if (action is ActionData.ControlMediaForApp.StepForward &&
+                action.stepDurationMs != null
+            ) {
+                getString(
+                    R.string.action_step_forward_media_package_with_duration_formatted,
+                    arrayOf(appName, (action.stepDurationMs / 1000).toInt()),
+                )
+            } else if (action is ActionData.ControlMediaForApp.StepBackward &&
+                action.stepDurationMs != null
+            ) {
+                getString(
+                    R.string.action_step_backward_media_package_with_duration_formatted,
+                    arrayOf(appName, (action.stepDurationMs / 1000).toInt()),
+                )
+            } else {
+                val resId = when (action) {
+                    is ActionData.ControlMediaForApp.Play ->
+                        R.string.action_play_media_package_formatted
+
+                    is ActionData.ControlMediaForApp.FastForward ->
+                        R.string.action_fast_forward_package_formatted
+
+                    is ActionData.ControlMediaForApp.NextTrack ->
+                        R.string.action_next_track_package_formatted
+
+                    is ActionData.ControlMediaForApp.Pause ->
+                        R.string.action_pause_media_package_formatted
+
+                    is ActionData.ControlMediaForApp.PlayPause ->
+                        R.string.action_play_pause_media_package_formatted
+
+                    is ActionData.ControlMediaForApp.PreviousTrack ->
+                        R.string.action_previous_track_package_formatted
+
+                    is ActionData.ControlMediaForApp.Rewind ->
+                        R.string.action_rewind_package_formatted
+
+                    is ActionData.ControlMediaForApp.Stop ->
+                        R.string.action_stop_media_package_formatted
+
+                    is ActionData.ControlMediaForApp.StepForward ->
+                        R.string.action_step_forward_media_package_formatted
+
+                    is ActionData.ControlMediaForApp.StepBackward ->
+                        R.string.action_step_backward_media_package_formatted
+                }
+
+                getString(resId, appName)
+            }
+        }
+
+        is ActionData.Flashlight -> {
+            when (action) {
+                is ActionData.Flashlight.Toggle -> {
+                    if (action.strengthPercent == null ||
+                        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                    ) {
+                        if (action.lens == CameraLens.FRONT) {
+                            getString(R.string.action_toggle_front_flashlight_formatted)
+                        } else {
+                            getString(R.string.action_toggle_flashlight_formatted)
+                        }
+                    } else {
+                        if (action.lens == CameraLens.FRONT) {
+                            getString(
+                                R.string.action_toggle_front_flashlight_with_strength,
+                                action.strengthPercent.toPercentString(),
+                            )
+                        } else {
+                            getString(
+                                R.string.action_toggle_flashlight_with_strength,
+                                action.strengthPercent.toPercentString(),
+                            )
+                        }
+                    }
+                }
+
+                is ActionData.Flashlight.Enable -> {
+                    if (action.strengthPercent == null ||
+                        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                    ) {
+                        if (action.lens == CameraLens.FRONT) {
+                            getString(R.string.action_enable_front_flashlight_formatted)
+                        } else {
+                            getString(R.string.action_enable_flashlight_formatted)
+                        }
+                    } else {
+                        if (action.lens == CameraLens.FRONT) {
+                            getString(
+                                R.string.action_enable_front_flashlight_with_strength,
+                                action.strengthPercent.toPercentString(),
+                            )
+                        } else {
+                            getString(
+                                R.string.action_enable_flashlight_with_strength,
+                                action.strengthPercent.toPercentString(),
+                            )
+                        }
+                    }
+                }
+
+                is ActionData.Flashlight.Disable -> {
+                    if (action.lens == CameraLens.FRONT) {
+                        getString(R.string.action_disable_front_flashlight_formatted)
+                    } else {
+                        getString(R.string.action_disable_flashlight_formatted)
+                    }
+                }
+
+                is ActionData.Flashlight.ChangeStrength -> {
+                    if (action.percent > 0) {
+                        if (action.lens == CameraLens.FRONT) {
+                            getString(
+                                R.string.action_front_flashlight_increase_strength_formatted,
+                                action.percent.toPercentString(),
+                            )
+                        } else {
+                            getString(
+                                R.string.action_flashlight_increase_strength_formatted,
+                                action.percent.toPercentString(),
+                            )
+                        }
+                    } else {
+                        if (action.lens == CameraLens.FRONT) {
+                            getString(
+                                R.string.action_front_flashlight_decrease_strength_formatted,
+                                action.percent.toPercentString(),
+                            )
+                        } else {
+                            getString(
+                                R.string.action_flashlight_decrease_strength_formatted,
+                                action.percent.toPercentString(),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        is ActionData.SwitchKeyboard -> getInputMethodLabel(action.imeId).handle(
+            onSuccess = { getString(R.string.action_switch_keyboard_formatted, it) },
+            onError = {
+                getString(
+                    R.string.action_switch_keyboard_formatted,
+                    action.savedImeName,
+                )
+            },
+        )
+
+        is ActionData.Intent -> {
+            val resId = when (action.target) {
+                IntentTarget.ACTIVITY -> R.string.action_title_intent_start_activity
+                IntentTarget.BROADCAST_RECEIVER -> R.string.action_title_intent_send_broadcast
+                IntentTarget.SERVICE -> R.string.action_title_intent_start_service
+            }
+
+            getString(resId, action.description)
+        }
+
+        is ActionData.PhoneCall -> getString(R.string.description_phone_call, action.number)
+
+        is ActionData.TapScreen -> if (action.description.isNullOrBlank()) {
+            getString(
+                R.string.description_tap_coordinate_default,
+                arrayOf(action.x, action.y),
+            )
+        } else {
+            getString(
+                R.string.description_tap_coordinate_with_description,
+                action.description,
+            )
+        }
+
+        is ActionData.SwipeScreen -> if (action.description.isNullOrBlank()) {
+            getString(
+                R.string.description_swipe_coordinate_default,
+                arrayOf(
+                    action.fingerCount,
+                    action.xStart,
+                    action.yStart,
+                    action.xEnd,
+                    action.yEnd,
+                    action.duration,
+                ),
+            )
+        } else {
+            getString(
+                R.string.description_swipe_coordinate_with_description,
+                arrayOf(
+                    action.fingerCount,
+                    action.xStart,
+                    action.yStart,
+                    action.xEnd,
+                    action.yEnd,
+                    action.duration,
+                    action.description,
+                ),
+            )
+        }
+
+        is ActionData.PinchScreen -> if (action.description.isNullOrBlank()) {
+            val pinchTypeDisplayName = if (action.pinchType == PinchScreenType.PINCH_IN) {
+                getString(R.string.hint_coordinate_type_pinch_in)
+            } else {
+                getString(R.string.hint_coordinate_type_pinch_out)
+            }
+
+            getString(
+                R.string.description_pinch_coordinate_default,
+                arrayOf(
+                    pinchTypeDisplayName,
+                    action.fingerCount,
+                    action.x,
+                    action.y,
+                    action.distance,
+                    action.duration,
+                ),
+            )
+        } else {
+            val pinchTypeDisplayName = if (action.pinchType == PinchScreenType.PINCH_IN) {
+                getString(R.string.hint_coordinate_type_pinch_in)
+            } else {
+                getString(R.string.hint_coordinate_type_pinch_out)
+            }
+
+            getString(
+                R.string.description_pinch_coordinate_with_description,
+                arrayOf(
+                    pinchTypeDisplayName,
+                    action.fingerCount,
+                    action.x,
+                    action.y,
+                    action.distance,
+                    action.duration,
+                    action.description,
+                ),
+            )
+        }
+
+        is ActionData.Text -> getString(R.string.description_text_block, action.text)
+
+        is ActionData.Url -> getString(R.string.description_url, action.url)
+
+        is ActionData.Sound.SoundFile -> getString(
+            R.string.description_sound,
+            action.soundDescription,
+        )
+
+        is ActionData.Sound.Ringtone -> {
+            getRingtoneLabel(action.uri).handle(
+                onSuccess = { getString(R.string.description_sound, it) },
+                onError = { getString(R.string.description_sound_unknown) },
+            )
+        }
+
+        ActionData.AirplaneMode.Disable -> getString(R.string.action_disable_airplane_mode)
+
+        ActionData.AirplaneMode.Enable -> getString(R.string.action_enable_airplane_mode)
+
+        ActionData.AirplaneMode.Toggle -> getString(R.string.action_toggle_airplane_mode)
+
+        ActionData.Bluetooth.Disable -> getString(R.string.action_disable_bluetooth)
+
+        ActionData.Bluetooth.Enable -> getString(R.string.action_enable_bluetooth)
+
+        ActionData.Bluetooth.Toggle -> getString(R.string.action_toggle_bluetooth)
+
+        is ActionData.Brightness.Decrease ->
+            if (action.stepPercent != null) {
+                getString(R.string.action_decrease_brightness_with_percent, action.stepPercent)
+            } else {
+                getString(R.string.action_decrease_brightness)
+            }
+
+        ActionData.Brightness.DisableAuto -> getString(R.string.action_disable_auto_brightness)
+
+        ActionData.Brightness.EnableAuto -> getString(R.string.action_enable_auto_brightness)
+
+        is ActionData.Brightness.Increase ->
+            if (action.stepPercent != null) {
+                getString(R.string.action_increase_brightness_with_percent, action.stepPercent)
+            } else {
+                getString(R.string.action_increase_brightness)
+            }
+
+        ActionData.Brightness.ToggleAuto -> getString(R.string.action_toggle_auto_brightness)
+
+        ActionData.NightShift.Disable -> getString(R.string.action_disable_night_shift)
+
+        ActionData.NightShift.Enable -> getString(R.string.action_enable_night_shift)
+
+        ActionData.NightShift.Toggle -> getString(R.string.action_toggle_night_shift)
+
+        ActionData.ConsumeKeyEvent -> getString(R.string.action_consume_keyevent)
+
+        ActionData.ControlMedia.FastForward -> getString(R.string.action_fast_forward)
+
+        ActionData.ControlMedia.NextTrack -> getString(R.string.action_next_track)
+
+        ActionData.ControlMedia.Pause -> getString(R.string.action_pause_media)
+
+        ActionData.ControlMedia.Play -> getString(R.string.action_play_media)
+
+        ActionData.ControlMedia.PlayPause -> getString(R.string.action_play_pause_media)
+
+        ActionData.ControlMedia.PreviousTrack -> getString(R.string.action_previous_track)
+
+        ActionData.ControlMedia.Rewind -> getString(R.string.action_rewind)
+
+        ActionData.ControlMedia.Stop -> getString(R.string.action_stop_media)
+
+        is ActionData.ControlMedia.StepForward ->
+            if (action.stepDurationMs != null) {
+                getString(
+                    R.string.action_step_forward_media_with_duration,
+                    (action.stepDurationMs / 1000).toInt(),
+                )
+            } else {
+                getString(R.string.action_step_forward_media)
+            }
+
+        is ActionData.ControlMedia.StepBackward ->
+            if (action.stepDurationMs != null) {
+                getString(
+                    R.string.action_step_backward_media_with_duration,
+                    (action.stepDurationMs / 1000).toInt(),
+                )
+            } else {
+                getString(R.string.action_step_backward_media)
+            }
+
+        ActionData.CopyText -> getString(R.string.action_text_copy)
+
+        ActionData.CutText -> getString(R.string.action_text_cut)
+
+        ActionData.PasteText -> getString(R.string.action_text_paste)
+
+        ActionData.DeviceAssistant -> getString(R.string.action_open_device_assistant)
+
+        ActionData.GoBack -> getString(R.string.action_go_back)
+
+        ActionData.GoHome -> getString(R.string.action_go_home)
+
+        ActionData.GoLastApp -> getString(R.string.action_go_last_app)
+
+        ActionData.OpenMenu -> getString(R.string.action_open_menu)
+
+        ActionData.OpenRecents -> getString(R.string.action_open_recents)
+
+        ActionData.HideKeyboard -> getString(R.string.action_hide_keyboard)
+
+        ActionData.LockDevice -> getString(R.string.action_lock_device)
+
+        ActionData.MobileData.Disable -> getString(R.string.action_disable_mobile_data)
+
+        ActionData.MobileData.Enable -> getString(R.string.action_enable_mobile_data)
+
+        ActionData.MobileData.Toggle -> getString(R.string.action_toggle_mobile_data)
+
+        ActionData.Hotspot.Disable -> getString(R.string.action_disable_hotspot)
+
+        ActionData.Hotspot.Enable -> getString(R.string.action_enable_hotspot)
+
+        ActionData.Hotspot.Toggle -> getString(R.string.action_toggle_hotspot)
+
+        is ActionData.MoveCursor -> {
+            when (action.direction) {
+                ActionData.MoveCursor.Direction.START -> {
+                    when (action.moveType) {
+                        ActionData.MoveCursor.Type.CHAR -> getString(
+                            R.string.action_move_cursor_prev_character,
+                        )
+
+                        ActionData.MoveCursor.Type.WORD -> getString(
+                            R.string.action_move_cursor_start_word,
+                        )
+
+                        ActionData.MoveCursor.Type.LINE -> getString(
+                            R.string.action_move_cursor_start_line,
+                        )
+
+                        ActionData.MoveCursor.Type.PARAGRAPH -> getString(
+                            R.string.action_move_cursor_start_paragraph,
+                        )
+
+                        ActionData.MoveCursor.Type.PAGE -> getString(
+                            R.string.action_move_cursor_start_page,
+                        )
+                    }
+                }
+
+                ActionData.MoveCursor.Direction.END -> {
+                    when (action.moveType) {
+                        ActionData.MoveCursor.Type.CHAR -> getString(
+                            R.string.action_move_cursor_next_character,
+                        )
+
+                        ActionData.MoveCursor.Type.WORD -> getString(
+                            R.string.action_move_cursor_end_word,
+                        )
+
+                        ActionData.MoveCursor.Type.LINE -> getString(
+                            R.string.action_move_cursor_end_line,
+                        )
+
+                        ActionData.MoveCursor.Type.PARAGRAPH -> getString(
+                            R.string.action_move_cursor_end_paragraph,
+                        )
+
+                        ActionData.MoveCursor.Type.PAGE -> getString(
+                            R.string.action_move_cursor_end_page,
+                        )
+                    }
+                }
+            }
+        }
+
+        ActionData.Nfc.Disable -> getString(R.string.action_nfc_disable)
+
+        ActionData.Nfc.Enable -> getString(R.string.action_nfc_enable)
+
+        ActionData.Nfc.Toggle -> getString(R.string.action_nfc_toggle)
+
+        ActionData.OpenCamera -> getString(R.string.action_open_camera)
+
+        ActionData.OpenSettings -> getString(R.string.action_open_settings)
+
+        is ActionData.Rotation.CycleRotations -> {
+            val orientationStrings = action.orientations.map { orientation ->
+                when (orientation) {
+                    Orientation.ORIENTATION_0 -> R.string.orientation_0
+                    Orientation.ORIENTATION_90 -> R.string.orientation_90
+                    Orientation.ORIENTATION_180 -> R.string.orientation_180
+                    Orientation.ORIENTATION_270 -> R.string.orientation_270
+                }
+            }
+
+            getString(
+                R.string.action_cycle_rotations_formatted,
+                orientationStrings.joinToString(),
+            )
+        }
+
+        ActionData.Rotation.DisableAuto -> getString(R.string.action_disable_auto_rotate)
+
+        ActionData.Rotation.EnableAuto -> getString(R.string.action_enable_auto_rotate)
+
+        ActionData.Rotation.Landscape -> getString(R.string.action_landscape_mode)
+
+        ActionData.Rotation.Portrait -> getString(R.string.action_portrait_mode)
+
+        ActionData.Rotation.SwitchOrientation -> getString(R.string.action_switch_orientation)
+
+        ActionData.Rotation.ToggleAuto -> getString(R.string.action_toggle_auto_rotate)
+
+        ActionData.ScreenOnOff -> getString(R.string.action_power_on_off_device)
+
+        ActionData.Screenshot -> getString(R.string.action_screenshot)
+
+        ActionData.SecureLock -> getString(R.string.action_secure_lock_device)
+
+        ActionData.SelectWordAtCursor -> getString(R.string.action_select_word_at_cursor)
+
+        ActionData.SelectAllText -> getString(R.string.action_select_all_text)
+
+        ActionData.ShowKeyboard -> getString(R.string.action_show_keyboard)
+
+        ActionData.ShowKeyboardPicker -> getString(R.string.action_show_keyboard_picker)
+
+        ActionData.PerformImeAction -> getString(R.string.action_perform_ime_action)
+
+        ActionData.ShowPowerMenu -> getString(R.string.action_show_power_menu)
+
+        ActionData.StatusBar.Collapse -> getString(R.string.action_collapse_status_bar)
+
+        ActionData.StatusBar.ExpandNotifications -> getString(
+            R.string.action_expand_notification_drawer,
+        )
+
+        ActionData.StatusBar.ExpandQuickSettings -> getString(
+            R.string.action_expand_quick_settings,
+        )
+
+        ActionData.StatusBar.ToggleNotifications -> getString(
+            R.string.action_toggle_notification_drawer,
+        )
+
+        ActionData.StatusBar.ToggleQuickSettings -> getString(
+            R.string.action_toggle_quick_settings,
+        )
+
+        ActionData.ToggleKeyboard -> getString(R.string.action_toggle_keyboard)
+
+        ActionData.CycleKeyboardLanguage -> getString(R.string.action_cycle_keyboard_language)
+
+        ActionData.CycleKeyboard -> getString(R.string.action_cycle_keyboard)
+
+        ActionData.ToggleSplitScreen -> getString(R.string.action_toggle_split_screen)
+
+        ActionData.VoiceAssistant -> getString(R.string.action_open_assistant)
+
+        ActionData.Wifi.Disable -> getString(R.string.action_disable_wifi)
+
+        ActionData.Wifi.Enable -> getString(R.string.action_enable_wifi)
+
+        ActionData.Wifi.Toggle -> getString(R.string.action_toggle_wifi)
+
+        ActionData.DismissAllNotifications -> getString(
+            R.string.action_dismiss_all_notifications,
+        )
+
+        ActionData.DismissLastNotification -> getString(
+            R.string.action_dismiss_most_recent_notification,
+        )
+
+        ActionData.AnswerCall -> getString(R.string.action_answer_call)
+
+        ActionData.EndCall -> getString(R.string.action_end_call)
+
+        ActionData.DeviceControls -> getString(R.string.action_device_controls)
+
+        is ActionData.HttpRequest -> action.description
+
+        is ActionData.ShellCommand -> when (action.executionMode) {
+            ShellExecutionMode.ROOT -> getString(
+                R.string.action_shell_command_description_with_root,
+                action.description,
+            )
+
+            ShellExecutionMode.ADB -> getString(
+                R.string.action_shell_command_description_with_adb,
+                action.description,
+            )
+
+            ShellExecutionMode.STANDARD -> getString(
+                R.string.action_shell_command_description_with_standard,
+                action.description,
+            )
+        }
+
+        is ActionData.InteractUiElement -> action.description
+
+        ActionData.ClearRecentApp -> getString(R.string.action_clear_recent_app)
+
+        ActionData.ForceStopApp -> getString(R.string.action_force_stop_app)
+
+        ActionData.ShutdownDevice -> getString(R.string.action_shutdown_device)
+
+        ActionData.RebootDevice -> getString(R.string.action_reboot_device)
+
+        is ActionData.ComposeSms -> getString(
+            R.string.action_compose_sms_description,
+            arrayOf(action.message, action.number),
+        )
+
+        is ActionData.SendSms -> getString(
+            R.string.action_send_sms_description,
+            arrayOf(action.message, action.number),
+        )
+
+        ActionData.Microphone.Mute -> getString(R.string.action_mute_microphone)
+
+        ActionData.Microphone.Toggle -> getString(R.string.action_toggle_mute_microphone)
+
+        ActionData.Microphone.Unmute -> getString(R.string.action_unmute_microphone)
+
+        is ActionData.ModifySetting -> {
+            getString(
+                R.string.modify_setting_description,
+                arrayOf(action.settingKey, action.value),
+            )
+        }
+
+        is ActionData.CreateNotification -> {
+            getString(
+                R.string.action_create_notification_description,
+                action.title,
+            )
+        }
+
+        is ActionData.Toast -> {
+            when (action.duration) {
+                ActionData.Toast.Duration.SHORT -> {
+                    getString(R.string.action_toast_description_short, action.message)
+                }
+
+                ActionData.Toast.Duration.LONG -> {
+                    getString(R.string.action_toast_description_long, action.message)
+                }
+            }
+        }
+
+        is ActionData.Vibrate -> {
+            when (val effect = action.effect) {
+                is VibrateEffect.CustomDuration -> {
+                    getString(
+                        R.string.action_vibrate_description_duration,
+                        effect.durationMs.toString(),
+                    )
+                }
+
+                is VibrateEffect.Predefined -> {
+                    getString(
+                        R.string.action_vibrate_description_predefined,
+                        getString(VibrateEffectStrings.getLabel(effect.predefinedType)),
+                    )
+                }
+            }
+        }
+
+        is ActionData.TalkBackGesture -> {
+            val actionLabel = getString(TalkBackGestureStrings.getActionLabel(action.gesture))
+            getString(R.string.action_talkback_gesture_formatted, actionLabel)
+        }
+
+        is ActionData.SetVariable ->
+            getString(
+                R.string.action_set_variable_set,
+                arrayOf(action.name, action.value.toString()),
+            )
+
+        is ActionData.ModifyVariable -> {
+            val stringRes = when (action.operation) {
+                VariableOperation.ADD -> R.string.action_set_variable_add
+                VariableOperation.SUBTRACT -> R.string.action_set_variable_subtract
+            }
+
+            getString(stringRes, arrayOf(action.name, action.value.toString()))
+        }
+    }
+
+    fun getIcon(action: ActionData): ComposeIconInfo = when (action) {
+        is ActionData.App ->
+            getAppIcon(action.packageName).handle(
+                onSuccess = { ComposeIconInfo.Drawable(it) },
+                onError = { ComposeIconInfo.Vector(Icons.Outlined.Android) },
+            )
+
+        is ActionData.AppShortcut -> {
+            if (action.packageName.isNullOrBlank()) {
+                ComposeIconInfo.Vector(Icons.Outlined.Android)
+            } else {
+                getAppIcon(action.packageName).handle(
+                    onSuccess = { ComposeIconInfo.Drawable(it) },
+                    onError = { ComposeIconInfo.Vector(Icons.Outlined.Android) },
+                )
+            }
+        }
+
+        else -> ComposeIconInfo.Vector(ActionUtils.getComposeIcon(action.id))
+    }
+
+    fun getDrawableIcon(action: ActionData): IconInfo? = when (action) {
+        is ActionData.InputKeyEvent -> null
+
+        is ActionData.App ->
+            getAppIcon(action.packageName).handle(
+                onSuccess = { IconInfo(it, TintType.None) },
+                onError = { null },
+            )
+
+        is ActionData.AppShortcut -> {
+            if (action.packageName.isNullOrBlank()) {
+                null
+            } else {
+                getAppIcon(action.packageName).handle(
+                    onSuccess = { IconInfo(it, TintType.None) },
+                    onError = { null },
+                )
+            }
+        }
+
+        is ActionData.Intent -> null
+
+        is ActionData.PhoneCall ->
+            IconInfo(
+                getDrawable(R.drawable.ic_outline_call_24),
+                tintType = TintType.OnSurface,
+            )
+
+        is ActionData.TapScreen -> IconInfo(
+            getDrawable(R.drawable.ic_outline_touch_app_24),
+            TintType.OnSurface,
+        )
+
+        is ActionData.Text -> null
+
+        is ActionData.Url -> null
+
+        is ActionData.Sound -> IconInfo(
+            getDrawable(R.drawable.ic_outline_volume_up_24),
+            TintType.OnSurface,
+        )
+
+        else -> ActionUtils.getDrawableIcon(action.id)?.let { iconRes ->
+            IconInfo(
+                getDrawable(iconRes),
+                TintType.OnSurface,
+            )
+        }
+    }
+
+    private fun getKeyCodeString(action: ActionData.InputKeyEvent): String =
+        if (action.keyCode > KeyEvent.getMaxKeyCode()) {
+            "Key Code ${action.keyCode}"
+        } else {
+            KeyEvent.keyCodeToString(action.keyCode)
+        }
+
+    private fun getMetaStateString(action: ActionData.InputKeyEvent): String = buildString {
+        for (label in KeyCodeStrings.MODIFIER_LABELS.entries) {
+            if (action.metaState.hasFlag(label.key)) {
+                append("${getString(label.value)} + ")
+            }
+        }
+    }
+
+    /**
+     * A concise title for the key map list that describes the repeat and hold down options in the
+     * name itself, e.g. "Repeat KEYCODE_0" instead of "Input KEYCODE_0 • Repeat until released".
+     * The repeat rate/delay and hold down duration are omitted.
+     */
+    fun getChipTitle(keyMap: KeyMap, action: Action, showDeviceDescriptors: Boolean): String {
+        val repeat = keyMap.isRepeatingActionsAllowed() && action.repeat
+        val holdDown = keyMap.isHoldingDownActionAllowed(action) && action.holdDown
+        val toggle = action.stopHoldDownWhenTriggerPressedAgain
+        val pressedAgain = action.repeatMode == RepeatMode.TRIGGER_PRESSED_AGAIN
+        val limit = when {
+            action.repeatLimit != null -> action.repeatLimit
+            action.repeatMode == RepeatMode.LIMIT_REACHED -> 1
+            else -> null
+        }
+
+        val verb = when {
+            repeat && holdDown && pressedAgain -> getString(R.string.action_chip_toggle_hold_repeat)
+
+            repeat && holdDown && limit != null ->
+                getString(R.string.action_chip_hold_repeat_limit, limit)
+
+            repeat && holdDown -> getString(R.string.action_chip_hold_repeat)
+
+            repeat && pressedAgain -> getString(R.string.action_chip_toggle_repeat)
+
+            repeat && limit != null -> getString(R.string.action_chip_repeat_limit, limit)
+
+            repeat -> getString(R.string.action_chip_repeat)
+
+            holdDown && toggle -> getString(R.string.action_chip_toggle_hold)
+
+            holdDown -> getString(R.string.action_chip_hold)
+
+            else -> return getTitle(action, showDeviceDescriptors)
+        }
+
+        // Replace the "Input" verb with the repeat/hold verb for key events.
+        val title = if (action.customName.isNullOrBlank() &&
+            action.data is ActionData.InputKeyEvent
+        ) {
+            getMetaStateString(action.data) + getKeyCodeString(action.data)
+        } else {
+            getTitle(action, showDeviceDescriptors)
+        }
+
+        return "$verb $title"
+    }
+
+    /**
+     * @return null if the action does not repeat.
+     */
+    fun getRepeatDescription(keyMap: KeyMap, action: Action): String? {
+        if (!keyMap.isRepeatingActionsAllowed() || !action.repeat) {
+            return null
+        }
+
+        return buildString {
+            append(getString(R.string.flag_repeat_build_description_start))
+
+            val repeatLimit = when {
+                action.repeatLimit != null -> action.repeatLimit
+
+                action.repeatMode == RepeatMode.LIMIT_REACHED -> 1
+
+                // and is null
+                else -> null
+            }
+
+            if (repeatLimit != null) {
+                append(" ")
+                append(getString(R.string.flag_repeat_build_description_limit, repeatLimit))
+            }
+
+            if (action.repeatRate != null) {
+                append(" ")
+                append(
+                    getString(
+                        R.string.flag_repeat_build_description_repeat_rate,
+                        action.repeatRate,
+                    ),
+                )
+            }
+
+            if (action.repeatDelay != null) {
+                append(" ")
+                append(
+                    getString(
+                        R.string.flag_repeat_build_description_repeat_delay,
+                        action.repeatDelay,
+                    ),
+                )
+            }
+
+            append(" ")
+
+            when (action.repeatMode) {
+                RepeatMode.TRIGGER_RELEASED -> {
+                    append(getString(R.string.flag_repeat_build_description_until_released))
+                }
+
+                RepeatMode.TRIGGER_PRESSED_AGAIN -> {
+                    append(
+                        getString(R.string.flag_repeat_build_description_until_pressed_again),
+                    )
+                }
+
+                else -> Unit
+            }
+        }
+    }
+
+    /**
+     * @return null if the action is not performed in a burst.
+     */
+    fun getBurstDescription(action: Action): String? {
+        val multiplier = action.multiplier ?: return null
+
+        if (multiplier <= 1) {
+            return null
+        }
+
+        return getString(R.string.action_list_burst, multiplier)
+    }
+
+    /**
+     * @return null if the action is not held down.
+     */
+    fun getHoldDownDescription(keyMap: KeyMap, action: Action): String? {
+        if (!keyMap.isHoldingDownActionAllowed(action) || !action.holdDown) {
+            return null
+        }
+
+        return when {
+            keyMap.isHoldingDownActionBeforeRepeatingAllowed(action) &&
+                action.holdDownDuration != null ->
+                getString(R.string.action_list_hold_down_duration, action.holdDownDuration)
+
+            action.stopHoldDownWhenTriggerPressedAgain ->
+                getString(R.string.flag_hold_down_until_pressed_again)
+
+            else -> getString(R.string.flag_hold_down)
+        }
+    }
+}

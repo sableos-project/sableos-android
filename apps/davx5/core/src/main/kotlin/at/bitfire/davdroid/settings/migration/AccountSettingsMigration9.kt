@@ -1,0 +1,51 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+package at.bitfire.davdroid.settings.migration
+
+import android.content.ContentResolver
+import at.bitfire.davdroid.accounts.AccountId
+import at.bitfire.davdroid.accounts.AndroidAccountManager
+import at.bitfire.davdroid.db.AppDatabase
+import at.bitfire.davdroid.db.Service
+import at.bitfire.davdroid.settings.AccountSettingsStore
+import at.bitfire.synctools.storage.TaskProvider
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntKey
+import dagger.multibindings.IntoMap
+import java.util.logging.Logger
+import javax.inject.Inject
+
+/**
+ * It seems that somehow some non-CalDAV accounts got OpenTasks syncable, which caused battery problems.
+ * Disable it on those accounts for the future.
+ */
+class AccountSettingsMigration9 @Inject constructor(
+    private val androidAccountManager: AndroidAccountManager,
+    private val db: AppDatabase,
+    private val logger: Logger
+): AccountSettingsMigration {
+
+    override fun migrate(accountId: AccountId, store: AccountSettingsStore) {
+        val hasCalDAV = db.serviceDao().getByAccountIdAndTypeBlocking(accountId, Service.TYPE_CALDAV) != null
+        val account = androidAccountManager.getAndroidAccount(accountId)
+        if (!hasCalDAV && ContentResolver.getIsSyncable(account, TaskProvider.ProviderName.OpenTasks.authority) != 0) {
+            logger.info("Disabling OpenTasks sync for $account")
+            ContentResolver.setIsSyncable(account, TaskProvider.ProviderName.OpenTasks.authority, 0)
+        }
+    }
+
+
+    @Module
+    @InstallIn(SingletonComponent::class)
+    abstract class AccountSettingsMigrationModule {
+        @Binds @IntoMap
+        @IntKey(9)
+        abstract fun provide(impl: AccountSettingsMigration9): AccountSettingsMigration
+    }
+
+}

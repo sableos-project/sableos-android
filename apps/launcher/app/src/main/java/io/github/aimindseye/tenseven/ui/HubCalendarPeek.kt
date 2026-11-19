@@ -1,0 +1,166 @@
+package io.github.aimindseye.tenseven.ui
+
+import android.text.format.DateUtils
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import io.github.aimindseye.tenseven.platform.CapabilityStatus
+import io.github.aimindseye.tenseven.platform.HubCalendarEvent
+import io.github.aimindseye.tenseven.platform.HubCalendarRepository
+import io.github.aimindseye.tenseven.platform.StartStateRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+/** Opt-in, borderless calendar peek. Reads only the on-device Android CalendarProvider. */
+@Composable
+internal fun HubCalendarPeek(
+    refreshGeneration: Int,
+    onRequestCalendarPermission: () -> Unit,
+    onOpenCalendar: () -> Unit,
+) {
+    val context = LocalContext.current
+    val repository = remember(context) { HubCalendarRepository(context) }
+    val capabilities = rememberPlatformCapabilities(refreshGeneration)
+    val permitted = capabilities.calendarEvents == CapabilityStatus.Ready
+    val selectedIds = remember(refreshGeneration) { StartStateRepository(context).loadHubSelectedCalendarIds() }
+    val deviceLocked = capabilities.deviceLocked
+    var expanded by remember { mutableStateOf(false) }
+    var events by remember { mutableStateOf(emptyList<HubCalendarEvent>()) }
+
+    LaunchedEffect(expanded, permitted, deviceLocked, refreshGeneration, selectedIds) {
+        if (expanded && permitted && !deviceLocked) {
+            events = withContext(Dispatchers.IO) { repository.upcoming(selectedIds = selectedIds) }
+        } else {
+            events = emptyList()
+        }
+    }
+
+    HubContrastTheme {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (io.github.aimindseye.tenseven.design.isSableShortWindow()) {
+                            Modifier.padding(horizontal = 4.dp)
+                        } else {
+                            Modifier
+                                .clip(RoundedCornerShape(7.dp))
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+                                .padding(horizontal = 9.dp, vertical = 6.dp)
+                        },
+                    ),
+            verticalArrangement = Arrangement.spacedBy(if (io.github.aimindseye.tenseven.design.isSableShortWindow()) 2.dp else 8.dp),
+        ) {
+            Text(
+                text = if (expanded) "▴ Upcoming calendar" else "▾ Upcoming calendar",
+                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 6.dp),
+                color = MaterialTheme.colorScheme.primary,
+                style = if (io.github.aimindseye.tenseven.design.isSableShortWindow()) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleSmall,
+            )
+            if (expanded) {
+                CalendarPeekExpandedContent(
+                    deviceLocked = deviceLocked,
+                    permitted = permitted,
+                    events = events,
+                    onRequestCalendarPermission = onRequestCalendarPermission,
+                    onOpenCalendar = onOpenCalendar,
+                )
+            }
+        }
+    }
+}
+
+// Expanded calendar content is independent of Peek's remembered state.
+@Suppress("FunctionNaming")
+@Composable
+private fun CalendarPeekExpandedContent(
+    deviceLocked: Boolean,
+    permitted: Boolean,
+    events: List<HubCalendarEvent>,
+    onRequestCalendarPermission: () -> Unit,
+    onOpenCalendar: () -> Unit,
+) {
+    if (deviceLocked) {
+        Text(
+            "Unlock to see upcoming calendar events",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    } else if (!permitted) {
+        Text(
+            "Allow Calendar access to see events from calendars synced to Android",
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onRequestCalendarPermission).padding(vertical = 8.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    } else if (events.isEmpty()) {
+        Text(
+            "No upcoming events in the next seven days",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    } else {
+        events.forEach { event ->
+            CalendarPeekEvent(event, onOpenCalendar)
+        }
+    }
+}
+
+// Compose lint requires PascalCase for Unit renderers; detekt does not recognize that contract.
+@Suppress("FunctionNaming")
+@Composable
+private fun CalendarPeekEvent(
+    event: HubCalendarEvent,
+    onOpenCalendar: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenCalendar).padding(vertical = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                event.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                event.calendarName,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            DateUtils
+                .getRelativeTimeSpanString(
+                    event.beginsAt,
+                    System.currentTimeMillis(),
+                    DateUtils.MINUTE_IN_MILLIS,
+                ).toString(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}

@@ -1,0 +1,174 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+package at.bitfire.davdroid.resource.workaround
+
+import android.content.ContentValues
+import android.os.Build
+import android.provider.ContactsContract.Groups
+import at.bitfire.davdroid.resource.local.LocalAddressBook
+import at.bitfire.davdroid.resource.local.LocalContact
+import at.bitfire.synctools.storage.BatchOperation
+import at.bitfire.synctools.storage.contacts.AddressContract.RawContactColumns
+import at.bitfire.synctools.storage.contacts.ContactsBatchOperation
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.flow.firstOrNull
+import java.util.Optional
+import java.util.logging.Level
+import java.util.logging.Logger
+import javax.inject.Inject
+import javax.inject.Provider
+
+/**
+ * Android 7.x introduced a new behavior in the Contacts provider: when metadata of a contact (like the "last contacted" time)
+ * changes, the contact is marked as "dirty" (i.e. the [android.provider.ContactsContract.RawContacts.DIRTY] flag is set).
+ * So, under Android 7.x, every time a user calls a contact or writes an SMS to a contact, the contact is marked as dirty.
+ *
+ * **This behavior is not present in Android ≤ 6.x nor in ≥ Android 8.x, where a contact is only marked as dirty
+ * when its data actually change.**
+ *
+ * So, as a dirty workaround for Android 7.x, we need to calculate a hash code from the contact data and group memberships every
+ * time we change the contact. When then a contact is marked as dirty, we compare the hash code of the current contact data with
+ * the previous hash code. If the hash code has changed, the contact is "really dirty" and we need to upload it. Otherwise,
+ * we reset the dirty flag to ignore the meta-data change.
+ *
+ * @constructor May only be called on Android 7.x, otherwise an [IllegalStateException] is thrown.
+ */
+class Android7DirtyVerifier @Inject constructor(
+    val logger: Logger
+): ContactDirtyVerifier {
+
+    init {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            throw IllegalStateException("Android7DirtyVerifier must not be used on Android != 7.x")
+    }
+
+
+    // address-book level functions
+
+    override suspend fun prepareAddressBook(addressBook: LocalAddressBook, isUpload: Boolean): Boolean {
+        val reallyDirty = verifyDirtyContacts(addressBook)
+
+        val anyDeleted = addressBook.findDeleted().firstOrNull() != null
+        if (isUpload && reallyDirty == 0 && !anyDeleted) {
+            logger.info("This sync was called to up-sync dirty/deleted contacts, but no contacts have been changed")
+            return false
+        }
+
+        return true
+    }
+
+    /**
+     * Queries all contacts with the [android.provider.ContactsContract.RawContacts.DIRTY] flag and checks whether their data
+     * checksum has changed, i.e. if they're "really dirty" (= data has changed, not only metadata, which is not hashed).
+     *
+     * The dirty flag is removed from contacts which are not "really dirty", i.e. from contacts whose contact data
+     * checksum has not changed.
+     *
+     * @return number of "really dirty" contacts
+     */
+    private suspend fun verifyDirtyContacts(addressBook: LocalAddressBook): Int {
+        var reallyDirty = 0
+        addressBook.findDirtyContacts().collect { contact ->
+            val lastHash = getLastHashCode(addressBook, contact)
+            val currentHash = contactDataHashCode(contact)
+            if (lastHash == currentHash) {
+                // hash is code still the same, contact is not "really dirty" (only metadata been have changed)
+                logger.log(Level.FINE, "Contact data hash has not changed, resetting dirty flag: {0}", arrayOf(contact))
+                contact.resetDirty()
+            } else {
+                logger.log(
+                    Level.FINE,
+                    "Contact data has changed from hash {0} to {1}: {2}",
+                    arrayOf(lastHash, currentHash, contact)
+                )
+                reallyDirty++
+            }
+        }
+
+        if (addressBook.includeGroups)
+            reallyDirty += addressBook.ab.countGroups(Groups.DIRTY, null)
+
+        return reallyDirty
+    }
+
+    private fun getLastHashCode(addressBook: LocalAddressBook, contact: LocalContact): Int {
+        val provider = addressBook.ab.client
+        provider.query(contact.androidContact.rawContactSyncURI(), arrayOf(RawContactColumns.HASHCODE), null, null, null)?.use { c ->
+            if (c.moveToNext() && !c.isNull(0))
+                return c.getInt(0)
+        }
+        return 0
+    }
+
+
+    // contact level functions
+
+    /**
+     * Calculates a hash code from the [at.bitfire.vcard4android.Contact] data and group memberships.
+     * Attention: re-reads {@link #contact} from the database, discarding all changes in memory!
+     *
+     * @return hash code of contact data (including group memberships)
+     */
+    private fun contactDataHashCode(contact: LocalContact): Int {
+        contact.clearCachedContact()
+
+        // groupMemberships is filled by getContact()
+        val ac = contact.androidContact
+        val dataHash = ac.getContact().hashCode()
+        val groupHash = ac.groupMemberships.hashCode()
+        val combinedHash = dataHash xor groupHash
+        logger.log(
+            Level.FINE,
+            "Calculated hash code for {0}: data={1}, groups={2}, combined={3}",
+            arrayOf(contact, dataHash, groupHash, combinedHash)
+        )
+        return combinedHash
+    }
+
+    override fun setHashCodeColumn(contact: LocalContact, toValues: ContentValues) {
+        val hashCode = contactDataHashCode(contact)
+        toValues.put(RawContactColumns.HASHCODE, hashCode)
+    }
+
+    override fun updateHashCode(addressBook: LocalAddressBook, contact: LocalContact) {
+        val provider = addressBook.ab.client
+        val values = ContentValues(1)
+        setHashCodeColumn(contact, values)
+
+        provider.update(contact.androidContact.rawContactSyncURI(), values, null, null)
+    }
+
+    override fun updateHashCode(contact: LocalContact, batch: ContactsBatchOperation) {
+        val hashCode = contactDataHashCode(contact)
+
+        batch += BatchOperation.CpoBuilder
+            .newUpdate(contact.androidContact.rawContactSyncURI())
+            .withValue(RawContactColumns.HASHCODE, hashCode)
+    }
+
+
+
+    // factory
+
+    @Module
+    @InstallIn(SingletonComponent::class)
+    object Android7DirtyVerifierModule {
+
+        /**
+         * Provides an [Android7DirtyVerifier] on Android 7.x, or an empty [Optional] on other versions.
+         */
+        @Provides
+        fun provide(android7DirtyVerifier: Provider<Android7DirtyVerifier>): Optional<ContactDirtyVerifier> =
+            if (/* Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && */ Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
+                Optional.of(android7DirtyVerifier.get())
+            else
+                Optional.empty()
+
+    }
+
+}

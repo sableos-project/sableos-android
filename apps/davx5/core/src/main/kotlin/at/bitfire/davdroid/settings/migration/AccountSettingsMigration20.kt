@@ -1,0 +1,139 @@
+/*
+ * Copyright © All Contributors. See LICENSE and AUTHORS in the root directory for details.
+ */
+
+package at.bitfire.davdroid.settings.migration
+
+import android.accounts.Account
+import android.accounts.AccountManager
+import android.provider.CalendarContract
+import androidx.annotation.OpenForTesting
+import androidx.core.content.contentValuesOf
+import at.bitfire.davdroid.accounts.AccountId
+import at.bitfire.davdroid.accounts.AndroidAccountManager
+import at.bitfire.davdroid.db.Service
+import at.bitfire.davdroid.repository.DavCollectionRepository
+import at.bitfire.davdroid.repository.DavServiceRepository
+import at.bitfire.davdroid.resource.local.LocalAddressBookStore
+import at.bitfire.davdroid.resource.local.LocalCalendarStore
+import at.bitfire.davdroid.resource.local.LocalJtxCollection
+import at.bitfire.davdroid.resource.local.LocalTaskList
+import at.bitfire.davdroid.settings.AccountSettingsStore
+import at.bitfire.davdroid.sync.TasksAppManager
+import at.bitfire.synctools.storage.calendar.AndroidCalendarProvider
+import at.techbee.jtx.JtxContract
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntKey
+import dagger.multibindings.IntoMap
+import org.dmfs.tasks.contract.TaskContract.TaskLists
+import javax.inject.Inject
+
+/**
+ * [at.bitfire.davdroid.sync.Syncer] now users collection IDs instead of URLs to match
+ * local and remote (database) collections.
+ *
+ * This migration writes the database collection IDs to the local collections. If we wouldn't do that,
+ * the syncer would not be able to find the correct local collection for a remote collection and
+ * all local collections would be deleted and re-created.
+ */
+class AccountSettingsMigration20 @Inject constructor(
+    private val accountManager: AccountManager,
+    private val addressBookStore: LocalAddressBookStore,
+    private val androidAccountManager: AndroidAccountManager,
+    private val calendarStore: LocalCalendarStore,
+    private val collectionRepository: DavCollectionRepository,
+    private val serviceRepository: DavServiceRepository,
+    private val tasksAppManager: TasksAppManager
+) : AccountSettingsMigration {
+
+    override fun migrate(accountId: AccountId, store: AccountSettingsStore) {
+        val account = androidAccountManager.getAndroidAccount(accountId)
+        serviceRepository.getByAccountIdAndTypeBlocking(accountId, Service.TYPE_CARDDAV)?.let { cardDavService ->
+            migrateAddressBooks(accountId, cardDavService.id)
+        }
+
+        serviceRepository.getByAccountIdAndTypeBlocking(accountId, Service.TYPE_CALDAV)?.let { calDavService ->
+            migrateCalendars(account, calDavService.id)
+            migrateTaskLists(accountId, calDavService.id)
+        }
+    }
+
+    @OpenForTesting
+    internal fun migrateAddressBooks(accountId: AccountId, cardDavServiceId: Long) {
+        addressBookStore.acquireLocalStorageClient()?.use { client ->
+            for (addressBook in addressBookStore.getAll(accountId, client)) {
+                val url = accountManager.getUserData(addressBook.addressBookAccount, ADDRESS_BOOK_USER_DATA_URL)
+                    ?: continue
+                val collection = collectionRepository.getByServiceAndUrl(cardDavServiceId, url) ?: continue
+                addressBook.dbCollectionId = collection.id
+            }
+        }
+    }
+
+    @OpenForTesting
+    internal fun migrateCalendars(account: Account, calDavServiceId: Long) {
+        calendarStore.acquireLocalStorageClient()?.use { client ->
+            val calendarProvider = AndroidCalendarProvider(account, client)
+            // for each calendar, assign _SYNC_ID := ID if collection (identified by NAME field = URL)
+            for (calendar in calendarProvider.findCalendars()) {
+                val url = calendar.name ?: continue
+                collectionRepository.getByServiceAndUrl(calDavServiceId, url)?.let { collection ->
+                    calendar.update(
+                        contentValuesOf(
+                            CalendarContract.Calendars._SYNC_ID to collection.id
+                        )
+                    )
+                }
+
+            }
+        }
+    }
+
+    @OpenForTesting
+    internal fun migrateTaskLists(accountId: AccountId, calDavServiceId: Long) {
+        val taskListStore = tasksAppManager.getDataStore() ?: /* no tasks app */ return
+        taskListStore.acquireLocalStorageClient()?.use { client ->
+            for (taskList in taskListStore.getAll(accountId, client)) {
+                when (taskList) {
+                    is LocalTaskList -> {       // tasks.org, OpenTasks
+                        val url = taskList.dmfsTaskList.syncId ?: continue
+                        collectionRepository.getByServiceAndUrl(calDavServiceId, url)?.let { collection ->
+                            taskList.dmfsTaskList.update(
+                                contentValuesOf(
+                                    TaskLists._SYNC_ID to collection.id.toString()
+                                )
+                            )
+                        }
+                    }
+                    is LocalJtxCollection -> {    // jtxBoard
+                        val url = taskList.jtxCollection.url ?: continue
+                        collectionRepository.getByServiceAndUrl(calDavServiceId, url)?.let { collection ->
+                            taskList.jtxCollection.update(
+                                contentValuesOf(
+                                    JtxContract.JtxCollection.SYNC_ID to collection.id
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    companion object {
+        internal const val ADDRESS_BOOK_USER_DATA_URL = "url"
+    }
+
+    @Module
+    @InstallIn(SingletonComponent::class)
+    abstract class AccountSettingsMigrationModule {
+        @Binds
+        @IntoMap
+        @IntKey(20)
+        abstract fun provide(impl: AccountSettingsMigration20): AccountSettingsMigration
+    }
+
+}

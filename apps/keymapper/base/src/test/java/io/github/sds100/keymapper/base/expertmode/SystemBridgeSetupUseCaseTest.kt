@@ -1,0 +1,263 @@
+package io.github.sds100.keymapper.base.expertmode
+
+import io.github.sds100.keymapper.base.repositories.FakePreferenceRepository
+import io.github.sds100.keymapper.data.Keys
+import io.github.sds100.keymapper.sysbridge.manager.SystemBridgeConnectionManager
+import io.github.sds100.keymapper.sysbridge.manager.SystemBridgeConnectionState
+import io.github.sds100.keymapper.sysbridge.service.SystemBridgeSetupController
+import io.github.sds100.keymapper.sysbridge.service.SystemBridgeSetupStep
+import io.github.sds100.keymapper.system.accessibility.AccessibilityServiceAdapter
+import io.github.sds100.keymapper.system.accessibility.AccessibilityServiceState
+import io.github.sds100.keymapper.system.apps.PackageManagerAdapter
+import io.github.sds100.keymapper.system.network.NetworkAdapter
+import io.github.sds100.keymapper.system.permissions.Permission
+import io.github.sds100.keymapper.system.permissions.PermissionAdapter
+import io.github.sds100.keymapper.system.root.SuAdapter
+import io.github.sds100.keymapper.system.shizuku.ShizukuAdapter
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
+import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.`is`
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.mockito.junit.MockitoJUnitRunner
+import org.mockito.kotlin.any
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+
+@ExperimentalCoroutinesApi
+@RunWith(MockitoJUnitRunner::class)
+class SystemBridgeSetupUseCaseTest {
+
+    private lateinit var useCase: SystemBridgeSetupUseCaseImpl
+    private lateinit var fakePreferences: FakePreferenceRepository
+    private lateinit var mockSuAdapter: SuAdapter
+    private lateinit var mockSystemBridgeSetupController: SystemBridgeSetupController
+    private lateinit var mockSystemBridgeConnectionManager: SystemBridgeConnectionManager
+    private lateinit var mockShizukuAdapter: ShizukuAdapter
+    private lateinit var mockPermissionAdapter: PermissionAdapter
+    private lateinit var mockAccessibilityServiceAdapter: AccessibilityServiceAdapter
+    private lateinit var mockNetworkAdapter: NetworkAdapter
+    private lateinit var mockPackageManagerAdapter: PackageManagerAdapter
+
+    @Before
+    fun init() {
+        fakePreferences = FakePreferenceRepository()
+        mockSuAdapter = mock()
+        mockSystemBridgeSetupController = mock()
+        mockSystemBridgeConnectionManager = mock()
+        mockShizukuAdapter = mock()
+        mockPermissionAdapter = mock()
+        mockAccessibilityServiceAdapter = mock()
+        mockNetworkAdapter = mock()
+        mockPackageManagerAdapter = mock()
+        whenever(mockPackageManagerAdapter.onPackagesChanged).thenReturn(emptyFlow())
+        whenever(mockPackageManagerAdapter.isAppInstalled(any())).thenReturn(false)
+
+        useCase = SystemBridgeSetupUseCaseImpl(
+            preferences = fakePreferences,
+            suAdapter = mockSuAdapter,
+            systemBridgeSetupController = mockSystemBridgeSetupController,
+            systemBridgeConnectionManager = mockSystemBridgeConnectionManager,
+            shizukuAdapter = mockShizukuAdapter,
+            permissionAdapter = mockPermissionAdapter,
+            accessibilityServiceAdapter = mockAccessibilityServiceAdapter,
+            networkAdapter = mockNetworkAdapter,
+            packageManagerAdapter = mockPackageManagerAdapter,
+            clock = mock(),
+        )
+    }
+
+    @Test
+    fun `set isSystemBridgeStoppedByUser to true when stopping system bridge`() = runTest {
+        useCase.stopSystemBridge()
+
+        assertThat(
+            fakePreferences.get(Keys.isSystemBridgeStoppedByUser).first(),
+            `is`(true),
+        )
+        verify(mockSystemBridgeConnectionManager).stopSystemBridge()
+    }
+
+    @Test
+    fun `set isSystemBridgeEmergencyKilled and isSystemBridgeStoppedByUser to false when starting system bridge with root`() =
+        runTest {
+            useCase.startSystemBridgeWithRoot()
+
+            assertThat(
+                fakePreferences.get(Keys.isSystemBridgeEmergencyKilled).first(),
+                `is`(false),
+            )
+            assertThat(
+                fakePreferences.get(Keys.isSystemBridgeStoppedByUser).first(),
+                `is`(false),
+            )
+        }
+
+    @Test
+    fun `set isSystemBridgeEmergencyKilled and isSystemBridgeStoppedByUser to false when starting system bridge with shizuku`() =
+        runTest {
+            useCase.startSystemBridgeWithShizuku()
+
+            assertThat(
+                fakePreferences.get(Keys.isSystemBridgeEmergencyKilled).first(),
+                `is`(false),
+            )
+            assertThat(
+                fakePreferences.get(Keys.isSystemBridgeStoppedByUser).first(),
+                `is`(false),
+            )
+        }
+
+    @Test
+    fun `set isSystemBridgeEmergencyKilled and isSystemBridgeStoppedByUser to false when starting system bridge with adb`() =
+        runTest {
+            useCase.startSystemBridgeWithAdb()
+
+            assertThat(
+                fakePreferences.get(Keys.isSystemBridgeEmergencyKilled).first(),
+                `is`(false),
+            )
+            assertThat(
+                fakePreferences.get(Keys.isSystemBridgeStoppedByUser).first(),
+                `is`(false),
+            )
+        }
+
+    @Test
+    fun `set isSystemBridgeEmergencyKilled and isSystemBridgeStoppedByUser to false when auto starting system bridge with adb`() =
+        runTest {
+            useCase.startSystemBridgeWithAdb()
+
+            assertThat(
+                fakePreferences.get(Keys.isSystemBridgeEmergencyKilled).first(),
+                `is`(false),
+            )
+            assertThat(
+                fakePreferences.get(Keys.isSystemBridgeStoppedByUser).first(),
+                `is`(false),
+            )
+        }
+
+    @Test
+    fun `next step is ACCESS_LOCAL_NETWORK_PERMISSION when notification permission granted but local network permission is not`() =
+        runTest {
+            whenever(mockAccessibilityServiceAdapter.state)
+                .thenReturn(MutableStateFlow(AccessibilityServiceState.ENABLED))
+            whenever(mockPermissionAdapter.isGrantedFlow(Permission.POST_NOTIFICATIONS))
+                .thenReturn(flowOf(true))
+            whenever(mockPermissionAdapter.isGrantedFlow(Permission.ACCESS_LOCAL_NETWORK))
+                .thenReturn(flowOf(false))
+            whenever(mockNetworkAdapter.isWifiConnected).thenReturn(flowOf(false))
+            whenever(mockSystemBridgeSetupController.isDeveloperOptionsEnabled)
+                .thenReturn(flowOf(false))
+            whenever(mockSystemBridgeSetupController.isWirelessDebuggingEnabled)
+                .thenReturn(flowOf(false))
+            whenever(mockSystemBridgeConnectionManager.connectionState)
+                .thenReturn(
+                    MutableStateFlow(
+                        SystemBridgeConnectionState.Disconnected(
+                            time = 0L,
+                            isStoppedByUser = false,
+                        ),
+                    ),
+                )
+
+            // isSystemBridgeConnected/adbAutoStartEligibility are computed eagerly from the
+            // constructor params, so the use case must be constructed after the mocks it reads
+            // from are stubbed.
+            val useCaseWithStubs = SystemBridgeSetupUseCaseImpl(
+                preferences = fakePreferences,
+                suAdapter = mockSuAdapter,
+                systemBridgeSetupController = mockSystemBridgeSetupController,
+                systemBridgeConnectionManager = mockSystemBridgeConnectionManager,
+                shizukuAdapter = mockShizukuAdapter,
+                permissionAdapter = mockPermissionAdapter,
+                accessibilityServiceAdapter = mockAccessibilityServiceAdapter,
+                networkAdapter = mockNetworkAdapter,
+                packageManagerAdapter = mockPackageManagerAdapter,
+                clock = mock(),
+            )
+
+            assertThat(
+                useCaseWithStubs.nextSetupStep.first(),
+                `is`(SystemBridgeSetupStep.ACCESS_LOCAL_NETWORK_PERMISSION),
+            )
+        }
+
+    @Test
+    fun `next step skips DEVELOPER_OPTIONS when wireless debugging is enabled`() = runTest {
+        val useCase = createUseCaseAfterLocalNetworkStep(
+            isDeveloperOptionsEnabled = false,
+            isWirelessDebuggingEnabled = true,
+        )
+
+        assertThat(useCase.nextSetupStep.first(), `is`(SystemBridgeSetupStep.WIFI_NETWORK))
+    }
+
+    @Test
+    fun `next step skips DEVELOPER_OPTIONS when the user skips it`() = runTest {
+        val useCase = createUseCaseAfterLocalNetworkStep(
+            isDeveloperOptionsEnabled = false,
+            isWirelessDebuggingEnabled = false,
+        )
+
+        assertThat(
+            useCase.nextSetupStep.first(),
+            `is`(SystemBridgeSetupStep.DEVELOPER_OPTIONS),
+        )
+
+        useCase.skipDeveloperOptionsStep()
+
+        assertThat(useCase.nextSetupStep.first(), `is`(SystemBridgeSetupStep.WIFI_NETWORK))
+    }
+
+    /**
+     * Create a use case where every step before developer options is complete and WiFi
+     * is not connected.
+     */
+    private fun createUseCaseAfterLocalNetworkStep(
+        isDeveloperOptionsEnabled: Boolean,
+        isWirelessDebuggingEnabled: Boolean,
+    ): SystemBridgeSetupUseCaseImpl {
+        whenever(mockAccessibilityServiceAdapter.state)
+            .thenReturn(MutableStateFlow(AccessibilityServiceState.ENABLED))
+        whenever(mockPermissionAdapter.isGrantedFlow(Permission.POST_NOTIFICATIONS))
+            .thenReturn(flowOf(true))
+        whenever(mockPermissionAdapter.isGrantedFlow(Permission.ACCESS_LOCAL_NETWORK))
+            .thenReturn(flowOf(true))
+        whenever(mockNetworkAdapter.isWifiConnected).thenReturn(flowOf(false))
+        whenever(mockSystemBridgeSetupController.isDeveloperOptionsEnabled)
+            .thenReturn(flowOf(isDeveloperOptionsEnabled))
+        whenever(mockSystemBridgeSetupController.isWirelessDebuggingEnabled)
+            .thenReturn(flowOf(isWirelessDebuggingEnabled))
+        whenever(mockSystemBridgeConnectionManager.connectionState)
+            .thenReturn(
+                MutableStateFlow(
+                    SystemBridgeConnectionState.Disconnected(
+                        time = 0L,
+                        isStoppedByUser = false,
+                    ),
+                ),
+            )
+
+        return SystemBridgeSetupUseCaseImpl(
+            preferences = fakePreferences,
+            suAdapter = mockSuAdapter,
+            systemBridgeSetupController = mockSystemBridgeSetupController,
+            systemBridgeConnectionManager = mockSystemBridgeConnectionManager,
+            shizukuAdapter = mockShizukuAdapter,
+            permissionAdapter = mockPermissionAdapter,
+            accessibilityServiceAdapter = mockAccessibilityServiceAdapter,
+            networkAdapter = mockNetworkAdapter,
+            packageManagerAdapter = mockPackageManagerAdapter,
+            clock = mock(),
+        )
+    }
+}

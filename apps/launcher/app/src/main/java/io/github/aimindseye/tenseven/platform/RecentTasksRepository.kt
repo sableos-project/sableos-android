@@ -1,0 +1,170 @@
+package io.github.aimindseye.tenseven.platform
+
+import android.app.ActivityManager
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.ColorSpace
+import android.hardware.HardwareBuffer
+import android.os.Bundle
+import io.github.aimindseye.tenseven.model.ActiveFrame
+import io.github.aimindseye.tenseven.model.ActiveFrames
+
+/** Named presentation/protocol values; numeric values unchanged from the reviewed source. */
+private const val RECENT_TASKS_REPOSITORY_FRAMES_MAX_12 = 12
+private const val RECENT_TASKS_REPOSITORY_SNAPSHOT_VALUE_512 = 512
+
+/** Android task bridge. Every privileged operation checks the same detected capabilities as the UI. */
+class RecentTasksRepository(
+    context: Context,
+) {
+    private val appContext = context.applicationContext
+    private val activityManager = appContext.getSystemService(ActivityManager::class.java)
+
+    /**
+     * Most recent first, without Start, Recents and System UI, at most [ActiveFrames.MAX].
+     * Tasks of [hiddenUsers] (the Private Space profile) are left out.
+     */
+    fun loadFrames(hiddenUsers: Set<Int> = emptySet()): List<ActiveFrame> {
+        if (PlatformCapabilityProbe.detect(appContext).taskEnumeration != CapabilityStatus.Ready) return emptyList()
+        val tasks =
+            runCatching {
+                @Suppress("DEPRECATION")
+                activityManager?.getRecentTasks(QUERY_LIMIT, ActivityManager.RECENT_IGNORE_UNAVAILABLE)
+            }.getOrNull().orEmpty()
+        val frames =
+            tasks.mapNotNull { info ->
+                val component = info.topActivity ?: info.baseActivity ?: info.baseIntent.component
+                val packageName = component?.packageName ?: return@mapNotNull null
+                ActiveFrame(
+                    taskId = info.taskId,
+                    packageName = packageName,
+                    className = component.className,
+                    userId = userIdOf(info),
+                    running = info.isRunning,
+                )
+            }
+        return frames
+            .filterNot {
+                it.packageName in excludedPackages + appContext.packageName || it.userId in hiddenUsers
+            }.distinctBy { it.taskId }
+            .take(RECENT_TASKS_REPOSITORY_FRAMES_MAX_12)
+    }
+
+    // The task's last picture (low resolution first), or null when Android has none for it.
+
+    /** Full resolution first: the low-resolution snapshot is too soft for text at Active Frame size. */
+    fun snapshot(taskId: Int): Bitmap? = snapshot(taskId, lowResolution = false) ?: snapshot(taskId, lowResolution = true)
+
+    /**
+     * Brings the task back as it was; false when Android refused (the caller then launches the app).
+     * SableLauncher's manifest declares REORDER_TASKS; the presentation check module has no manifest for it.
+     */
+    fun resume(taskId: Int): Boolean {
+        if (PlatformCapabilityProbe.detect(appContext).taskResume != CapabilityStatus.Ready) return false
+        val fromRecents =
+            runCatching {
+                val service = taskService() ?: return@runCatching false
+                val method =
+                    service.javaClass.methods.firstOrNull {
+                        it.name == "startActivityFromRecents" && it.parameterTypes.size == 2
+                    } ?: return@runCatching false
+                val result = method.invoke(service, taskId, null as Bundle?) as? Int ?: return@runCatching false
+                result >= 0
+            }.getOrDefault(false)
+        if (fromRecents) return true
+        return false
+    }
+
+    /** Removes the task from Recents and stops it, like swiping it away in Recents. */
+    fun close(taskId: Int): Boolean =
+        runCatching {
+            if (PlatformCapabilityProbe.detect(appContext).taskRemoval != CapabilityStatus.Ready) return@runCatching false
+            val service = taskService() ?: return@runCatching false
+            val method =
+                service.javaClass.methods.firstOrNull {
+                    it.name == "removeTask" && it.parameterTypes.contentEquals(arrayOf(Int::class.javaPrimitiveType))
+                } ?: return@runCatching false
+            method.invoke(service, taskId) as? Boolean ?: true
+        }.getOrDefault(false)
+
+    private fun snapshot(
+        taskId: Int,
+        lowResolution: Boolean,
+    ): Bitmap? =
+        runCatching {
+            SableTaskSnapshots.explain(appContext)
+            SableTaskSnapshots.snapshot(taskId, lowResolution)?.let { return@runCatching it }
+            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null
+            val service = taskService() ?: return@runCatching null
+            val method =
+                service.javaClass.methods.firstOrNull {
+                    it.name == "getTaskSnapshot" &&
+                        it.parameterTypes.isNotEmpty() &&
+                        it.parameterTypes[0] == Int::class.javaPrimitiveType &&
+                        it.parameterTypes.drop(1).all { type -> type == Boolean::class.javaPrimitiveType }
+                } ?: return@runCatching null
+            // (taskId, isLowResolution) on Android 14+; older releases add takeSnapshotIfNeeded (false).
+            val flags: List<Any> = method.parameterTypes.drop(1).mapIndexed { index, _ -> index == 0 && lowResolution }
+            val args: Array<Any> = (listOf<Any>(taskId) + flags).toTypedArray()
+            val snapshot = method.invoke(service, *args) ?: return@runCatching null
+            // Android's non-real (theme-only) snapshots are not app previews.
+            if (snapshot.javaClass.getMethod("isRealSnapshot").invoke(snapshot) != true) return@runCatching null
+            val buffer =
+                snapshot.javaClass.getMethod("getHardwareBuffer").invoke(snapshot) as? HardwareBuffer
+                    ?: return@runCatching null
+            val colorSpace =
+                runCatching { snapshot.javaClass.getMethod("getColorSpace").invoke(snapshot) as? ColorSpace }.getOrNull()
+                    ?: ColorSpace.get(ColorSpace.Named.SRGB)
+            buffer.use {
+                val hardware = Bitmap.wrapHardwareBuffer(it, colorSpace) ?: return@runCatching null
+                val software = hardware.copy(Bitmap.Config.ARGB_8888, false)
+                hardware.recycle()
+                if (software.width <= RECENT_TASKS_REPOSITORY_SNAPSHOT_VALUE_512 &&
+                    software.height <= RECENT_TASKS_REPOSITORY_SNAPSHOT_VALUE_512
+                ) {
+                    software
+                } else {
+                    val scale = 512f / maxOf(software.width, software.height)
+                    Bitmap
+                        .createScaledBitmap(
+                            software,
+                            (software.width * scale).toInt().coerceAtLeast(1),
+                            (software.height * scale).toInt().coerceAtLeast(1),
+                            true,
+                        ).also { software.recycle() }
+                }
+            }
+        }.getOrNull()
+
+    /** Capability probing shares this bridge; no second hidden-API entry point in the UI probe. */
+    internal fun hasTaskMethod(name: String): Boolean =
+        runCatching {
+            taskService()?.javaClass?.methods?.any { it.name == name } == true
+        }.getOrDefault(false)
+
+    private fun taskService(): Any? =
+        runCatching {
+            Class.forName("android.app.ActivityTaskManager").getMethod("getService").invoke(null)
+        }.getOrNull()
+
+    /** TaskInfo.userId is hidden; without it the frame belongs to Start's own user. */
+    private fun userIdOf(info: ActivityManager.RecentTaskInfo): Int =
+        runCatching { info.javaClass.getField("userId").getInt(info) }
+            .getOrElse {
+                android.os.Process
+                    .myUserHandle()
+                    .hashCode()
+            }
+
+    companion object {
+        /** More than [ActiveFrames.MAX], since some recent tasks are filtered out. */
+        const val QUERY_LIMIT = 48
+
+        val excludedPackages: Set<String> =
+            setOf(
+                // Launcher3QuickStep: Android's Recents for Sable Start.
+                "com.android.launcher3",
+                "com.android.systemui",
+            )
+    }
+}
