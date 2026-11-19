@@ -1,3 +1,4 @@
+// Patch history: 0194 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.displaycompat.android
 
 /** Reads a system property through reflection (SystemProperties is hidden). Returns "" when unreadable. */

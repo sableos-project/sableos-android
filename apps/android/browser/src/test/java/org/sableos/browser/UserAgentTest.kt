@@ -1,3 +1,4 @@
+// Patch history: 0187 (see docs/PATCH_HISTORY.md)
 package org.sableos.browser
 
 import org.junit.Assert.assertEquals

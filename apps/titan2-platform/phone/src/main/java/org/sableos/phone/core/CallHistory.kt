@@ -1,3 +1,4 @@
+// Patch history: 0138 (see docs/PATCH_HISTORY.md)
 package org.sableos.phone.core
 
 /**

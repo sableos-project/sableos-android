@@ -1,3 +1,4 @@
+// Patch history: 0079 (see docs/PATCH_HISTORY.md)
 package org.sableos.reader.input
 
 import org.sableos.reader.capability.ReaderCapabilities

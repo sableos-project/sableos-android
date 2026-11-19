@@ -1,3 +1,4 @@
+// Patch history: 0017 (see docs/PATCH_HISTORY.md)
 @file:OptIn(org.readium.r2.shared.ExperimentalReadiumApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package org.vaachak.reader.leisure.ui.reader.components

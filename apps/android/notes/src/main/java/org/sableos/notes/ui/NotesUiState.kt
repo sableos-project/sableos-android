@@ -1,3 +1,4 @@
+// Patch history: 0081, 0154 (see docs/PATCH_HISTORY.md)
 package org.sableos.notes.ui
 
 import androidx.compose.runtime.getValue

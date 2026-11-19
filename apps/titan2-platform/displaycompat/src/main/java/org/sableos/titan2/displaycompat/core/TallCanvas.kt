@@ -1,3 +1,4 @@
+// Patch history: 0072, 0085 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.displaycompat.core
 
 import kotlin.math.min

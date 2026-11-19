@@ -1,3 +1,4 @@
+// Patch history: 0108, 0117, 0119 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.spaces.core
 
 import org.sableos.titan2.theme.SableTexts

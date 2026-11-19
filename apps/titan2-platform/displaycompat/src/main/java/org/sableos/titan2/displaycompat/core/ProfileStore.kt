@@ -1,3 +1,4 @@
+// Patch history: 0050, 0064, 0085 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.displaycompat.core
 
 import org.sableos.titan2.displaycompat.core.DisplayCompatText.t

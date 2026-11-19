@@ -1,3 +1,4 @@
+// Patch history: 0061, 0085, 0166, 0206 (see docs/PATCH_HISTORY.md)
 package org.sableos.media
 
 import androidx.compose.foundation.BorderStroke

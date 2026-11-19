@@ -1,3 +1,4 @@
+// Patch history: 0013, 0017, 0074, 0085, 0097 (see docs/PATCH_HISTORY.md)
 package org.sableos.calculator
 
 import android.annotation.SuppressLint

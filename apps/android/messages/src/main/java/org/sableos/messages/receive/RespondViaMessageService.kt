@@ -1,3 +1,4 @@
+// Patch history: 0071 (see docs/PATCH_HISTORY.md)
 package org.sableos.messages.receive
 
 import android.app.Service

@@ -1,3 +1,4 @@
+// Patch history: 0081 (see docs/PATCH_HISTORY.md)
 package org.sableos.notes.core
 
 /** Checklist items gathered from every note: the Tasks screen. */

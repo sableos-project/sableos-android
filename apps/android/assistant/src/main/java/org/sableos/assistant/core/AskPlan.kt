@@ -1,3 +1,4 @@
+// Patch history: 0132 (see docs/PATCH_HISTORY.md)
 package org.sableos.assistant.core
 
 /** What asking would do with the settings as they are: send a request, or show why it can't yet. */

@@ -1,3 +1,4 @@
+// Patch history: 0017 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.keyboard.core
 
 /** How a language turns typed keys into text. */

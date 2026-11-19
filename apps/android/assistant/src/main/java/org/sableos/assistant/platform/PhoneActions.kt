@@ -1,3 +1,4 @@
+// Patch history: 0178, 0181 (see docs/PATCH_HISTORY.md)
 package org.sableos.assistant.platform
 
 import android.Manifest

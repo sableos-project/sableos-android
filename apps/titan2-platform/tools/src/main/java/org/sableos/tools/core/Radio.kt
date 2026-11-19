@@ -1,3 +1,4 @@
+// Patch history: 0006 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.core
 
 // Folded in from Sable Radio Diag (org.sableos.titan2.radiodiag.core, now retired as a separate package).

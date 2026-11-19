@@ -1,3 +1,4 @@
+// Patch history: 0071, 0085 (see docs/PATCH_HISTORY.md)
 package org.sableos.messages.core
 
 import org.sableos.messages.core.MessagesText.t

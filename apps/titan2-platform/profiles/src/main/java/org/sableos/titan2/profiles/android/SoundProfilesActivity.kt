@@ -1,3 +1,4 @@
+// Patch history: 0076, 0077, 0085, 0146 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.profiles.android
 
 import android.app.Activity

@@ -1,3 +1,4 @@
+// Patch history: 0095, 0103, 0158, 0222 (see docs/PATCH_HISTORY.md)
 package org.sableos.calendar
 
 import android.content.ContentProvider

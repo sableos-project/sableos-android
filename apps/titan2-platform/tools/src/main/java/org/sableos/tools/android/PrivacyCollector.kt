@@ -1,3 +1,4 @@
+// Patch history: 0163, 0164 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.android
 
 import android.app.AppOpsManager

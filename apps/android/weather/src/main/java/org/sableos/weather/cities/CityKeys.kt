@@ -1,3 +1,4 @@
+// Patch history: 0002, 0073 (see docs/PATCH_HISTORY.md)
 package org.sableos.weather.cities
 
 // Ported from sable-src/reference/sable-weather-cities (IR-015) into canonical Weather.

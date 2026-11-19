@@ -1,3 +1,4 @@
+// Patch history: 0132 (see docs/PATCH_HISTORY.md)
 @file:Suppress("FunctionNaming", "MagicNumber") // Compose naming; the drawing is in fractions of its size.
 
 package org.sableos.assistant.ui

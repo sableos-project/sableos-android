@@ -1,3 +1,4 @@
+// Patch history: 0051 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.vault.android
 
 import android.content.Context

@@ -1,3 +1,4 @@
+// Patch history: 0071 (see docs/PATCH_HISTORY.md)
 package org.sableos.messages.core.mms
 
 /** MMS PDU header field and value codes (OMA-TS-MMS_ENC-V1_3 section 7). */

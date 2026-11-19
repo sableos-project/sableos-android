@@ -1,3 +1,4 @@
+// Patch history: 0071 (see docs/PATCH_HISTORY.md)
 package org.sableos.messages.core.mms
 
 /** WSP Content-type-value decoding and the well-known media table (WAP-230-WSP Table 40). */

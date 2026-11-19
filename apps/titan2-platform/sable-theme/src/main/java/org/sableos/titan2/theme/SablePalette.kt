@@ -1,3 +1,4 @@
+// Patch history: 0073, 0074, 0077, 0143 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.theme
 
 import android.app.Activity

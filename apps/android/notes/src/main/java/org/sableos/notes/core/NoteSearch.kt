@@ -1,3 +1,4 @@
+// Patch history: 0081 (see docs/PATCH_HISTORY.md)
 package org.sableos.notes.core
 
 /** Search across notes (every word must appear) and find-in-note. Case is ignored. */

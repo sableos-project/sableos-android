@@ -1,3 +1,4 @@
+// Patch history: 0096 (see docs/PATCH_HISTORY.md)
 package org.sableos.tasks
 
 import android.app.Application

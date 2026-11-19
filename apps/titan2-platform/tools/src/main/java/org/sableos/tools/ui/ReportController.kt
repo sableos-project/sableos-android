@@ -1,3 +1,4 @@
+// Patch history: 0006, 0016, 0017, 0074, 0085 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.ui
 
 import android.content.ClipData

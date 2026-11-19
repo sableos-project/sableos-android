@@ -1,3 +1,4 @@
+// Patch history: 0096, 0098 (see docs/PATCH_HISTORY.md)
 package org.sableos.tasks.core
 
 import org.junit.Assert.assertEquals

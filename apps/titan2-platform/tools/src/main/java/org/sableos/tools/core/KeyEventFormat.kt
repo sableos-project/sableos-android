@@ -1,3 +1,4 @@
+// Patch history: 0006 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.core
 
 // Copied from Sable Keyboard's KeyProbeFormat (org.sableos.titan2.keyboard.core) so the key viewer shares its format.

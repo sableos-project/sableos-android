@@ -1,3 +1,4 @@
+// Patch history: 0002, 0073 (see docs/PATCH_HISTORY.md)
 package org.sableos.weather.cities
 
 /** In-memory [KeyValueStore] for tests, standing in for Weather's private preferences. */

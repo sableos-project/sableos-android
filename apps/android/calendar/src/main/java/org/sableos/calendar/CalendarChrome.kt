@@ -1,3 +1,4 @@
+// Patch history: 0200, 0201 (see docs/PATCH_HISTORY.md)
 package org.sableos.calendar
 
 import java.time.DayOfWeek

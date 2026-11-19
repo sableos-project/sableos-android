@@ -1,3 +1,4 @@
+// Patch history: 0116, 0119, 0146 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.compass.android
 
 import android.Manifest

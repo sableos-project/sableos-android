@@ -1,3 +1,4 @@
+// Patch history: 0017 (see docs/PATCH_HISTORY.md)
 package org.sableos.reader.engine.comic
 
 import java.io.ByteArrayInputStream

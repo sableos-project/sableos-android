@@ -1,3 +1,4 @@
+// Patch history: 0005, 0019 (see docs/PATCH_HISTORY.md)
 package org.sableos.hub
 
 data class ConnectedNotificationRecord(

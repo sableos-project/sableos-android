@@ -1,3 +1,4 @@
+// Patch history: 0004, 0005, 0007, 0015, 0017, 0019, 0030, 0064 +11 more (see docs/PATCH_HISTORY.md)
 package org.sableos.hub.ui
 
 import android.text.format.DateUtils

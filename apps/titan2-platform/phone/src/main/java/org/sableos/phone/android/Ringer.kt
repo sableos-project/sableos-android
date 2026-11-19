@@ -1,3 +1,4 @@
+// Patch history: 0226 (see docs/PATCH_HISTORY.md)
 package org.sableos.phone.android
 
 import android.app.NotificationManager

@@ -1,3 +1,4 @@
+// Patch history: 0002, 0073, 0085, 0097, 0135, 0162, 0204 (see docs/PATCH_HISTORY.md)
 package org.sableos.weather
 
 import android.Manifest

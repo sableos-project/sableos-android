@@ -1,3 +1,4 @@
+// Patch history: 0011 (see docs/PATCH_HISTORY.md)
 package org.sableos.hub.ui
 
 import org.sableos.hub.ConnectedAppKey

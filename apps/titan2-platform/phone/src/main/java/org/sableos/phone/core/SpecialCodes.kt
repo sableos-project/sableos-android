@@ -1,3 +1,4 @@
+// Patch history: 0138 (see docs/PATCH_HISTORY.md)
 package org.sableos.phone.core
 
 /** Dial pad codes the Phone app handles itself instead of calling: the IMEI code and `*#*#code#*#*` secret codes. */

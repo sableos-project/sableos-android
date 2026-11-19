@@ -1,3 +1,4 @@
+// Patch history: 0041, 0095, 0180 (see docs/PATCH_HISTORY.md)
 package org.sableos.calendar
 
 import android.view.KeyEvent

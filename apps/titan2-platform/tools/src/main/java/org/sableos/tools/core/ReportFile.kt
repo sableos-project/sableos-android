@@ -1,3 +1,4 @@
+// Patch history: 0074 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.core
 
 import java.time.Instant

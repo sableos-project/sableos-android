@@ -1,3 +1,4 @@
+// Patch history: 0066, 0073, 0135, 0137 (see docs/PATCH_HISTORY.md)
 package org.sableos.weather
 
 import android.app.job.JobInfo

@@ -1,3 +1,4 @@
+// Patch history: 0081, 0085, 0154 (see docs/PATCH_HISTORY.md)
 @file:Suppress("FunctionNaming")
 
 package org.sableos.notes.ui

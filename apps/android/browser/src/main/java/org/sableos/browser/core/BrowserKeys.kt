@@ -1,3 +1,4 @@
+// Patch history: 0104 (see docs/PATCH_HISTORY.md)
 package org.sableos.browser.core
 
 /** What a key does on the page while you are not typing in a field or the address bar. */

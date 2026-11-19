@@ -1,3 +1,4 @@
+// Patch history: 0114 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.printtogo.core
 
 import org.sableos.titan2.theme.SableTexts

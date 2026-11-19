@@ -1,3 +1,4 @@
+// Patch history: 0180 (see docs/PATCH_HISTORY.md)
 package org.sableos.phone.core
 
 /** What a contact's round avatar shows when the contact has no photo (from TenSeven's Phone, 2026-11-12). */
