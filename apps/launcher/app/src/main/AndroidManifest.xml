@@ -209,6 +209,18 @@
             </intent-filter>
         </activity>
 
+        <!-- The lock-screen choice (media player with FM, and Hub notices), opened from Sable Setup. -->
+        <activity
+            android:name=".LockScreenChoiceActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/ls_lock_media">
+            <intent-filter>
+                <action android:name="org.sableos.start.action.CHOOSE_LOCK_SCREEN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- Launcher Settings: style cards, Home, Widgets, Device and Privacy, from the menus of both homes. -->
         <activity
             android:name=".LauncherSettingsActivity"

@@ -89,5 +89,8 @@
     <string name="apps_set_essentials">Essentiel</string>
     <string name="apps_set_stock">Android standard</string>
     <string name="action_display_settings">Réglages d\'affichage</string>
+    <string name="row_lock_title">Lock screen</string>
+    <string name="row_lock_detail">Show the media player (FM included) and Hub notices on the lock screen. On by default</string>
+    <string name="action_lock_screen">Lock screen</string>
     <string name="action_sable_apps">Applis Sable</string>
 </resources>
