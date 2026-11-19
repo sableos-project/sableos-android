@@ -41,6 +41,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEventType
@@ -481,6 +483,16 @@ private fun ConversationRow(
 ) {
     val locked = ui.deviceLocked
     val unread = ui.state.unreadCount(conversation)
+    // BlackBerry 7: the focused row is filled blue with white text; BlackBerry 10 keeps the outline ring.
+    val profileContext = LocalContext.current
+    val bb7 =
+        remember(profileContext) {
+            runCatching {
+                android.provider.Settings.Secure.getString(profileContext.contentResolver, "sable_profile")
+            }.getOrNull() == "bb7"
+        }
+    var rowFocused by remember { mutableStateOf(false) }
+    val filled = bb7 && rowFocused
     val selectRow = LocalHubRowSelection.current
     val rowFocus = remember(conversation.id) { FocusRequester() }
     val preview = conversationPreview(conversation, locked, you = stringResource(R.string.hub_you))
@@ -555,6 +567,8 @@ private fun ConversationRow(
                                 }
                             }
                         }.focusRequester(rowFocus)
+                        .onFocusChanged { rowFocused = it.hasFocus }
+                        .then(if (filled) Modifier.background(Bb10Blue) else Modifier)
                         .sableFocusRing()
                         .combinedClickable(
                             onClick = { ui.onOpen(conversation) },
@@ -590,21 +604,21 @@ private fun ConversationRow(
                             text = conversation.name,
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = if (filled) Color.White else MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             whenText,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (filled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                         )
                         if (unread > 0) {
                             Spacer(Modifier.width(6.dp))
                             Text(
                                 unread.toString(),
-                                color = MaterialTheme.colorScheme.primary,
+                                color = if (filled) Color.White else MaterialTheme.colorScheme.primary,
                                 style = MaterialTheme.typography.labelSmall,
                             )
                         }
@@ -612,7 +626,7 @@ private fun ConversationRow(
                     Text(
                         preview ?: stringResource(R.string.hub_locked_preview),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (filled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
