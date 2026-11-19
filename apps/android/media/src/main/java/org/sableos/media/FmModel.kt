@@ -19,6 +19,9 @@ internal object FmBridgeProtocol {
     /** Sable Tools and the playing notification open the FM screen with this action. */
     const val ACTION_OPEN_FM = "org.sableos.media.action.FM_RADIO"
 
+    /** The Sable home Favourites entry and the Media app shortcut open the Favourites list with this action. */
+    const val ACTION_OPEN_FAVOURITES = "org.sableos.media.action.FAVOURITES"
+
     const val MSG_REGISTER = 1
     const val MSG_UNREGISTER = 2
     const val MSG_POWER_UP = 3

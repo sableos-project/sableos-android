@@ -21,6 +21,7 @@ class MainActivity : ComponentActivity() {
     private var fmState by mutableStateOf(FmUiState())
     private lateinit var fmController: FmController
     private var openFmToken by mutableIntStateOf(0)
+    private var openFavouritesToken by mutableIntStateOf(0)
 
     /** Set by [MediaApp]: maps a key-down to a Sable Media command before any view sees it. */
     private var keyHandler: ((KeyEvent) -> Boolean)? = null
@@ -42,6 +43,7 @@ class MainActivity : ComponentActivity() {
             }
         fmState = fmController.state
         if (intent?.action == FmBridgeProtocol.ACTION_OPEN_FM) openFmToken += 1
+        if (intent?.action == FmBridgeProtocol.ACTION_OPEN_FAVOURITES) openFavouritesToken += 1
 
         val repositories =
             MediaRepositories(
@@ -72,6 +74,7 @@ class MainActivity : ComponentActivity() {
                 playbackState = playbackState,
                 fmState = fmState,
                 openFmToken = openFmToken,
+                openFavouritesToken = openFavouritesToken,
             )
         }
     }
@@ -110,6 +113,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.action == FmBridgeProtocol.ACTION_OPEN_FM) openFmToken += 1
+        if (intent.action == FmBridgeProtocol.ACTION_OPEN_FAVOURITES) openFavouritesToken += 1
     }
 
     override fun onDestroy() {

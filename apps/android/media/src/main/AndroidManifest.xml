@@ -28,6 +28,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Home Favourites entry: opens the Favourites list. -->
+            <intent-filter>
+                <action android:name="org.sableos.media.action.FAVOURITES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
             <!-- FM mode, opened by Sable Tools and the FM playing notification. -->
             <intent-filter>
                 <action android:name="org.sableos.media.action.FM_RADIO" />

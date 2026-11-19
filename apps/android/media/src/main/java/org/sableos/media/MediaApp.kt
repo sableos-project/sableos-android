@@ -59,6 +59,8 @@ internal fun MediaApp(
     fmState: FmUiState = FmUiState(),
     /** Bumped by MainActivity for each org.sableos.media.action.FM_RADIO intent. */
     openFmToken: Int = 0,
+    /** Bumped by MainActivity for each org.sableos.media.action.FAVOURITES intent. */
+    openFavouritesToken: Int = 0,
 ) {
     val context = LocalContext.current
     val uiScope = rememberCoroutineScope()
@@ -97,6 +99,10 @@ internal fun MediaApp(
 
     LaunchedEffect(openFmToken) {
         if (openFmToken > 0) state.navigate(MediaDestination.Fm)
+    }
+
+    LaunchedEffect(openFavouritesToken) {
+        if (openFavouritesToken > 0) state.openCollection(LibraryPivot.Favorites)
     }
 
     // The FM bridge is bound the first time the FM screen opens, not on every launch.
