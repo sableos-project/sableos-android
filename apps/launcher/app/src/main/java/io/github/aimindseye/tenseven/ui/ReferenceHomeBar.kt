@@ -129,9 +129,7 @@ internal data class HomeBarPages(
 internal class HomeBarActions(
     val showPage: (Int) -> Unit,
     val openSlot: (QuickSlot) -> Unit,
-    val options: (QuickSlot) -> Unit,
     val peek: (() -> Unit)? = null,
-    val phoneFocus: (Boolean) -> Unit = {},
 )
 
 private const val MAX_BAR_COUNT = 99
