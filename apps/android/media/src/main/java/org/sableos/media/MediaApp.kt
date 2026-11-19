@@ -288,6 +288,7 @@ private fun mediaScreenActions(
         onSearchQueryChange = { state.searchQuery = it },
         onCloseSearch = { state.searchQuery = null },
         onTrackFocusChange = state::changeTrackFocus,
+        onPlayFmFavorite = controllers.fm::play,
         fm =
             FmScreenActions(
                 onPower = controllers.fm::togglePower,

@@ -84,6 +84,12 @@ internal class FmController(
         }
     }
 
+    /** Plays [station]: tunes when the radio is on, otherwise powers it up on that station. */
+    fun playStation(station: Int) {
+        if (!FmBand.isValid(station)) return
+        if (state.powered) send(FmBridgeProtocol.MSG_TUNE, station) else send(FmBridgeProtocol.MSG_POWER_UP, station)
+    }
+
     fun tune(station: Int) {
         if (FmBand.isValid(station)) send(FmBridgeProtocol.MSG_TUNE, station)
     }
