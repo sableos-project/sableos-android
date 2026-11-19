@@ -1,3 +1,4 @@
+// Patch history: 0002, 0073 (see docs/PATCH_HISTORY.md)
 package org.sableos.weather.input
 
 // Ported from sable-src/reference/sable-start-type-to-find (P1 normalized keys) into canonical Weather.

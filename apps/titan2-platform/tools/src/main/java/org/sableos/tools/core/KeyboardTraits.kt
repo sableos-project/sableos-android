@@ -1,3 +1,4 @@
+// Patch history: 0016 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.core
 
 /** Where a profile's keyboard backlight state can be read from. */

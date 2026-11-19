@@ -1,3 +1,4 @@
+// Patch history: 0017, 0080 (see docs/PATCH_HISTORY.md)
 /*
  * Copyright (c) 2026 Piyush Daiya
  * ...

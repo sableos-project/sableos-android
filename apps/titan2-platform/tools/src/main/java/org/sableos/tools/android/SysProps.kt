@@ -1,3 +1,4 @@
+// Patch history: 0006 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.android
 
 /** Reads a system property through reflection (SystemProperties is hidden). Returns "" when unreadable. */

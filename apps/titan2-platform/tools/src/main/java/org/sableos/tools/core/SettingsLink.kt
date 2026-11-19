@@ -1,3 +1,4 @@
+// Patch history: 0006, 0016, 0085, 0163, 0172, 0173, 0176 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.core
 
 import org.sableos.tools.core.ToolsText.t

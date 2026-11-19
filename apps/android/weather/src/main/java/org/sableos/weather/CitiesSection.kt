@@ -1,3 +1,4 @@
+// Patch history: 0002, 0073, 0085 (see docs/PATCH_HISTORY.md)
 package org.sableos.weather
 
 import androidx.compose.foundation.border

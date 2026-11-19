@@ -1,3 +1,4 @@
+// Patch history: 0006, 0089, 0144, 0163, 0172 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.ui
 
 import org.sableos.tools.core.Capability

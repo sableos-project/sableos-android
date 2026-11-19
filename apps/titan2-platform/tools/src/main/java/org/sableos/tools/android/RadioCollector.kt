@@ -1,3 +1,4 @@
+// Patch history: 0006, 0011 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.android
 
 import android.Manifest

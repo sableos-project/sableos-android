@@ -1,3 +1,4 @@
+// Patch history: 0080 (see docs/PATCH_HISTORY.md)
 package org.sableos.reader.engine.comic
 
 import org.junit.Assert.assertEquals

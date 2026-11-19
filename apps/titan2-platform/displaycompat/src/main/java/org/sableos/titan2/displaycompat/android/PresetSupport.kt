@@ -1,3 +1,4 @@
+// Patch history: 0193, 0194 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.displaycompat.android
 
 import android.content.BroadcastReceiver

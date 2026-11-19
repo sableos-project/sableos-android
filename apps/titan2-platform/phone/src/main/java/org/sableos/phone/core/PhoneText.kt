@@ -1,3 +1,4 @@
+// Patch history: 0138, 0145, 0152, 0224 (see docs/PATCH_HISTORY.md)
 package org.sableos.phone.core
 
 import org.sableos.titan2.theme.SableTexts

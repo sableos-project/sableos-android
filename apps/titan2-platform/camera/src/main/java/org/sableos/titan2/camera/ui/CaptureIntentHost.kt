@@ -1,3 +1,4 @@
+// Patch history: 0064 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.camera.ui
 
 import android.app.Activity

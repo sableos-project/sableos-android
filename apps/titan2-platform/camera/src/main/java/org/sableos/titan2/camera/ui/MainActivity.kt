@@ -1,3 +1,4 @@
+// Patch history: 0016, 0017, 0040, 0064, 0074, 0085 (see docs/PATCH_HISTORY.md)
 @file:Suppress("FunctionNaming")
 
 package org.sableos.titan2.camera.ui

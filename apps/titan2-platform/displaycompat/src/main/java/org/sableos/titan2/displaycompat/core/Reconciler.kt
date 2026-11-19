@@ -1,3 +1,4 @@
+// Patch history: 0072 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.displaycompat.core
 
 /** The display settings as the platform reports them now. Null size or density: not forced. */

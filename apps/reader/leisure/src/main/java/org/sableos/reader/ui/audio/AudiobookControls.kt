@@ -1,3 +1,4 @@
+// Patch history: 0079 (see docs/PATCH_HISTORY.md)
 package org.sableos.reader.ui.audio
 
 import androidx.compose.foundation.border

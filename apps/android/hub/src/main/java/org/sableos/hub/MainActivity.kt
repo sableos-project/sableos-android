@@ -1,3 +1,4 @@
+// Patch history: 0005, 0017, 0019, 0030, 0064, 0085, 0091, 0092 +5 more (see docs/PATCH_HISTORY.md)
 package org.sableos.hub
 
 import android.Manifest

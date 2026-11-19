@@ -1,3 +1,4 @@
+// Patch history: 0108, 0117 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.spaces.core
 
 /** Where the Work space stands, seen from the main user. */

@@ -1,3 +1,4 @@
+// Patch history: 0132 (see docs/PATCH_HISTORY.md)
 package org.sableos.assistant.platform
 
 import org.sableos.assistant.core.ChatProtocol

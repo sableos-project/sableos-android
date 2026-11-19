@@ -1,3 +1,4 @@
+// Patch history: 0004, 0085 (see docs/PATCH_HISTORY.md)
 package org.sableos.media
 
 import androidx.compose.foundation.layout.fillMaxWidth

@@ -1,3 +1,4 @@
+// Patch history: 0017, 0080 (see docs/PATCH_HISTORY.md)
 package org.vaachak.reader.leisure.ui.bookshelf
 
 // --- MAESTRO FIX 1: Import semantics ---

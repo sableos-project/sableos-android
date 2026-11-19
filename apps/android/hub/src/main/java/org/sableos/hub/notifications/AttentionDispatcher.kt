@@ -1,3 +1,4 @@
+// Patch history: 0005 (see docs/PATCH_HISTORY.md)
 package org.sableos.hub.notifications
 
 import android.app.Notification

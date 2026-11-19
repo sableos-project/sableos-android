@@ -1,3 +1,4 @@
+// Patch history: 0017, 0080 (see docs/PATCH_HISTORY.md)
 package org.sableos.reader.input
 
 /** One line of the dismissible key-hint legend. */

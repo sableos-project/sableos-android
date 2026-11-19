@@ -1,3 +1,4 @@
+// Patch history: 0016, 0040, 0074, 0085 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.camera.core
 
 import org.sableos.titan2.camera.core.CameraText.t

@@ -1,3 +1,4 @@
+// Patch history: 0006, 0175 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.core
 
 /**

@@ -1,3 +1,4 @@
+// Patch history: 0231 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.keyboard.android
 
 import android.inputmethodservice.InputMethodService

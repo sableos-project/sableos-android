@@ -1,3 +1,4 @@
+// Patch history: 0017, 0068, 0074, 0075, 0106, 0108, 0229 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.setup.core
 
 import org.sableos.titan2.setup.core.SetupText.t

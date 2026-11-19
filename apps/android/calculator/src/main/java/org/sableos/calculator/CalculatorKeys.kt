@@ -1,3 +1,4 @@
+// Patch history: 0013 (see docs/PATCH_HISTORY.md)
 package org.sableos.calculator
 
 /** What a hardware key does on the calculator keypad. */

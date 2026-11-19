@@ -1,3 +1,4 @@
+// Patch history: 0005 (see docs/PATCH_HISTORY.md)
 package org.sableos.hub.platform
 
 /** Read-only system property access (same pattern as the other Sable apps). */

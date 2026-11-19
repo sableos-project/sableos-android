@@ -1,3 +1,4 @@
+// Patch history: 0083, 0177 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.keyboard.core
 
 import kotlin.math.ceil

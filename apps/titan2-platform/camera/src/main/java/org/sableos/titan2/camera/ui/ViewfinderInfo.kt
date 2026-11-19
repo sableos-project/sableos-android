@@ -1,3 +1,4 @@
+// Patch history: 0064, 0085 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.camera.ui
 
 import org.sableos.titan2.camera.android.CameraController

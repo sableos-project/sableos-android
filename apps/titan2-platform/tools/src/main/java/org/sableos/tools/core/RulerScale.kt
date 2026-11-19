@@ -1,3 +1,4 @@
+// Patch history: 0144, 0146 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.core
 
 /** One tick on the on-screen ruler: where it sits in pixels and how long it is drawn. */

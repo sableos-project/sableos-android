@@ -1,3 +1,4 @@
+// Patch history: 0230 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.keyboard.android
 
 import android.content.Context

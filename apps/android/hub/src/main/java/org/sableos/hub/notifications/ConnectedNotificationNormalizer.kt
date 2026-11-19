@@ -1,3 +1,4 @@
+// Patch history: 0017, 0019 (see docs/PATCH_HISTORY.md)
 package org.sableos.hub.notifications
 
 import android.app.PendingIntent

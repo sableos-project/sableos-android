@@ -1,3 +1,4 @@
+// Patch history: 0138, 0145, 0146 (see docs/PATCH_HISTORY.md)
 package org.sableos.phone.android
 
 import android.content.Context

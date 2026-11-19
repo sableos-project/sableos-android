@@ -1,3 +1,4 @@
+// Patch history: 0081, 0085, 0096, 0098, 0154 (see docs/PATCH_HISTORY.md)
 package org.sableos.notes
 
 import android.content.Intent

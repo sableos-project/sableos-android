@@ -1,3 +1,4 @@
+// Patch history: 0006, 0008, 0073, 0074, 0085 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.ui
 
 import android.app.Activity

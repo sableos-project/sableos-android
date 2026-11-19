@@ -1,3 +1,4 @@
+// Patch history: 0009, 0011, 0066, 0072, 0073, 0074, 0085, 0193 (see docs/PATCH_HISTORY.md)
 @file:Suppress("FunctionNaming")
 
 package org.sableos.titan2.displaycompat.ui

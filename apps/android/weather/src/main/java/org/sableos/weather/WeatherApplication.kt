@@ -1,3 +1,4 @@
+// Patch history: 0085 (see docs/PATCH_HISTORY.md)
 package org.sableos.weather
 
 import android.app.Application

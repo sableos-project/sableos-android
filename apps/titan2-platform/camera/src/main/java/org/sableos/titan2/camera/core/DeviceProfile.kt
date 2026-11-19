@@ -1,3 +1,4 @@
+// Patch history: 0001, 0012, 0016, 0040 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.camera.core
 
 enum class EvidenceLevel { None, ResearchOnly, RetailValidated }

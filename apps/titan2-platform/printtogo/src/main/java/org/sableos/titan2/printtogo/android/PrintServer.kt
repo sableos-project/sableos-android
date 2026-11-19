@@ -1,3 +1,4 @@
+// Patch history: 0114, 0119 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.printtogo.android
 
 import java.io.BufferedInputStream

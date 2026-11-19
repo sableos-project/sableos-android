@@ -1,3 +1,4 @@
+// Patch history: 0104, 0105, 0205 (see docs/PATCH_HISTORY.md)
 @file:Suppress("FunctionNaming") // Compose functions are named like types.
 
 package org.sableos.browser.ui

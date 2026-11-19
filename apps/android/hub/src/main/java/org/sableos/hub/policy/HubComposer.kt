@@ -1,3 +1,4 @@
+// Patch history: 0017 (see docs/PATCH_HISTORY.md)
 package org.sableos.hub.policy
 
 /** What a hardware Enter does in Hub's inline composer. */

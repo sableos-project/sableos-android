@@ -1,3 +1,4 @@
+// Patch history: 0004 (see docs/PATCH_HISTORY.md)
 package org.sableos.design
 
 import org.junit.Assert.assertEquals

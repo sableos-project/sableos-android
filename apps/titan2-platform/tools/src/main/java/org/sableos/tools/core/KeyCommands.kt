@@ -1,3 +1,4 @@
+// Patch history: 0006, 0074 (see docs/PATCH_HISTORY.md)
 package org.sableos.tools.core
 
 /** A key press, reduced to what command mapping needs. Codes are Android KeyEvent constants copied as numbers. */

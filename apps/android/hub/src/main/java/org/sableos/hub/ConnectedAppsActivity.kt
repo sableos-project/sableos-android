@@ -1,3 +1,4 @@
+// Patch history: 0005, 0019, 0100, 0106, 0149 (see docs/PATCH_HISTORY.md)
 package org.sableos.hub
 
 import android.app.NotificationManager

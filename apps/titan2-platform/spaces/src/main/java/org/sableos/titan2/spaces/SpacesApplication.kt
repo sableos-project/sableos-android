@@ -1,3 +1,4 @@
+// Patch history: 0108 (see docs/PATCH_HISTORY.md)
 package org.sableos.titan2.spaces
 
 import android.app.Application

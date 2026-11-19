@@ -1,3 +1,4 @@
+// Patch history: 0104, 0105, 0205 (see docs/PATCH_HISTORY.md)
 package org.sableos.browser
 
 import android.annotation.SuppressLint

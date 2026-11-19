@@ -1,3 +1,4 @@
+// Patch history: 0096, 0098, 0154, 0162 (see docs/PATCH_HISTORY.md)
 @file:Suppress("FunctionNaming") // Compose functions are named like types.
 
 package org.sableos.tasks.ui
