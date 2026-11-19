@@ -249,6 +249,7 @@ private fun Bb10BottomBar(
 @Suppress("FunctionNaming")
 @Composable
 internal fun BbUnreadStar(modifier: Modifier = Modifier) {
+    val blue = Bb10Blue
     androidx.compose.foundation.Canvas(modifier.size(13.dp)) {
         val outer = size.minDimension / 2f
         val star = androidx.compose.ui.graphics.Path()
@@ -260,7 +261,7 @@ internal fun BbUnreadStar(modifier: Modifier = Modifier) {
             if (i == 0) star.moveTo(x, y) else star.lineTo(x, y)
         }
         star.close()
-        drawPath(star, Bb10Blue)
+        drawPath(star, blue)
         drawPath(star, androidx.compose.ui.graphics.Color.White, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f))
     }
 }
