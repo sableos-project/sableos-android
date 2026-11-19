@@ -64,7 +64,7 @@ class BlackBerryUiTest {
         val hub = compose.onNodeWithContentDescription("Hub").fetchSemanticsNode().boundsInRoot
         val camera = compose.onNodeWithContentDescription("Camera").fetchSemanticsNode().boundsInRoot
         assertEquals(hub.top, camera.top, 1f)
-        compose.onNodeWithContentDescription("All Apps").performClick()
+        compose.onNodeWithContentDescription("App grid page 1").performClick()
         compose.runOnIdle { assertEquals(2, page) }
         compose.onNodeWithContentDescription("Camera").performClick()
         compose.runOnIdle { assertEquals(QuickBar.CAMERA, opened) }

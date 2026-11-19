@@ -146,7 +146,7 @@ internal fun GridCell(
                 .padding(GRID_CELL_GAP)
                 .onFocusChanged { focused = it.isFocused }
                 .clip(shape)
-                .background(if (focused) Bb10Blue.copy(alpha = 0.32f) else Color.Transparent)
+                .background(if (focused) Bb10Blue else Color.Transparent)
                 .border(2.dp, if (focused) Bb10Blue else Color.Transparent, shape)
                 .onPreviewKeyEvent { event ->
                     val native = event.nativeKeyEvent
