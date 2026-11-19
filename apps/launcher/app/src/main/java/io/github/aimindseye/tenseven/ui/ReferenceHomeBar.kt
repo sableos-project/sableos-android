@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -90,6 +91,10 @@ internal fun ReferenceHomeBar(
     val shown = rememberReferenceShownSlots(slots)
     val context = androidx.compose.ui.platform.LocalContext.current
     val homeMenuOpen = remember { mutableStateOf(false) }
+    if (!pages.favorites) {
+        Bb10BottomBar(slots, pages, actions, unread)
+        return
+    }
     Row(
         Modifier.testTag("home-reference-bar").background(Bb10Background).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -368,7 +373,7 @@ private fun homeControlPaths(glyph: String): List<String> =
 
 @Suppress("FunctionNaming") // Compose UI entry points use PascalCase.
 @Composable
-private fun HubBarTarget(pages: HomeBarPages, unread: Int, actions: HomeBarActions) {
+private fun HubBarTarget(pages: HomeBarPages, unread: Int, actions: HomeBarActions, star: Boolean = false) {
     Box(
         Modifier.onPreviewKeyEvent { event ->
             val native = event.nativeKeyEvent
@@ -382,8 +387,105 @@ private fun HubBarTarget(pages: HomeBarPages, unread: Int, actions: HomeBarActio
             space && peek != null
         },
     ) {
-        HomeBarControl(HomeBarControlSpec("Hub", "mail", pages.current == StartPages.HUB + pages.lead, unread)) {
-            actions.showPage(StartPages.HUB + pages.lead)
+        if (star) {
+            Box(
+                Modifier
+                    .size(width = 64.dp, height = 48.dp)
+                    .sableFocusRing()
+                    .combinedClickable(onClick = { actions.showPage(StartPages.HUB + pages.lead) })
+                    .semantics { contentDescription = if (unread > 0) "Hub, $unread unread" else "Hub" },
+                contentAlignment = Alignment.Center,
+            ) {
+                LineIcon(homeControlPaths("mail"), Modifier.size(26.dp), Bb10Text)
+                if (unread > 0) BbUnreadStar(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 14.dp))
+            }
+        } else {
+            HomeBarControl(HomeBarControlSpec("Hub", "mail", pages.current == StartPages.HUB + pages.lead, unread)) {
+                actions.showPage(StartPages.HUB + pages.lead)
+            }
         }
+    }
+}
+
+/**
+ * The BBOS 10 bottom bar from the Sable home UI proposal: Hub with a blue star when something is
+ * unread, the page dots in the middle (the current page a blue pill) and Camera. Nothing else.
+ */
+@Suppress("FunctionNaming")
+@Composable
+private fun Bb10BottomBar(
+    slots: List<QuickSlot>,
+    pages: HomeBarPages,
+    actions: HomeBarActions,
+    unread: Int,
+) {
+    Row(
+        Modifier
+            .testTag("home-reference-bar")
+            .fillMaxWidth()
+            .height(48.dp)
+            .background(Bb10Background)
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HubBarTarget(pages, unread, actions, star = true)
+        Row(
+            Modifier.weight(1f),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            for (index in 0 until pages.count) {
+                val here = index == pages.current
+                Box(
+                    Modifier
+                        .size(width = 28.dp, height = 48.dp)
+                        .combinedClickable(onClick = { actions.showPage(index) })
+                        .semantics { selected = here },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .size(width = if (here) 16.dp else 6.dp, height = 6.dp)
+                            .background(
+                                if (here) Bb10Blue else Bb10Muted,
+                                androidx.compose.foundation.shape.RoundedCornerShape(3.dp),
+                            ),
+                    )
+                }
+            }
+        }
+        Box(
+            Modifier
+                .size(width = 64.dp, height = 48.dp)
+                .sableFocusRing()
+                .combinedClickable(onClick = {
+                    val camera = slots.firstOrNull { it.token == QuickBar.CAMERA }
+                    actions.openSlot(camera ?: QuickSlot(QuickBar.CAMERA, "Camera", null))
+                })
+                .semantics { contentDescription = "Camera" },
+            contentAlignment = Alignment.Center,
+        ) {
+            LineIcon(homeControlPaths("camera"), Modifier.size(26.dp), Bb10Text)
+        }
+    }
+}
+
+/** The blue star BlackBerry 10 puts on an icon with something new. */
+@Suppress("FunctionNaming")
+@Composable
+internal fun BbUnreadStar(modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier.size(13.dp)) {
+        val outer = size.minDimension / 2f
+        val star = androidx.compose.ui.graphics.Path()
+        for (i in 0 until 16) {
+            val r = if (i % 2 == 0) outer else outer * 0.6f
+            val a = Math.PI * i / 8.0 - Math.PI / 2.0
+            val x = center.x + (r * Math.cos(a)).toFloat()
+            val y = center.y + (r * Math.sin(a)).toFloat()
+            if (i == 0) star.moveTo(x, y) else star.lineTo(x, y)
+        }
+        star.close()
+        drawPath(star, Bb10Blue)
+        drawPath(star, androidx.compose.ui.graphics.Color.White, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f))
     }
 }
