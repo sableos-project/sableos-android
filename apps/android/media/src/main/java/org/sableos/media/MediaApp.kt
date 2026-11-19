@@ -63,6 +63,7 @@ internal fun MediaApp(
     val context = LocalContext.current
     val uiScope = rememberCoroutineScope()
     val latestPlayback by rememberUpdatedState(playbackState)
+    val latestFm by rememberUpdatedState(fmState)
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     val latestBackDispatcher by rememberUpdatedState(backDispatcher)
 
@@ -102,6 +103,9 @@ internal fun MediaApp(
         if (state.destination == MediaDestination.Fm) host.fm.connect()
     }
 
+    // Bind the bridge at launch too, so Now playing knows the radio is on without the FM screen being opened.
+    LaunchedEffect(host.fm) { host.fm.connect() }
+
     LaunchedEffect(state.destination, host.playbackController) {
         host.playbackController.setProgressUpdatesEnabled(
             state.destination == MediaDestination.NowPlaying,
@@ -134,9 +138,12 @@ internal fun MediaApp(
             controllers.library::importFolder,
         )
 
+    val radioOnNowPlaying = fmState.showsOnNowPlaying(playbackState)
+    val shownPlayback = if (radioOnNowPlaying) playbackState.withFm(fmState, state.fmNames) else playbackState
+
     SableGlobalTheme(window = host.window) {
         MediaKeyDialogs(
-            playback = playbackState,
+            playback = shownPlayback,
             showInfo = state.showInfo,
             pendingRemoval = state.pendingRemoval,
             onDismissInfo = { state.showInfo = false },
@@ -149,12 +156,13 @@ internal fun MediaApp(
         ) {
             Box(Modifier.fillMaxSize()) {
                 MediaScreen(
-                    state = state.screenState(playbackState, fmState),
+                    state = state.screenState(shownPlayback, fmState),
                     actions =
                         mediaScreenActions(
                             state = state,
                             controllers = controllers,
                             host = host,
+                            radioOn = { latestFm.showsOnNowPlaying(latestPlayback) },
                             pickers =
                                 MediaPickers(
                                     audioFiles = { localAudioPicker.launch(arrayOf(AUDIO_MIME_FILTER)) },
@@ -218,6 +226,7 @@ private fun mediaScreenActions(
     controllers: MediaControllers,
     host: MediaHostServices,
     pickers: MediaPickers,
+    radioOn: () -> Boolean,
 ): MediaScreenActions {
     val library = controllers.library
     val playlists = controllers.playlists
@@ -269,10 +278,11 @@ private fun mediaScreenActions(
         onPlayQueueIndex = playback::playQueueIndex,
         onMoveQueueItem = playback::moveQueueItem,
         onRemoveQueueItem = playback::removeQueueItem,
+        // While the radio shows on Now playing the transport buttons drive the tuner: play/pause is mute, stop is off.
         onPlayPause = { controllers.keys.run(MediaKeyCommand.PlayPause) },
-        onPrevious = { playback.skip(PlaybackSkip.Previous) },
-        onNext = { playback.skip(PlaybackSkip.Next) },
-        onStop = playback::stop,
+        onPrevious = { if (radioOn()) host.fm.seek(false) else playback.skip(PlaybackSkip.Previous) },
+        onNext = { if (radioOn()) host.fm.seek(true) else playback.skip(PlaybackSkip.Next) },
+        onStop = { if (radioOn()) controllers.fm.togglePower() else playback.stop() },
         onSeek = playback::seekTo,
         onOpenSearch = state::openSearch,
         onSearchQueryChange = { state.searchQuery = it },

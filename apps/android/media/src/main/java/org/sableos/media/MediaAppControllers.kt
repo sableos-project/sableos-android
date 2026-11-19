@@ -659,6 +659,10 @@ internal class MediaKeyController(
 
     private fun runPlaybackCommand(command: MediaKeyCommand): Boolean {
         val controller = host.playbackController
+        if (command == MediaKeyCommand.PlayPause && host.fm.state.showsOnNowPlaying(environment.playback())) {
+            host.fm.toggleMute()
+            return true
+        }
         when (command) {
             MediaKeyCommand.PlayPause -> controller.setPlaying(!environment.playback().isPlaying)
             MediaKeyCommand.Previous -> controller.skip(PlaybackSkip.Previous)
