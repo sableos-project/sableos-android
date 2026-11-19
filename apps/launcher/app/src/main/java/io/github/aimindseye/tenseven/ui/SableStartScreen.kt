@@ -382,6 +382,16 @@ fun SableStartScreen(
                                             buildList {
                                                 add("Edit Home" to { destination = SableStartDestination.EditHome })
                                                 add("Search" to { openSearch(SableStartDestination.Start) })
+                                                if (io.github.aimindseye.tenseven.platform.MediaFavourites
+                                                        .available(homeContext)
+                                                ) {
+                                                    add(
+                                                        "Favourites" to {
+                                                            io.github.aimindseye.tenseven.platform.MediaFavourites
+                                                                .open(homeContext)
+                                                        },
+                                                    )
+                                                }
                                                 add("Wallpaper" to onOpenWallpaper)
                                                 add(
                                                     "Settings" to {

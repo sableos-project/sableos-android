@@ -483,6 +483,9 @@ private class Bb7HomeActions(
             )
             add("Manage Panels" to { input.launch.onOpenMenu(panelsMenu()) })
             add("Show All" to { openApps() })
+            if (io.github.aimindseye.tenseven.platform.MediaFavourites.available(context)) {
+                add("Favourites" to { io.github.aimindseye.tenseven.platform.MediaFavourites.open(context) })
+            }
             add(
                 "Options" to {
                     context.startActivity(Intent(context, io.github.aimindseye.tenseven.LauncherSettingsActivity::class.java))
