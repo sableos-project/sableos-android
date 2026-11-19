@@ -1,15 +1,19 @@
 // Patch history: 0017, 0061 (see docs/PATCH_HISTORY.md)
 package org.sableos.media
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +26,17 @@ class MainActivity : ComponentActivity() {
     private lateinit var fmController: FmController
     private var openFmToken by mutableIntStateOf(0)
 
+    private val notificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    /** Android 13+ hides the playing notification, and the lock-screen player with it, until this is allowed. */
+    private fun askToShowNotifications() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted =
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        if (!granted) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
     /** Set by [MediaApp]: maps a key-down to a Sable Media command before any view sees it. */
     private var keyHandler: ((KeyEvent) -> Boolean)? = null
 
@@ -30,6 +45,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        askToShowNotifications()
 
         playbackController =
             PlaybackController(applicationContext) { state ->
