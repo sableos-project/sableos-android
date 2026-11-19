@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -30,7 +32,21 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         val exoPlayer =
-            ExoPlayer.Builder(this).build().also { resolvedPlayer ->
+            ExoPlayer
+                .Builder(this)
+                // Background playback: own the audio focus, pause when headphones are pulled, and
+                // keep the CPU awake while the screen is off.
+                .setAudioAttributes(
+                    AudioAttributes
+                        .Builder()
+                        .setUsage(C.USAGE_MEDIA)
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                        .build(),
+                    true,
+                ).setHandleAudioBecomingNoisy(true)
+                .setWakeMode(C.WAKE_MODE_NETWORK)
+                .build()
+                .also { resolvedPlayer ->
                 resolvedPlayer.addListener(
                     object : Player.Listener {
                         override fun onMediaItemTransition(
