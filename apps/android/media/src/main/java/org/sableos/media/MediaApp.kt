@@ -271,6 +271,7 @@ private fun mediaScreenActions(
         onEditPlaylist = playlists::edit,
         onDeletePlaylist = playlists::delete,
         onPlayPlaylist = playlists::play,
+        onToggleFavoritePlaylist = playlists::toggleFavorite,
         onPlaylistNameChange = { state.playlistName = it },
         onTogglePlaylistItem = playlists::toggleItem,
         onSavePlaylist = playlists::save,

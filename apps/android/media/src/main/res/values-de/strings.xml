@@ -220,4 +220,5 @@
     <string name="record_from_the_fm_screen">Record from the FM screen. Recordings are songs: star them or add them to a playlist.</string>
     <string name="hub_tab_recordings">Recordings</string>
     <string name="recordings">recordings</string>
+    <string name="online_stations">Online stations</string>
 </resources>

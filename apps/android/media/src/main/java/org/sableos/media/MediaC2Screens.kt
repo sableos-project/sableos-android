@@ -252,6 +252,7 @@ internal fun PlaylistEditorScreen(
     playlistName: String,
     selectedUris: Set<String>,
     localItems: List<LocalAudioItem>,
+    stations: List<RadioStation>,
     onNameChange: (String) -> Unit,
     onToggleItem: (String) -> Unit,
     onSave: () -> Unit,
@@ -365,6 +366,62 @@ internal fun PlaylistEditorScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (stations.isNotEmpty()) {
+            item(key = "playlist-stations-title") {
+                Text(
+                    text = t("online_stations"),
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            }
+            items(
+                items = stations,
+                key = { station -> "radio-${station.id}" },
+            ) { station ->
+                val itemKey = RADIO_ITEM_PREFIX + station.id
+                val selected = itemKey in selectedUris
+                Surface(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .sableFocusRing()
+                            .toggleable(
+                                value = selected,
+                                role = Role.Checkbox,
+                                onValueChange = { onToggleItem(itemKey) },
+                            ),
+                    shape = MaterialTheme.shapes.medium,
+                    color = if (selected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
+                    border =
+                        BorderStroke(
+                            1.dp,
+                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        ),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(SableSpacing.Md),
+                        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = selected, onCheckedChange = null)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = station.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = t("live_radio"),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
                             )
                         }
                     }
