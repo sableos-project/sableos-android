@@ -301,6 +301,7 @@ private fun mediaScreenActions(
         onPrevious = { if (radioOn()) host.fm.seek(false) else playback.skip(PlaybackSkip.Previous) },
         onNext = { if (radioOn()) host.fm.seek(true) else playback.skip(PlaybackSkip.Next) },
         onStop = { if (radioOn()) controllers.fm.togglePower() else playback.stop() },
+        onToggleShuffle = playback::toggleShuffle,
         onSeek = playback::seekTo,
         onOpenSearch = state::openSearch,
         onSearchQueryChange = { state.searchQuery = it },

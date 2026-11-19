@@ -207,6 +207,7 @@ internal data class MediaScreenActions(
     val onPrevious: () -> Unit,
     val onNext: () -> Unit,
     val onStop: () -> Unit,
+    val onToggleShuffle: () -> Unit = {},
     val onSeek: (Long) -> Unit,
     val onOpenSearch: () -> Unit = {},
     val onSearchQueryChange: (String) -> Unit = {},
@@ -2499,6 +2500,14 @@ private fun hubActions(
             enabled = playback.queue.isNotEmpty(),
         )
     val settings = MediaBarAction(MediaIcons.Settings, t("hub_settings"), { go(MediaDestination.Settings) })
+    val shuffle =
+        MediaBarAction(
+            icon = MediaIcons.Shuffle,
+            label = t("shuffle"),
+            onClick = actions.onToggleShuffle,
+            enabled = playback.queue.size > 1,
+            active = playback.shuffle,
+        )
     return when (state.destination) {
         MediaDestination.Collection -> {
             val prev = MediaBarAction(MediaIcons.Previous, t("previous"), actions.onPrevious, enabled = playback.hasPrevious)
@@ -2520,6 +2529,7 @@ private fun hubActions(
             listOf(
                 playPause,
                 next,
+                shuffle,
                 upNext,
                 MediaBarAction(
                     icon = MediaIcons.Add,
@@ -2540,6 +2550,7 @@ private fun hubActions(
                 MediaBarAction(MediaIcons.Previous, t("previous"), actions.onPrevious, enabled = playback.hasPrevious),
                 playPause,
                 next,
+                shuffle,
                 upNext,
                 MediaBarAction(MediaIcons.Stop, t("stop"), actions.onStop, enabled = playback.queue.isNotEmpty()),
             )

@@ -11,6 +11,7 @@ import org.sableos.design.SableTexts
 object MediaText {
     val EN: Map<String, String> =
         mapOf(
+            "shuffle" to "Shuffle",
             "fm_recording_saved" to "Saved to Recordings/FM recordings",
             "hub_tab_lists" to "Lists",
             "fm_stations_count" to "%1\$s stations",
