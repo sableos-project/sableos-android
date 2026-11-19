@@ -42,6 +42,9 @@ class Launcher(private val activity: Activity) {
 
         Action.DisplaySettings -> Intent(Settings.ACTION_DISPLAY_SETTINGS)
 
+        Action.LockScreen ->
+            Intent(LOCK_SCREEN_ACTION).setPackage(SetupRows.SABLE_START_PACKAGE)
+
         Action.SableApps ->
             Intent(SABLE_APPS_ACTION).setPackage(WIZARD_PACKAGE).putExtra(EXTRA_STANDALONE, true)
     }
@@ -95,6 +98,7 @@ class Launcher(private val activity: Activity) {
     }
 
     private companion object {
+        const val LOCK_SCREEN_ACTION = "org.sableos.start.action.CHOOSE_LOCK_SCREEN"
         const val HOME_STYLE_ACTION = "org.sableos.start.action.CHOOSE_HOME_STYLE"
         const val DISPLAY_PACKAGE = "org.sableos.titan2.displaycompat"
         const val RADIO_PACKAGE = "org.sableos.tools" // Radio diagnostics now live in Sable Tools

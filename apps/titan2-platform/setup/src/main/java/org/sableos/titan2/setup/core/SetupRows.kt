@@ -65,6 +65,13 @@ object SetupRows {
             Readiness.Informational,
             Action.DefaultApps
         ),
+        Item(
+            "lock_screen",
+            t("row_lock_title"),
+            t("row_lock_detail"),
+            Readiness.Informational,
+            Action.LockScreen
+        ),
         defaultApp("dialer", t("row_dialer_title"), snapshot.dialer),
         defaultApp("sms", t("row_sms_title"), snapshot.sms),
         Item(
@@ -268,7 +275,7 @@ object SetupRows {
     }
 
     private val CHOICES =
-        setOf(Action.HomeStyle, Action.HomeSettings, Action.KeyboardPicker, Action.SableApps)
+        setOf(Action.HomeStyle, Action.HomeSettings, Action.KeyboardPicker, Action.SableApps, Action.LockScreen)
 
     /** Button text, or null when the row offers no action. */
     fun buttonLabel(item: Item): String? = when {

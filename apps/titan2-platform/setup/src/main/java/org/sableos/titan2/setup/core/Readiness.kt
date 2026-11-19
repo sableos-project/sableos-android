@@ -64,6 +64,9 @@ enum class Action(private val labelKey: String) {
     /** Settings, Display: Dark or Light, the Sable accent and the text size (the Theme). */
     DisplaySettings("action_display_settings"),
 
+    /** Sable Launcher's lock-screen choice: the media player (FM included) and Hub notices, on by default. */
+    LockScreen("action_lock_screen"),
+
     /** The Sable apps step from first-boot setup, opened again: Full Sable, Essentials or Stock. */
     SableApps("action_sable_apps");
 
