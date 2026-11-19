@@ -3,11 +3,18 @@ package org.sableos.media
 
 import android.content.Context
 import android.media.MediaMetadataRetriever
+import android.content.ContentUris
 import android.net.Uri
+import android.provider.MediaStore
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import org.json.JSONArray
 import org.json.JSONObject
+
+/** Where the FM Radio app saves recordings, and how Sable Media files them in the library. */
+internal const val FM_RECORDINGS_FOLDER = "Recordings/FM recordings"
+internal const val FM_RECORDINGS_ALBUM = "FM recordings"
+internal const val FM_RECORDINGS_ARTIST = "FM radio"
 
 internal data class LocalAudioItem(
     val uri: String,
@@ -49,9 +56,32 @@ internal class LocalAudioRepository(
         return deduplicated
     }
 
+    /** The FM recordings the FM Radio app saved under Recordings/FM recordings that [current] does not hold yet. */
+    fun newFmRecordings(current: List<LocalAudioItem>): List<Uri> {
+        val known = current.mapTo(HashSet()) { it.uri }
+        val found = ArrayList<Uri>()
+        runCatching {
+            context.contentResolver
+                .query(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    arrayOf(MediaStore.Audio.Media._ID),
+                    "${MediaStore.Audio.Media.RELATIVE_PATH} LIKE ?",
+                    arrayOf("%$FM_RECORDINGS_FOLDER%"),
+                    "${MediaStore.Audio.Media.DATE_ADDED} ASC",
+                )?.use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, cursor.getLong(0))
+                        if (uri.toString() !in known) found += uri
+                    }
+                }
+        }
+        return found
+    }
+
     fun addUris(
         current: List<LocalAudioItem>,
         uris: List<Uri>,
+        album: String? = null,
     ): List<LocalAudioItem> {
         val bySource =
             current
@@ -59,7 +89,8 @@ internal class LocalAudioRepository(
                 .toMutableMap()
 
         uris.forEach { uri ->
-            val item = inspect(uri)
+            val inspected = inspect(uri)
+            val item = if (album == null) inspected else inspected.copy(artist = FM_RECORDINGS_ARTIST, album = album)
             if (item.sourceKey !in bySource) {
                 bySource[item.sourceKey] = item
             }

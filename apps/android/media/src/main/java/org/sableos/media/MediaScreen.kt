@@ -94,6 +94,7 @@ private fun collectionFixedItemCount(
 private const val ROW_ACTION_PLAY = "play"
 private const val ROW_ACTION_FAVORITE = "favorite"
 private const val ROW_ACTION_EDIT = "edit"
+private const val ROW_ACTION_STAR = "star"
 private const val ROW_ACTION_REMOVE = "remove"
 private const val MILLIS_PER_SECOND = 1_000L
 private const val SECONDS_PER_MINUTE = 60L
@@ -121,6 +122,7 @@ internal enum class LibraryPivot(
     Artists("artists"),
     Albums("albums"),
     Favorites("favorites"),
+    Recordings("recordings"),
     Playlists("playlists"),
 }
 
@@ -141,6 +143,7 @@ internal data class MediaScreenState(
     val favoriteAudioUris: Set<String>,
     val favoriteStationIds: Set<String>,
     val playlists: List<MediaPlaylist>,
+    val favoritePlaylistIds: Set<String> = emptySet(),
     val settings: MediaSettings,
     val playlistName: String,
     val selectedPlaylistUris: Set<String>,
@@ -191,6 +194,7 @@ internal data class MediaScreenActions(
     val onEditPlaylist: (MediaPlaylist) -> Unit,
     val onDeletePlaylist: (MediaPlaylist) -> Unit,
     val onPlayPlaylist: (MediaPlaylist) -> Unit,
+    val onToggleFavoritePlaylist: (MediaPlaylist) -> Unit = {},
     val onPlaylistNameChange: (String) -> Unit,
     val onTogglePlaylistItem: (String) -> Unit,
     val onSavePlaylist: () -> Unit,
@@ -340,6 +344,10 @@ internal fun MediaScreen(
                                     },
                                 onPlayStation = onPlayStation,
                                 onPlayFm = actions.onPlayFmFavorite,
+                                playlists = playlists.filter { it.id in state.favoritePlaylistIds },
+                                favoritePlaylistIds = state.favoritePlaylistIds,
+                                onPlayPlaylist = onPlayPlaylist,
+                                onToggleFavoritePlaylist = actions.onToggleFavoritePlaylist,
                             ),
                     )
                 }
@@ -366,6 +374,7 @@ internal fun MediaScreen(
                         playlistName = playlistName,
                         selectedUris = selectedPlaylistUris,
                         localItems = localItems,
+                        stations = stations,
                         onNameChange = onPlaylistNameChange,
                         onToggleItem = onTogglePlaylistItem,
                         onSave = onSavePlaylist,
@@ -796,6 +805,8 @@ private fun CollectionScreen(
             onEdit = onEditPlaylist,
             onDelete = onDeletePlaylist,
             onPlay = onPlayPlaylist,
+            favoriteIds = shortcuts.favoritePlaylistIds,
+            onToggleFavorite = shortcuts.onToggleFavoritePlaylist,
         )
 
     val short = isSableShortWindow()
@@ -904,8 +915,12 @@ private class FavoriteShortcuts(
     val fm: List<Pair<Int, String>>,
     val onPlayStation: (RadioStation) -> Unit,
     val onPlayFm: (Int) -> Unit,
+    val playlists: List<MediaPlaylist>,
+    val favoritePlaylistIds: Set<String>,
+    val onPlayPlaylist: (MediaPlaylist) -> Unit,
+    val onToggleFavoritePlaylist: (MediaPlaylist) -> Unit,
 ) {
-    val count: Int get() = stations.size + fm.size
+    val count: Int get() = stations.size + fm.size + playlists.size
 }
 
 /** Track-row callbacks shared by the Songs and Favorites pivots (and group rows' play). */
@@ -921,6 +936,8 @@ private class CollectionPlaylistActions(
     val onEdit: (MediaPlaylist) -> Unit,
     val onDelete: (MediaPlaylist) -> Unit,
     val onPlay: (MediaPlaylist) -> Unit,
+    val favoriteIds: Set<String>,
+    val onToggleFavorite: (MediaPlaylist) -> Unit,
 )
 
 /**
@@ -973,6 +990,7 @@ private fun collectionResultCount(
         LibraryPivot.Artists -> built.artists.size
         LibraryPivot.Albums -> built.albums.size
         LibraryPivot.Favorites -> built.favorites.size
+        LibraryPivot.Recordings -> built.recordings.size
         LibraryPivot.Playlists -> visiblePlaylists.size
     }
 }
@@ -1140,6 +1158,7 @@ private fun LazyListScope.collectionResults(
         LibraryPivot.Artists -> groupItems(index.artists, tracks.onPlay)
         LibraryPivot.Albums -> groupItems(index.albums, tracks.onPlay)
         LibraryPivot.Favorites -> favoriteItems(index.favorites, tracks, content.shortcuts)
+        LibraryPivot.Recordings -> recordingItems(index.recordings, tracks)
         LibraryPivot.Playlists -> playlistItems(query, content.visiblePlaylists, index.availableUris, playlists)
     }
 }
@@ -1188,6 +1207,23 @@ private fun LazyListScope.groupItems(
     }
 }
 
+/** FM recordings, newest first by name; a recording is a song, so it can be starred and put in a playlist. */
+private fun LazyListScope.recordingItems(
+    recordings: List<MediaIndexedTrack>,
+    tracks: CollectionTrackActions,
+) {
+    if (recordings.isEmpty()) {
+        item {
+            C2InfoPanel(
+                title = t("no_recordings_yet"),
+                detail = t("record_from_the_fm_screen"),
+            )
+        }
+    } else {
+        trackItems(recordings, tracks, allFavorites = false)
+    }
+}
+
 private fun LazyListScope.favoriteItems(
     favorites: List<MediaIndexedTrack>,
     tracks: CollectionTrackActions,
@@ -1226,6 +1262,18 @@ private fun LazyListScope.favoriteItems(
                 onClick = { shortcuts.onPlayStation(station) },
             )
         }
+        items(
+            count = shortcuts.playlists.size,
+            key = { index -> "list-${shortcuts.playlists[index].id}" },
+        ) { index ->
+            val playlist = shortcuts.playlists[index]
+            LibraryGroupRow(
+                title = playlist.name,
+                detail = t("hub_tab_playlists"),
+                accent = accentFor(playlist.id.hashCode()),
+                onClick = { shortcuts.onPlayPlaylist(playlist) },
+            )
+        }
     }
 }
 
@@ -1260,6 +1308,8 @@ private fun LazyListScope.playlistItems(
             PlaylistCard(
                 playlist = playlist,
                 availableUris = availableUris,
+                favorite = playlist.id in actions.favoriteIds,
+                onToggleFavorite = { actions.onToggleFavorite(playlist) },
                 onPlay = { actions.onPlay(playlist) },
                 onEdit = { actions.onEdit(playlist) },
                 onDelete = { actions.onDelete(playlist) },
@@ -1286,6 +1336,7 @@ private data class MediaCollectionIndex(
     val artists: List<MediaGroupSummary>,
     val albums: List<MediaGroupSummary>,
     val favorites: List<MediaIndexedTrack>,
+    val recordings: List<MediaIndexedTrack>,
     val availableUris: Set<String>,
     val sections: Map<LibraryPivot, SableAlphabetIndex>,
     /** The inputs this index was built from, compared by identity to detect a stale index. */
@@ -1299,6 +1350,7 @@ private data class MediaCollectionIndex(
                 artists = emptyList(),
                 albums = emptyList(),
                 favorites = emptyList(),
+                recordings = emptyList(),
                 availableUris = emptySet(),
                 sections = emptyMap(),
             )
@@ -1334,6 +1386,8 @@ private fun buildMediaCollectionIndex(
         songs.filter { indexed ->
             indexed.item.uri in favoriteAudioUris
         }
+
+    val recordings = songs.filter { indexed -> indexed.item.album == FM_RECORDINGS_ALBUM }
 
     val artists =
         visibleItems
@@ -1383,6 +1437,10 @@ private fun buildMediaCollectionIndex(
                 SableAlphabetIndex.build(
                     favorites.map { indexed -> indexed.item.title },
                 ),
+            LibraryPivot.Recordings to
+                SableAlphabetIndex.build(
+                    recordings.map { indexed -> indexed.item.title },
+                ),
             LibraryPivot.Playlists to EMPTY_ALPHABET,
         )
 
@@ -1391,6 +1449,7 @@ private fun buildMediaCollectionIndex(
         artists = artists,
         albums = albums,
         favorites = favorites,
+        recordings = recordings,
         availableUris = sourceIndexByUri.keys.toSet(),
         sections = sections,
         source = localItems,
@@ -1447,13 +1506,15 @@ private fun LocalTrackRow(
 private fun PlaylistCard(
     playlist: MediaPlaylist,
     availableUris: Set<String>,
+    favorite: Boolean,
+    onToggleFavorite: () -> Unit,
     onPlay: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val trackCount =
         playlist.itemUris.count { uri ->
-            uri in availableUris
+            uri in availableUris || uri.startsWith(RADIO_ITEM_PREFIX)
         }
     var confirmRemove by remember(playlist.id) { mutableStateOf(false) }
 
@@ -1465,18 +1526,20 @@ private fun PlaylistCard(
     ) {
         Column(modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs)) {
             SableDenseRow(
-                title = playlist.name,
+                title = playlist.name + if (favorite) " ★" else "",
                 subtitle = if (trackCount == 1) t("n1_track") else t("tracks", trackCount),
                 onClick = onPlay,
                 actions =
                     listOf(
                         SableRowAction(ROW_ACTION_PLAY, t("play"), primary = true),
+                        SableRowAction(ROW_ACTION_STAR, if (favorite) t("remove_star") else t("star_2")),
                         SableRowAction(ROW_ACTION_EDIT, t("edit")),
                         SableRowAction(ROW_ACTION_REMOVE, t("remove"), destructive = true),
                     ),
                 onAction = { action ->
                     when (action.id) {
                         ROW_ACTION_PLAY -> onPlay()
+                        ROW_ACTION_STAR -> onToggleFavorite()
                         ROW_ACTION_EDIT -> onEdit()
                         ROW_ACTION_REMOVE -> confirmRemove = true
                     }

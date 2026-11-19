@@ -50,7 +50,14 @@ internal class MediaLibraryController(
         val loadResult =
             withContext(Dispatchers.IO) {
                 runCatching {
-                    val loadedItems = repositories.localAudio.loadItems()
+                    val stored = repositories.localAudio.loadItems()
+                    val recordings = repositories.localAudio.newFmRecordings(stored)
+                    val loadedItems =
+                        if (recordings.isEmpty()) {
+                            stored
+                        } else {
+                            repositories.localAudio.addUris(stored, recordings, FM_RECORDINGS_ALBUM)
+                        }
                     val loadedPlaylists =
                         repositories.libraryState.pruneMissingAudio(
                             current = repositories.libraryState.loadPlaylists(),
@@ -281,11 +288,13 @@ internal class MediaPlaylistController(
 
     fun play(playlist: MediaPlaylist) {
         val itemsSnapshot = state.localItems
+        val stationsSnapshot = state.stations
         scope.launch {
             val queue =
                 withContext(Dispatchers.Default) {
                     val byUri = itemsSnapshot.associateBy { item -> item.uri }
-                    playlist.itemUris.mapNotNull { uri -> byUri[uri] }
+                    val radio = stationsSnapshot.associateBy { station -> RADIO_ITEM_PREFIX + station.id }
+                    playlist.itemUris.mapNotNull { uri -> byUri[uri] ?: radio[uri]?.toQueueItem() }
                 }
 
             if (queue.isEmpty()) {
@@ -295,6 +304,10 @@ internal class MediaPlaylistController(
                 state.destination = MediaDestination.NowPlaying
             }
         }
+    }
+
+    fun toggleFavorite(playlist: MediaPlaylist) {
+        state.favoritePlaylistIds = libraryState.toggleFavoritePlaylist(state.favoritePlaylistIds, playlist.id)
     }
 
     fun toggleItem(uri: String) {
@@ -748,3 +761,14 @@ internal class MediaKeyController(
 }
 
 private fun Throwable.messageOr(fallback: String): String = message?.takeIf { it.isNotBlank() } ?: fallback
+
+/** An online station as a queue item, so a playlist can hold songs and live radio together. */
+private fun RadioStation.toQueueItem(): LocalAudioItem =
+    LocalAudioItem(
+        uri = url,
+        sourceKey = RADIO_ITEM_PREFIX + id,
+        title = name,
+        artist = t("live_radio"),
+        album = t("radio"),
+        durationMs = 0L,
+    )

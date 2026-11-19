@@ -104,6 +104,9 @@ internal class FmController(
 
     fun toggleMute() = send(FmBridgeProtocol.MSG_SET_MUTE, if (state.muted) 0 else 1)
 
+    fun toggleRecording() =
+        send(if (state.recording) FmBridgeProtocol.MSG_RECORD_STOP else FmBridgeProtocol.MSG_RECORD_START)
+
     private fun send(
         what: Int,
         arg1: Int = 0,
@@ -141,6 +144,9 @@ internal class FmController(
             stations = stations.mapIndexed { index, station -> FmStation(station, names.getOrNull(index).orEmpty()) },
             lastOk = data.getBoolean(FmBridgeProtocol.KEY_OK, true),
             lastEvent = data.getInt(FmBridgeProtocol.KEY_EVENT, 0),
+            recording = data.getBoolean(FmBridgeProtocol.KEY_RECORDING, false),
+            recordMs = data.getLong(FmBridgeProtocol.KEY_RECORD_MS, 0L),
+            recordFile = data.getString(FmBridgeProtocol.KEY_RECORD_FILE).orEmpty(),
         )
     }
 

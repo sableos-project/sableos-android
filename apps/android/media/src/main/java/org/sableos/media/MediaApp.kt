@@ -59,6 +59,8 @@ internal fun MediaApp(
     fmState: FmUiState = FmUiState(),
     /** Bumped by MainActivity for each org.sableos.media.action.FM_RADIO intent. */
     openFmToken: Int = 0,
+    /** Bumped by MainActivity for each org.sableos.media.action.FAVOURITES intent. */
+    openFavouritesToken: Int = 0,
 ) {
     val context = LocalContext.current
     val uiScope = rememberCoroutineScope()
@@ -90,12 +92,17 @@ internal fun MediaApp(
             )
         }
 
-    LaunchedEffect(repositories.localAudio, repositories.libraryState) {
+    // Reloads when a recording ends, so the new file shows under Recordings.
+    LaunchedEffect(repositories.localAudio, repositories.libraryState, fmState.recording) {
         controllers.library.load()
     }
 
     LaunchedEffect(openFmToken) {
         if (openFmToken > 0) state.navigate(MediaDestination.Fm)
+    }
+
+    LaunchedEffect(openFavouritesToken) {
+        if (openFavouritesToken > 0) state.openCollection(LibraryPivot.Favorites)
     }
 
     // The FM bridge is bound the first time the FM screen opens, not on every launch.
@@ -270,6 +277,7 @@ private fun mediaScreenActions(
         onEditPlaylist = playlists::edit,
         onDeletePlaylist = playlists::delete,
         onPlayPlaylist = playlists::play,
+        onToggleFavoritePlaylist = playlists::toggleFavorite,
         onPlaylistNameChange = { state.playlistName = it },
         onTogglePlaylistItem = playlists::toggleItem,
         onSavePlaylist = playlists::save,
@@ -300,6 +308,7 @@ private fun mediaScreenActions(
                 onToggleSpeaker = host.fm::toggleSpeaker,
                 onToggleMute = host.fm::toggleMute,
                 onScan = host.fm::toggleScan,
+                onToggleRecording = host.fm::toggleRecording,
             ),
     )
 }

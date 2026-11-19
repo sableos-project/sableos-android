@@ -65,6 +65,7 @@ internal enum class MediaHubTab(
     Albums("hub_tab_albums", MediaDestination.Collection, LibraryPivot.Albums),
     Playlists("hub_tab_playlists", MediaDestination.Collection, LibraryPivot.Playlists),
     Favorites("hub_tab_favourites", MediaDestination.Collection, LibraryPivot.Favorites),
+    Recordings("hub_tab_recordings", MediaDestination.Collection, LibraryPivot.Recordings),
     Podcasts("hub_tab_podcasts", MediaDestination.Podcasts),
     Radio("hub_tab_radio", MediaDestination.Radio),
     Fm("hub_tab_fm", MediaDestination.Fm),

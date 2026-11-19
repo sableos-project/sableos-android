@@ -2,12 +2,14 @@
 package org.sableos.media
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
@@ -24,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +57,7 @@ internal data class FmScreenActions(
     val onToggleSpeaker: () -> Unit,
     val onToggleMute: () -> Unit,
     val onScan: () -> Unit,
+    val onToggleRecording: () -> Unit = {},
     /** Gives a station a name of the person's own; a blank name removes it. */
     val onRename: (Int, String) -> Unit = { _, _ -> },
 )
@@ -98,11 +103,66 @@ private fun FmTunerPanel(
                 ?.name
                 .orEmpty()
         }
-    SableValuePanel(
-        label = if (tuned) "${FmBand.format(fm.station)} MHz" else t("fm_radio"),
-        value = FmBand.status(fm),
-        supportingText = listOf(name, fm.radioText).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { null },
-    )
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(SableSpacing.Md),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+        ) {
+            if (fm.recording) {
+                Text(
+                    text = "● " + t("fm_rec") + " " + FmBand.clock(fm.recordMs),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = FmRecordRed,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = if (tuned) FmBand.format(fm.station) else "--.-",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                )
+                Text(
+                    text = " MHz",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = SableSpacing.Sm),
+                )
+            }
+            FmDial(station = fm.station.takeIf { tuned })
+            if (name.isNotBlank()) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MediaAccent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (fm.radioText.isNotBlank()) {
+                Text(
+                    text = fm.radioText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                text = FmBand.status(fm),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
     if (fm.connected && !fm.antenna) {
         Text(
             text =
@@ -110,6 +170,32 @@ private fun FmTunerPanel(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
         )
+    }
+}
+
+private val FmRecordRed = Color(0xFFE5484D)
+private val FmDialHeight = 36.dp
+
+/** The tuning dial: a tick every 0.1 MHz, a taller one every MHz, and a needle on the tuned station. */
+@Composable
+private fun FmDial(station: Int?) {
+    val tick = MaterialTheme.colorScheme.outline
+    val needle = MediaAccent
+    Canvas(Modifier.fillMaxWidth().height(FmDialHeight)) {
+        val low = FmBridgeProtocol.LOWEST_STATION
+        val high = FmBridgeProtocol.HIGHEST_STATION
+        val span = (high - low).toFloat()
+        for (value in low..high) {
+            val x = (value - low) / span * size.width
+            val major = value % 10 == 0
+            val mid = value % 5 == 0
+            val length = if (major) size.height * 0.7f else if (mid) size.height * 0.5f else size.height * 0.3f
+            drawLine(tick, Offset(x, size.height), Offset(x, size.height - length), strokeWidth = if (major) 2f else 1f)
+        }
+        if (station != null) {
+            val x = (station - low) / span * size.width
+            drawLine(needle, Offset(x, 0f), Offset(x, size.height), strokeWidth = 4f)
+        }
     }
 }
 
@@ -150,6 +236,13 @@ private fun FmControls(
                         t("star")
                     },
                 ) { actions.onToggleFavorite(fm.station) },
+            ),
+            listOf(
+                FmButton(
+                    if (fm.recording) t("fm_stop_recording") else t("fm_record"),
+                    primary = fm.recording,
+                    onClick = actions.onToggleRecording,
+                ),
             ),
         )
     rows.forEach { buttons ->

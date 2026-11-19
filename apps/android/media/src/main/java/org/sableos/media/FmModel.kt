@@ -19,6 +19,9 @@ internal object FmBridgeProtocol {
     /** Sable Tools and the playing notification open the FM screen with this action. */
     const val ACTION_OPEN_FM = "org.sableos.media.action.FM_RADIO"
 
+    /** The Sable home Favourites entry and the Media app shortcut open the Favourites list with this action. */
+    const val ACTION_OPEN_FAVOURITES = "org.sableos.media.action.FAVOURITES"
+
     const val MSG_REGISTER = 1
     const val MSG_UNREGISTER = 2
     const val MSG_POWER_UP = 3
@@ -30,6 +33,8 @@ internal object FmBridgeProtocol {
     const val MSG_SET_SPEAKER = 9
     const val MSG_SET_MUTE = 10
     const val MSG_GET_STATE = 11
+    const val MSG_RECORD_START = 12
+    const val MSG_RECORD_STOP = 13
     const val MSG_STATE = 100
 
     const val KEY_POWERED = "powered"
@@ -46,6 +51,9 @@ internal object FmBridgeProtocol {
     const val KEY_STATION_NAMES = "station_names"
     const val KEY_EVENT = "event"
     const val KEY_OK = "ok"
+    const val KEY_RECORDING = "recording"
+    const val KEY_RECORD_MS = "record_ms"
+    const val KEY_RECORD_FILE = "record_file"
 
     /** FmListener.MSGID_SWITCH_ANTENNA: the headset (antenna) was plugged in or out. */
     const val EVENT_SWITCH_ANTENNA = 4
@@ -77,6 +85,10 @@ internal data class FmUiState(
     val stations: List<FmStation> = emptyList(),
     val lastOk: Boolean = true,
     val lastEvent: Int = 0,
+    /** A recording is running; [recordMs] is how long it has been going, [recordFile] the saved file once stopped. */
+    val recording: Boolean = false,
+    val recordMs: Long = 0L,
+    val recordFile: String = "",
 )
 
 internal object FmBand {
@@ -103,6 +115,15 @@ internal object FmBand {
             next < FmBridgeProtocol.LOWEST_STATION -> FmBridgeProtocol.HIGHEST_STATION
             else -> next
         }
+    }
+
+    /** "0:42" or "1:02:03" for a recording that has run [ms]. */
+    fun clock(ms: Long): String {
+        val total = ms / 1000
+        val h = total / 3600
+        val m = total % 3600 / 60
+        val sec = total % 60
+        return if (h > 0) String.format(Locale.ROOT, "%d:%02d:%02d", h, m, sec) else String.format(Locale.ROOT, "%d:%02d", m, sec)
     }
 
     /** One line for the status panel. */

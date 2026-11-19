@@ -6,6 +6,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
+/** A playlist entry that is an online radio station: "radio:<station id>"; any other entry is a song's uri. */
+internal const val RADIO_ITEM_PREFIX = "radio:"
+
 internal data class MediaPlaylist(
     val id: String,
     val name: String,
@@ -49,6 +52,21 @@ internal class MediaLibraryStateRepository(
         persistStringSet(
             key = KEY_FAVORITE_STATIONS,
             values = toggled(current, stationId),
+        )
+
+    fun loadFavoritePlaylistIds(): Set<String> =
+        preferences
+            .getStringSet(KEY_FAVORITE_PLAYLISTS, emptySet())
+            ?.toSet()
+            .orEmpty()
+
+    fun toggleFavoritePlaylist(
+        current: Set<String>,
+        playlistId: String,
+    ): Set<String> =
+        persistStringSet(
+            key = KEY_FAVORITE_PLAYLISTS,
+            values = toggled(current, playlistId),
         )
 
     fun loadPlaylists(): List<MediaPlaylist> {
@@ -119,7 +137,7 @@ internal class MediaLibraryStateRepository(
                 playlist.copy(
                     itemUris =
                         playlist.itemUris.filter { uri ->
-                            uri in validUris
+                            uri in validUris || uri.startsWith(RADIO_ITEM_PREFIX)
                         },
                 )
             }
@@ -203,5 +221,6 @@ internal class MediaLibraryStateRepository(
         const val KEY_FAVORITE_AUDIO = "favorite_audio_uris"
         const val KEY_FAVORITE_STATIONS = "favorite_station_ids"
         const val KEY_PLAYLISTS = "playlists"
+        const val KEY_FAVORITE_PLAYLISTS = "favorite_playlist_ids"
     }
 }

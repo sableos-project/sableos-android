@@ -31,6 +31,7 @@ internal class MediaAppState(
     var favoriteAudioUris by mutableStateOf(repositories.libraryState.loadFavoriteAudioUris())
     var favoriteStationIds by mutableStateOf(repositories.libraryState.loadFavoriteStationIds())
     var playlists by mutableStateOf(emptyList<MediaPlaylist>())
+    var favoritePlaylistIds by mutableStateOf(repositories.libraryState.loadFavoritePlaylistIds())
     var showFavoriteStationsOnly by mutableStateOf(false)
 
     var editingStation by mutableStateOf<RadioStation?>(null)
@@ -142,6 +143,7 @@ internal class MediaAppState(
             favoriteAudioUris = favoriteAudioUris,
             favoriteStationIds = favoriteStationIds,
             playlists = playlists,
+            favoritePlaylistIds = favoritePlaylistIds,
             settings = settings,
             playlistName = playlistName,
             selectedPlaylistUris = selectedPlaylistUris,

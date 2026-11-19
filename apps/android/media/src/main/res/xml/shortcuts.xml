@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="favourites"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/hub_tab_favourites"
+        android:shortcutLongLabel="@string/hub_tab_favourites">
+        <intent
+            android:action="org.sableos.media.action.FAVOURITES"
+            android:targetClass="org.sableos.media.MainActivity"
+            android:targetPackage="org.sableos.media" />
+    </shortcut>
+</shortcuts>
