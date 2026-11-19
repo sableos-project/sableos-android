@@ -311,15 +311,16 @@ private fun HubPageHeader(
     calendarPeekEnabled: Boolean,
     openPanel: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        HomeBarControl(HomeBarControlSpec("Hub settings", "menu-2"), onClick = openPanel)
+    // Approved Hub design: the title at the left, the menu at the right.
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = HUB_LABEL,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Medium,
             color = Bb10Text,
-            modifier = Modifier.semantics { heading() },
+            modifier = Modifier.weight(1f).padding(start = 4.dp).semantics { heading() },
         )
+        HomeBarControl(HomeBarControlSpec("Hub settings", "menu-2"), onClick = openPanel)
     }
     SableHubSubtitle(session.data.conversations)
     Spacer(Modifier.height(if (io.github.aimindseye.tenseven.design.isSableShortWindow()) 2.dp else 6.dp))
@@ -533,10 +534,6 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
                 actions.onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI))
             })
         }
-    }
-    item(key = "hub-settings-link") {
-        Spacer(Modifier.height(8.dp))
-        MetroLink(text = t("hub_settings"), onClick = actions.onOpenHubSettings)
     }
 }
 
