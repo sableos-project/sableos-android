@@ -2,7 +2,6 @@ package com.katoaapps.openminilaunch.features.workprofile
 
 import android.content.Context
 import android.content.pm.LauncherApps
-import android.os.Build
 import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
@@ -26,23 +25,6 @@ internal class WorkProfileRepository private constructor(context: Context) {
             available = profiles.isNotEmpty(),
             paused = profiles.isNotEmpty() && profiles.all(::isPaused),
         )
-    }
-
-    fun setPaused(paused: Boolean): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false
-        val profiles = workProfiles()
-        if (profiles.isEmpty()) return false
-        return profiles.all { profile ->
-            if (isPaused(profile) == paused) {
-                true
-            } else {
-                runCatching {
-                    // A false result while resuming can mean Android opened its credential UI.
-                    userManager?.requestQuietModeEnabled(paused, profile)
-                    true
-                }.getOrDefault(false)
-            }
-        }
     }
 
     private fun workProfiles(): List<UserHandle> = runCatching {

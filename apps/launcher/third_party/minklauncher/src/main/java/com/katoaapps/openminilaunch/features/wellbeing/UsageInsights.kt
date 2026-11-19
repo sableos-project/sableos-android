@@ -2,7 +2,6 @@ package com.katoaapps.openminilaunch.features.wellbeing
 
 import com.katoaapps.openminilaunch.R
 import com.katoaapps.openminilaunch.features.apps.LauncherAppRepository
-import com.katoaapps.openminilaunch.model.LaunchableApp
 import com.katoaapps.openminilaunch.model.LauncherAppTarget
 
 import android.app.AppOpsManager
@@ -114,29 +113,6 @@ internal class UsageInsightsRepository(private val context: Context) {
             detail = detail,
         )
     }
-
-    fun launchableApps(): List<LaunchableApp> {
-        val profileAwareApps = launcherApps.targets().asSequence()
-            .filterNot { it.isWorkProfile }
-            .map { LaunchableApp(it.label, it.packageName) }
-            .distinctBy(LaunchableApp::packageName)
-            .sortedBy { it.label.lowercase() }
-            .toList()
-        if (profileAwareApps.isNotEmpty()) return profileAwareApps
-
-        // Mink's Day is deliberately personal-profile only. This fallback preserves its picker
-        // if LauncherApps is temporarily unavailable without broadening it to managed profiles.
-        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        return packageManager.queryIntentActivities(launcherIntent, 0)
-            .map { LaunchableApp(it.loadLabel(packageManager).toString(), it.activityInfo.packageName) }
-            .distinctBy(LaunchableApp::packageName)
-            .sortedBy { it.label.lowercase() }
-    }
-
-    fun automaticSocialPackages(apps: List<LaunchableApp>): Set<String> = apps.asSequence()
-        .map(LaunchableApp::packageName)
-        .filter { isSocial(it, emptySet()) }
-        .toSet()
 
     private fun readTimelineEvents(begin: Long, end: Long): List<UsageTimelineEvent> {
         val result = mutableListOf<UsageTimelineEvent>()
