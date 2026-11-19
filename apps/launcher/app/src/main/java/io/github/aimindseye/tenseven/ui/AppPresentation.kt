@@ -8,7 +8,6 @@ import android.graphics.drawable.AdaptiveIconDrawable
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -246,41 +245,6 @@ internal fun PrivacyDetail(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-}
-
-@Composable
-internal fun CompactAppRow(
-    app: AppEntry,
-    onClick: () -> Unit,
-    onContext: () -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 54.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .clickable(onClick = onClick)
-                    .padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AppMark(app = app, size = 36)
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = app.label,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-            )
-        }
-        TextButton(onClick = onContext) {
-            Text("⋯")
-        }
     }
 }
 

@@ -1,6 +1,5 @@
 package io.github.aimindseye.tenseven.ui
 
-import android.Manifest
 import android.content.Intent
 import android.provider.CallLog
 import androidx.compose.foundation.background
@@ -8,7 +7,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -62,9 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import io.github.aimindseye.tenseven.SableStartActivity
-import io.github.aimindseye.tenseven.conversations.ConversationAccess
 import io.github.aimindseye.tenseven.conversations.ConversationHub
-import io.github.aimindseye.tenseven.live.LiveAvailability
 import io.github.aimindseye.tenseven.live.LiveSurfaceSnapshot
 import io.github.aimindseye.tenseven.model.AppEntry
 import io.github.aimindseye.tenseven.model.HubBar
@@ -423,61 +419,6 @@ private fun HubPageComposePrompt(
         },
         onDismiss = { chrome.composePrompt = false },
     )
-}
-
-/**
- * The Hub page's unread bar: one item per app (its icon and count), most unread first, "+N" in
- * the last slot when they do not all fit; Enter or a tap on "+N" shows every app. While the device
- * is locked or Sable private mode is on, Hub sends one total without app names (a lock mark).
- */
-@Composable
-internal fun HubUnreadBar(
-    items: List<HubBar.Item>,
-    appFor: (String) -> AppEntry?,
-    onOpen: (HubBar.Item) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val slots = HubBar.slots(maxWidth.value.toInt())
-        val layout = HubBar.layout(items, slots)
-        val rows = if (expanded) items.chunked(slots) else listOf(layout.visible)
-        val overflow = if (expanded) 0 else layout.overflow
-        if (items.isEmpty()) {
-            Text(
-                text = t("no_new_notifications"),
-                style = MaterialTheme.typography.labelLarge,
-                color = Bb10Muted,
-                modifier = Modifier.height(HUB_BAR_ITEM_HEIGHT).padding(vertical = 6.dp),
-            )
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                rows.forEachIndexed { rowIndex, row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(HubBar.GAP_DP.dp)) {
-                        row.forEach { item ->
-                            HubBarItem(
-                                item = item,
-                                app = appFor(item.packageName),
-                                onOpen = { onOpen(item) },
-                            )
-                        }
-                        if (rowIndex == rows.lastIndex && overflow > 0) {
-                            HubBarChip(
-                                description = t("more_apps_with_notifications", overflow),
-                                onClick = { expanded = true },
-                            ) {
-                                Text(
-                                    text = HubBar.overflowLabel(overflow),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = LocalContentColor.current,
-                                    maxLines = 1,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
