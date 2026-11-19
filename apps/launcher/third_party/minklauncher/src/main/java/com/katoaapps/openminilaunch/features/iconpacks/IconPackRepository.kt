@@ -4,13 +4,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.UserManager
 import androidx.core.content.ContextCompat
-import com.katoaapps.openminilaunch.model.LauncherAppTarget
-import com.katoaapps.openminilaunch.model.LauncherShortcutTarget
-import com.katoaapps.openminilaunch.model.LauncherTarget
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,40 +42,6 @@ internal class IconPackRepository private constructor(context: Context) {
             filter,
             ContextCompat.RECEIVER_EXPORTED,
         )
-    }
-
-    fun installedPacks(): List<InstalledIconPack> {
-        return discovery.installedThemeActivities()
-            .mapNotNull { resolveInfo ->
-                val packageName = resolveInfo.activityInfo.packageName
-                runCatching {
-                    val definition = definition(packageName)
-                    InstalledIconPack(
-                        packageName = packageName,
-                        label = resolveInfo.loadLabel(packageManager).toString(),
-                        packIcon = resolveInfo.loadIcon(packageManager),
-                        previewIcons = previewIcons(packageName),
-                        hasReadableMappings = definition?.iconsByComponent?.isNotEmpty() == true,
-                    )
-                }.getOrNull()
-            }
-            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, InstalledIconPack::label))
-    }
-
-    fun iconFor(target: LauncherTarget, iconPackPackage: String): Drawable? {
-        val definition = definition(iconPackPackage) ?: return null
-        val specification = when (target) {
-            is LauncherAppTarget -> definition.iconForComponent(
-                componentName = target.componentName.flattenToString(),
-                packageName = target.packageName,
-            )
-            is LauncherShortcutTarget -> definition.iconForPackage(target.packageName)
-            else -> null
-        } ?: return null
-        val drawable = drawableLoader.load(iconPackPackage, specification) ?: return null
-        if (!target.isWorkProfile) return drawable
-        val user = userManager?.getUserForSerialNumber(target.userSerial) ?: return drawable
-        return packageManager.getUserBadgedIcon(drawable, user)
     }
 
     fun iconForPackage(packageName: String, iconPackPackage: String): Drawable? {

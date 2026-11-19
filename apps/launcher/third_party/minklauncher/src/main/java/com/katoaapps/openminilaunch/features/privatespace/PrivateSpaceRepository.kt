@@ -34,30 +34,11 @@ internal class PrivateSpaceRepository private constructor(context: Context) {
         return platform.snapshot()
     }
 
-    /**
-     * Only advertise a container Mink can actually reach. Some OEMs expose fragments of the
-     * Android contract while suppressing setup, so a settings IntentSender alone is not proof.
-     */
-    fun isEntryPointAvailable(): Boolean {
-        if (!isHomeLauncher()) return false
-        if (oemGateways.resolve() != null) return true
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return false
-        return platform.isConfigured()
-    }
-
     fun openSettings(context: Context): Boolean = platform.openSettings(context)
 
     fun setLocked(locked: Boolean): Boolean = platform.setLocked(locked).also { refresh() }
 
     fun launch(app: PrivateSpaceApp): Boolean = platform.launch(app)
-
-    fun launchGateway(gateway: PrivateSpaceGateway): Boolean = runCatching {
-        val intent = appContext.packageManager.getLaunchIntentForPackage(gateway.packageName)
-            ?: return false
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        appContext.startActivity(intent)
-        true
-    }.getOrDefault(false)
 
     fun refresh() {
         revisionState.update { it + 1 }

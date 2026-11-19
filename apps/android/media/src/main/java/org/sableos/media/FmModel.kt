@@ -119,6 +119,38 @@ internal object FmBand {
         }
 }
 
+/** True while the tuner is on and nothing from the player is playing, so Now playing should describe the radio. */
+internal fun FmUiState.showsOnNowPlaying(player: PlaybackUiState): Boolean = powered && !player.isPlaying
+
+/** Now playing's view of the radio: the station name, frequency and what the station sends, as a live stream. */
+internal fun PlaybackUiState.withFm(
+    fm: FmUiState,
+    names: Map<Int, String>,
+): PlaybackUiState {
+    val tuned = FmBand.isValid(fm.station)
+    val frequency = if (tuned) "${FmBand.format(fm.station)} MHz" else t("fm_radio")
+    val name =
+        names[fm.station].orEmpty().ifBlank { fm.programService.trim() }.ifBlank { frequency }
+    val source =
+        listOf(t("fm_radio"), frequency.takeIf { it != name && tuned }, fm.radioText.trim().takeIf { it.isNotEmpty() })
+            .filterNotNull()
+            .joinToString(" · ")
+    return copy(
+        connected = true,
+        title = name,
+        source = source,
+        isPlaying = !fm.muted,
+        positionMs = 0L,
+        durationMs = 0L,
+        hasPrevious = true,
+        hasNext = true,
+        currentIndex = C_INDEX_NONE,
+        queue = emptyList(),
+    )
+}
+
+private const val C_INDEX_NONE = -1
+
 /** Presets are the stations the user starred, in frequency order; the first nine are on Alt+1-9. */
 internal object FmPresets {
     const val MAX_KEYED = 9

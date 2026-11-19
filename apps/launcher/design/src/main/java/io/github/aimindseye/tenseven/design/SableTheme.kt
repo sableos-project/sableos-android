@@ -81,12 +81,10 @@ data class SableAppearance(
 object SableDesignContract {
     const val SCHEMA_VERSION = 2
     const val KEY_APPEARANCE_MODE = "sable.appearance.mode"
-    const val KEY_ACCENT = "sable.appearance.accent"
 
     const val MIN_TOUCH_TARGET_DP = 48
     const val SCREEN_HORIZONTAL_PADDING_DP = 24
     const val SCREEN_VERTICAL_PADDING_DP = 20
-    const val KEY_CORNER_STYLE = "sable.appearance.corner_style"
 
     /** Largest radius of each allowed corner style (Compact, Rounded); see SableShapeTable. */
     const val MAX_COMPACT_CORNER_RADIUS_DP = 6

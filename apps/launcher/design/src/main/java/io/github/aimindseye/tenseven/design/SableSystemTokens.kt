@@ -124,12 +124,9 @@ object SableGeometryTokens {
     const val SPACE_8_DP = 32
 
     const val ROW_MIN_HEIGHT_DP = 48
-    const val COMPACT_ROW_MIN_DP = 48
-    const val COMPACT_ROW_MAX_DP = 56
 
     const val SHAPE_SMALL_DP = 8
     const val SHAPE_MEDIUM_DP = 12
-    const val SHAPE_LARGE_DP = 16
     const val CARD_RADIUS_DP = SHAPE_MEDIUM_DP
     const val SMALL_CONTROL_RADIUS_DP = SHAPE_SMALL_DP
 
@@ -156,8 +153,6 @@ enum class SableTypeRole(
 object SableMotionTokens {
     const val DEFAULT_TRANSITION_MIN_MS = 120
     const val DEFAULT_TRANSITION_MAX_MS = 180
-    const val FAST_MS = 120
-    const val STANDARD_MS = 180
 
     /** Reduce-motion (animator scale 0) removes the transition rather than shortening it. */
     fun transitionMs(

@@ -1,0 +1,135 @@
+name: Sable apps
+
+# Compiles each app folder when something under it changes (and runs its unit tests where the old
+# SableOS CI did). One job per Gradle project; a job is skipped when its folder is untouched.
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - '.github/workflows/apps.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - '.github/workflows/apps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      max-parallel: 4  # Maven Central answers 429 when every job resolves at once
+      matrix:
+        include:
+          - name: home (Sable Launcher)
+            dir: apps/launcher
+            java: '17'
+            tasks: ':app:assembleRelease :app:testDebugUnitTest'
+          - name: mail
+            dir: apps/mail
+            java: '21'
+            tasks: ':app-thunderbird:assembleFossRelease -Pci=true :legacy:ui:legacy:testDebugUnitTest --tests com.fsck.k9.activity.SableMailKeymapTest'
+          - name: platform apps
+            dir: apps/titan2-platform
+            java: '17'
+            tasks: 'assembleRelease test'
+          - name: r8 apps
+            dir: apps/android
+            java: '17'
+            tasks: ':calculator:assembleRelease :hub:assembleDebug :messages:assembleRelease :media:assembleDebug :weather:assembleDebug :calendar:assembleDebug :notes:assembleRelease :tasks:assembleRelease :browser:assembleRelease :assistant:assembleRelease :design:testDebugUnitTest :hub:testDebugUnitTest'
+          - name: reader
+            dir: apps/reader
+            java: '21'
+            tasks: ':leisure:assembleSableDebug'
+          - name: text reader
+            dir: apps/textreader
+            java: '17'
+            tasks: ':app:assembleDebug testDebugUnitTest'
+          - name: terminal
+            dir: apps/connectbot
+            java: '21'
+            tasks: ':app:assembleOssRelease'
+          - name: calendar sync (DAVx5)
+            dir: apps/davx5
+            java: '21'
+            tasks: ':app-ose:assembleOseRelease'
+          - name: calendar link (ICSx5)
+            dir: apps/icsx5
+            java: '21'
+            tasks: ':app:assembleStandardRelease'
+          - name: key remapping (Key Mapper)
+            dir: apps/keymapper
+            java: '21'
+            tasks: ':app:assembleRelease'
+          - name: speech engine
+            dir: apps/espeak/android
+            java: '17'
+            tasks: 'assembleRelease'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Did this app change?
+        id: changed
+        env:
+          DIR: ${{ matrix.dir }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          top="$(echo "$DIR" | cut -d/ -f1-2)"
+          if [[ -z "$BASE" || "${{ github.event_name }}" == workflow_dispatch ]]; then
+            echo run=true >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$BASE" HEAD | grep -q -e "^$top/" -e '^.github/workflows/apps.yml'; then
+            echo run=true >> "$GITHUB_OUTPUT"
+          else
+            echo run=false >> "$GITHUB_OUTPUT"
+            echo "no change under $top; skipped"
+          fi
+      - name: Free disk space
+        if: steps.changed.outputs.run == 'true'
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/node_modules /opt/hostedtoolcache/CodeQL
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        if: steps.changed.outputs.run == 'true'
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - name: Android SDK 36
+        if: steps.changed.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          pkgs=('platforms;android-36' 'build-tools;36.0.0')
+          # eSpeak NG 1.52.0 pins its own NDK, CMake and build-tools.
+          [[ '${{ matrix.dir }}' != apps/espeak/android ]] ||
+            pkgs+=('platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' 'cmake;3.22.1')
+          # Key Mapper compiles against SDK 37, and its evdev module pins its NDK.
+          [[ '${{ matrix.dir }}' != apps/keymapper ]] || pkgs+=('platforms;android-37.0' 'ndk;27.3.13750724')
+          "$sdkmanager" "${pkgs[@]}"
+      - name: Rust for Key Mapper's evdev module
+        if: steps.changed.outputs.run == 'true' && matrix.dir == 'apps/keymapper'
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.93.0 --profile minimal
+          rustup default 1.93.0
+          rustup target add armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+        if: steps.changed.outputs.run == 'true'
+      - name: Build and test
+        if: steps.changed.outputs.run == 'true'
+        working-directory: ${{ matrix.dir }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --console=plain --continue ${{ matrix.tasks }}

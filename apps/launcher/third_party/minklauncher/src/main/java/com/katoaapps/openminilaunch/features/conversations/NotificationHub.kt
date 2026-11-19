@@ -1,7 +1,6 @@
 package com.katoaapps.openminilaunch.features.conversations
 
 
-import android.Manifest
 import android.app.Activity
 import android.app.ActivityOptions
 import android.app.Notification
@@ -10,17 +9,12 @@ import android.app.RemoteInput
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.ContactsContract
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
-import android.service.notification.StatusBarNotification
 import androidx.compose.runtime.mutableStateListOf
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 
 data class ConversationMessage(
     val id: String,
@@ -187,10 +181,6 @@ object NotificationHub {
             )
             true
         }.getOrDefault(false)
-    }
-
-    fun clearDemoReplies() {
-        demoReplies.clear()
     }
 
     fun requestReconnect(context: Context) {
