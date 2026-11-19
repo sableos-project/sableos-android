@@ -878,8 +878,8 @@ private class Bb7HomeCanvas(
             ) {
                 banner()
                 if (!open && !model.searching) desktop(columns)
+                // The Favourites tray is the bottom of BBOS 7 home (Sable home proposal); no Hub/Camera bar.
                 tray(columns, rowPx)
-                referenceBar()
             }
         }
     }
@@ -896,7 +896,7 @@ private class Bb7HomeCanvas(
             Bb7BannerNotifications(
                 counts = feeds.live.live.hubApps,
                 enabledPackages = feeds.display.hubSources,
-                showStrip = false,
+                showStrip = true,
                 expanded = feeds.display.stripExpanded,
             ),
             input.launch.onOpenHub,
@@ -979,30 +979,6 @@ private class Bb7HomeCanvas(
                         input.launch.onOpenMenu(actions.menuFor(app, false))
                     },
                 ),
-            )
-        }
-    }
-
-    private val referenceBar: @Composable () -> Unit = {
-        with(state) {
-            Bb7ReferenceBar(
-                apps = apps,
-                appsOpen = open || model.searching,
-                actions =
-                    Bb7BarActions(
-                        hub = input.launch.onOpenHub,
-                        command = input.extra.onOpenCommand,
-                        apps = actions::openApps,
-                        favorites = {
-                            panel = Bb7Panel.Favorites
-                            open = false
-                            query = ""
-                            pickingDesktop = false
-                            moving = false
-                            selected = -1
-                        },
-                        launch = { input.launch.onLaunchApp(it) },
-                    ),
             )
         }
     }
