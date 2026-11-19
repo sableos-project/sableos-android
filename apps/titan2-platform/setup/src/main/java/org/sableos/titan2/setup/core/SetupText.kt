@@ -109,6 +109,9 @@ object SetupText {
         "apps_set_essentials" to "Essentials",
         "apps_set_stock" to "Stock Android",
         "action_display_settings" to "Display settings",
+        "row_lock_title" to "Lock screen",
+        "row_lock_detail" to "Show the media player (FM included) and Hub notices on the lock screen. On by default",
+        "action_lock_screen" to "Lock screen",
         "action_sable_apps" to "Sable apps"
     )
 
