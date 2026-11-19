@@ -362,10 +362,14 @@ internal fun HubSection() {
 internal fun LockLayerSection(state: StartStateRepository) {
     val context = LocalContext.current
     var lockMedia by remember { mutableStateOf(io.github.aimindseye.tenseven.platform.LockScreenMedia.isOn(context)) }
+    var lockLayer by remember { mutableStateOf(state.loadLockLayer()) }
+    // One choice for the lock screen: the media player (and with it FM) and the Hub notices go on and off together.
     SwitchRow(stringResource(R.string.ls_lock_media), stringResource(R.string.ls_lock_media_detail), lockMedia) {
         lockMedia = it
         io.github.aimindseye.tenseven.platform.LockScreenMedia
             .set(context, it)
+        lockLayer = it
+        state.saveLockLayer(it)
     }
     // Automatic lock-layer wake requires the optional notification listener service.
     val capabilities =
@@ -379,7 +383,6 @@ internal fun LockLayerSection(state: StartStateRepository) {
         )
         return
     }
-    var lockLayer by remember { mutableStateOf(state.loadLockLayer()) }
     val activity = context as? ComponentActivity
     val overlayAllowed = capabilities.overlay == CapabilityStatus.Ready
     // Do not prompt for a listener that is not available on this device.

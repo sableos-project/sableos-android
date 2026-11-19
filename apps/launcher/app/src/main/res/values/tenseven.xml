@@ -204,7 +204,7 @@
     <string name="ls_labels_detail">Turn off for a cleaner grid of icons only</string>
     <string name="lock_hint">Swipe up or press Enter to unlock</string>
     <string name="ls_lock_media">Media player on the lock screen</string>
-    <string name="ls_lock_media_detail">Shows what is playing, with play, pause and skip, on the lock screen. On by default.</string>
+    <string name="ls_lock_media_detail">Shows what is playing, FM radio included, and your Hub notices on the lock screen. On by default.</string>
     <string name="ls_lock_layer">Sable Launcher lock layer</string>
     <string name="ls_lock_layer_detail">A BlackBerry-style screen over your phone\'s lock: time, date, apps with waiting notifications and a camera shortcut. Your PIN or fingerprint still unlocks the phone.</string>
     <string name="ls_lock_access">Allow notification access</string>
