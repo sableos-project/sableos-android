@@ -896,7 +896,7 @@ private class Bb7HomeCanvas(
             Bb7BannerNotifications(
                 counts = feeds.live.live.hubApps,
                 enabledPackages = feeds.display.hubSources,
-                showStrip = false,
+                showStrip = true,
                 expanded = feeds.display.stripExpanded,
             ),
             input.launch.onOpenHub,
