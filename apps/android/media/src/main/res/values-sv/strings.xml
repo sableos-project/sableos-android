@@ -221,4 +221,7 @@
     <string name="hub_tab_recordings">Recordings</string>
     <string name="recordings">recordings</string>
     <string name="online_stations">Online stations</string>
+    <string name="fm_stations">Stations</string>
+    <string name="fm_stop_rec">Stop rec</string>
+    <string name="fm_record_short">Record</string>
 </resources>

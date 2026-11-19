@@ -2439,6 +2439,7 @@ private fun MediaHubFrame(
 }
 
 /** The action bar of each view in the Q25 frame (design A). */
+@Composable
 private fun hubActions(
     state: MediaScreenState,
     actions: MediaScreenActions,
@@ -2520,10 +2521,46 @@ private fun hubActions(
             )
         }
 
+        MediaDestination.Fm -> {
+            fmBarActions(state.fm, actions.fm)
+        }
+
         else -> {
             emptyList()
         }
     }
+}
+
+/** The FM bar of the approved board: Previous, power, Next, Stations, Record (red Stop while recording). */
+@Composable
+private fun fmBarActions(
+    fm: FmUiState,
+    fmActions: FmScreenActions?,
+): List<MediaBarAction> {
+    if (fmActions == null || !fm.available) return emptyList()
+    return listOf(
+        MediaBarAction(MediaIcons.Previous, t("previous"), { fmActions.onSeek(false) }, enabled = fm.powered),
+        MediaBarAction(
+            icon = if (fm.powered) MediaIcons.Pause else MediaIcons.Play,
+            label = if (fm.powered) t("turn_off") else t("turn_on"),
+            onClick = fmActions.onPower,
+            active = fm.powered,
+        ),
+        MediaBarAction(MediaIcons.Next, t("next"), { fmActions.onSeek(true) }, enabled = fm.powered),
+        MediaBarAction(
+            MediaIcons.Manage,
+            t("fm_stations"),
+            { FmViewState.showStations = !FmViewState.showStations },
+            active = FmViewState.showStations,
+        ),
+        MediaBarAction(
+            icon = if (fm.recording) MediaIcons.Stop else MediaIcons.Record,
+            label = if (fm.recording) t("fm_stop_rec") else t("fm_record_short"),
+            onClick = fmActions.onToggleRecording,
+            enabled = fm.powered || fm.recording,
+            tint = FmRecordRed,
+        ),
+    )
 }
 
 /**

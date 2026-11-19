@@ -268,6 +268,8 @@ internal class MediaBarAction(
     val active: Boolean = false,
     /** When set, the button opens this menu instead of [onClick]. */
     val menu: List<MediaMenuItem> = emptyList(),
+    /** A fixed colour for the icon and label (the red record button); null follows the state. */
+    val tint: Color? = null,
 )
 
 /** The 50 dp action bar: up to five buttons, each a 20 dp icon over an 11 sp label. */
@@ -296,6 +298,7 @@ private fun MediaActionButton(action: MediaBarAction) {
     val color =
         when {
             !action.enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = DISABLED_ALPHA)
+            action.tint != null -> action.tint
             action.active -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurface
         }
@@ -365,6 +368,7 @@ internal object MediaIcons {
     val Next = filled("M16 5h2v14h-2zM4 5v14l11-7z")
     val Previous = filled("M6 5h2v14H6zM20 5v14L9 12z")
     val Stop = filled("M6 6h12v12H6z")
+    val Record = filled("M12 5a7 7 0 1 0 0 14a7 7 0 1 0 0-14z")
     val More =
         filled(
             "M12 3a2 2 0 1 0 0 4a2 2 0 1 0 0-4zM12 10a2 2 0 1 0 0 4a2 2 0 1 0 0-4zM12 17a2 2 0 1 0 0 4a2 2 0 1 0 0-4z",

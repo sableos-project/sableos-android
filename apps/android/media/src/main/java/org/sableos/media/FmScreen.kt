@@ -40,6 +40,11 @@ import org.sableos.design.SableValuePanel
 import org.sableos.media.MediaText.t
 
 /** Whether the FM destination is offered in the top navigation (the FM bridge is installed). */
+/** Whether the FM screen shows the station list and tuning buttons (the bar's Stations) instead of the tuner alone. */
+internal object FmViewState {
+    var showStations by mutableStateOf(false)
+}
+
 internal val LocalFmAvailable = staticCompositionLocalOf { false }
 
 private val FM_KEY_HINT: String get() = t("space_on_off_j_k")
@@ -79,13 +84,16 @@ internal fun FmScreen(
             )
         } else {
             FmTunerPanel(fm, names)
-            FmControls(fm, favorites, actions)
-            Text(
-                text = FM_KEY_HINT,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            FmStationList(fm, favorites, names, actions)
+            if (FmViewState.showStations) {
+                FmControls(fm, favorites, actions)
+                FmStationList(fm, favorites, names, actions)
+            } else {
+                Text(
+                    text = FM_KEY_HINT,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -173,7 +181,7 @@ private fun FmTunerPanel(
     }
 }
 
-private val FmRecordRed = Color(0xFFE5484D)
+internal val FmRecordRed = Color(0xFFE5484D)
 private val FmDialHeight = 36.dp
 
 /** The tuning dial: a tick every 0.1 MHz, a taller one every MHz, and a needle on the tuned station. */
