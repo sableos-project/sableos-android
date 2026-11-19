@@ -20,14 +20,17 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import org.sableos.design.SableGlobalTheme
 import org.sableos.design.SableUndoBar
+import org.sableos.media.MediaText.t
 
 internal data class MediaRepositories(
     val localAudio: LocalAudioRepository,
@@ -95,6 +98,13 @@ internal fun MediaApp(
     // Reloads when a recording ends, so the new file shows under Recordings.
     LaunchedEffect(repositories.localAudio, repositories.libraryState, fmState.recording) {
         controllers.library.load()
+    }
+
+    // The "Saved" toast when a recording ends.
+    var wasRecording by remember { mutableStateOf(false) }
+    LaunchedEffect(fmState.recording) {
+        if (wasRecording && !fmState.recording) state.message = t("fm_recording_saved")
+        wasRecording = fmState.recording
     }
 
     LaunchedEffect(openFmToken) {

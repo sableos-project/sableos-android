@@ -235,4 +235,5 @@
     <string name="fm_tab_favourites">Favourites</string>
     <string name="fm_tab_presets">Presets</string>
     <string name="fm_none_in_tab">No stations here yet. Press S to scan.</string>
+    <string name="fm_recording_saved">Saved to Recordings/FM recordings</string>
 </resources>
