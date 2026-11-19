@@ -361,6 +361,12 @@ internal fun HubSection() {
 @Composable
 internal fun LockLayerSection(state: StartStateRepository) {
     val context = LocalContext.current
+    var lockMedia by remember { mutableStateOf(io.github.aimindseye.tenseven.platform.LockScreenMedia.isOn(context)) }
+    SwitchRow(stringResource(R.string.ls_lock_media), stringResource(R.string.ls_lock_media_detail), lockMedia) {
+        lockMedia = it
+        io.github.aimindseye.tenseven.platform.LockScreenMedia
+            .set(context, it)
+    }
     // Automatic lock-layer wake requires the optional notification listener service.
     val capabilities =
         io.github.aimindseye.tenseven.ui
