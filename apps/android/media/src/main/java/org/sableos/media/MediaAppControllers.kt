@@ -272,6 +272,10 @@ internal class MediaPlaylistController(
                 playlistId = playlist.id,
             )
         state.deletedPlaylist = playlist
+        // A favourite is a shortcut: when the original goes, its shortcut goes with it.
+        if (playlist.id in state.favoritePlaylistIds) {
+            state.favoritePlaylistIds = libraryState.toggleFavoritePlaylist(state.favoritePlaylistIds, playlist.id)
+        }
         state.message = t("playlist_removed")
     }
 
@@ -596,10 +600,12 @@ internal class MediaFmController(
 ) {
     fun togglePower() = host.fm.togglePower(state.fmFavorites)
 
-    /** Opens a starred station from the Favourites list and shows Now playing. */
+    /** Opens a starred station from Favourites: stops other playback, plays it and shows the dial. */
     fun play(station: Int) {
+        host.playbackController.setPlaying(false)
         host.fm.playStation(station)
-        state.destination = MediaDestination.NowPlaying
+        FmViewState.showStations = false
+        state.destination = MediaDestination.Fm
     }
 
     fun toggleFavorite(station: Int) {
