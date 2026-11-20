@@ -459,8 +459,9 @@ private class Bb7HomeActions(
             if (fromDesktop || key in favorites) add(t("move_2") to { state.moving = true })
             add("Launch" to { input.launch.onLaunchApp(app) })
             if (key in desktopKeys) {
+                // As in the approved BBOS 7 menu: the icon leaves the home screen, the app stays installed.
                 add(
-                    resources.getString(R.string.bb7_remove_home) to {
+                    "Hide Icon" to {
                         input.edits.onDesktopChanged(desktopKeys.filterNot { it == key })
                     },
                 )
@@ -468,6 +469,19 @@ private class Bb7HomeActions(
                 add(resources.getString(R.string.bb7_add_home) to { addToDesktop(app) })
             }
             add(t("app_info") to { input.launch.onOpenAppInfo(app) })
+            // Delete is the system uninstaller (it asks to confirm), for removable apps of this user only.
+            if (app.canUninstall && app.inLauncherUser) {
+                add(
+                    "Delete" to {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_DELETE, android.net.Uri.fromParts("package", app.component.packageName, null))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    },
+                )
+            }
         }
 
     /** The home's own lines: Maximise Panel, Manage Panels, Show All, and Options (settings live in one place). */
