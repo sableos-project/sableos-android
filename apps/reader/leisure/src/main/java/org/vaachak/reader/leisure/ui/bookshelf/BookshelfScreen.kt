@@ -110,6 +110,9 @@ private const val MIME_EPUB = "application/epub+zip"
 private const val MIME_PDF = "application/pdf"
 private const val MIME_COMIC = "application/vnd.comicbook+zip"
 private const val MIME_CBZ = "application/x-cbz"
+private const val MIME_COMIC_RAR = "application/vnd.comicbook-rar"
+private const val MIME_CBR = "application/x-cbr"
+private const val MIME_RAR = "application/vnd.rar"
 private const val MIME_ZIP = "application/zip"
 private const val MIME_OCTET_STREAM = "application/octet-stream"
 private const val MIME_AUDIO = "audio/*"
@@ -118,7 +121,7 @@ private const val FOLDER_FORMAT = "inode/directory"
 // Picker types for choosing the file of a restored ("needs file") title again.
 private fun relinkMimeTypes(kind: String): Array<String> = when (kind) {
     "PDF" -> arrayOf(MIME_PDF)
-    "COMIC" -> arrayOf(MIME_COMIC, MIME_CBZ, MIME_ZIP, MIME_OCTET_STREAM)
+    "COMIC" -> arrayOf(MIME_COMIC, MIME_CBZ, MIME_COMIC_RAR, MIME_CBR, MIME_RAR, MIME_ZIP, MIME_OCTET_STREAM)
     "AUDIOBOOK" -> arrayOf(MIME_AUDIO, MIME_OCTET_STREAM)
     else -> arrayOf(MIME_EPUB)
 }
@@ -130,6 +133,9 @@ private val ADD_BOOK_MIME_TYPES = arrayOf(
     MIME_PDF,
     MIME_COMIC,
     MIME_CBZ,
+    MIME_COMIC_RAR,
+    MIME_CBR,
+    MIME_RAR,
     MIME_ZIP,
     MIME_OCTET_STREAM,
     MIME_AUDIO,

@@ -45,7 +45,7 @@ object LibraryFilters {
     /** What an empty shelf says, so a Comics or Audio tab tells the reader how to fill it. */
     fun emptyHint(scope: PublicationKind?): String = when (scope) {
         PublicationKind.COMIC ->
-            "No comics yet. Press + to add a CBZ file, or the folder button to add a folder of images."
+            "No comics yet. Press + to add a CBZ or CBR file, or the folder button to add a folder of images."
         PublicationKind.AUDIOBOOK ->
             "No audiobooks yet. Press + to add an audio file, or the folder button to add a folder of tracks."
         else -> "No books found"

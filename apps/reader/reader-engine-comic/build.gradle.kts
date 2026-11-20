@@ -21,6 +21,8 @@ kotlin {
 
 dependencies {
     api(project(":reader-model"))
+    // CBR is RAR; the JDK and Android read zip only. Pure Java, so the engine stays Android-free.
+    implementation(libs.junrar)
 
     testImplementation(libs.junit)
 }

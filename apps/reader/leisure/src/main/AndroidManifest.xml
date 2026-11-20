@@ -97,6 +97,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/vnd.comicbook+zip" />
                 <data android:mimeType="application/x-cbz" />
+                <data android:mimeType="application/vnd.comicbook-rar" />
+                <data android:mimeType="application/x-cbr" />
                 <data android:scheme="content" />
                 <data android:scheme="file" />
             </intent-filter>
@@ -108,6 +110,8 @@
                 <data android:scheme="file" />
                 <data android:pathPattern=".*\\.cbz" />
                 <data android:pathPattern=".*\\..*\\.cbz" />
+                <data android:pathPattern=".*\\.cbr" />
+                <data android:pathPattern=".*\\..*\\.cbr" />
             </intent-filter>
 
         </activity>
