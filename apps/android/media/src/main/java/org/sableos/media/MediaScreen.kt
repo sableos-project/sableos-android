@@ -2440,7 +2440,11 @@ private fun MediaHubFrame(
                     },
                 note =
                     when {
-                        fmStations -> t("fm_stations_count", FmPresets.list(state.fmFavorites, state.fm.stations).size)
+                        fmStations ->
+                            listOfNotNull(
+                                FmOnline.region.takeIf { it.isNotBlank() },
+                                t("fm_stations_count", FmPresets.list(state.fmFavorites, state.fm.stations).size),
+                            ).joinToString(" \u00B7 ")
                         fmScreen -> if (state.fm.speaker) t("speaker") else t("headphones")
                         recordings -> t("fm_recordings_note")
                         destination == MediaDestination.Collection && state.libraryPivot == LibraryPivot.Favorites ->

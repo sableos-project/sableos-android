@@ -25,6 +25,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -118,6 +122,35 @@ internal fun MediaApp(
     // The FM bridge is bound the first time the FM screen opens, not on every launch.
     LaunchedEffect(state.destination, host.fm) {
         if (state.destination == MediaDestination.Fm) host.fm.connect()
+    }
+
+    // The FM screen's online side: the place, the country's station directory and, while a station is tuned, what
+    // its internet stream is playing. All of it is optional; FM works without it.
+    val askLocation =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) uiScope.launch { FmOnline.region = withContext(Dispatchers.IO) { FmRegion.place(context) } }
+        }
+    LaunchedEffect(state.destination == MediaDestination.Fm) {
+        if (state.destination != MediaDestination.Fm) return@LaunchedEffect
+        if (context.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            askLocation.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+        val directory = FmDirectoryRepository(context)
+        withContext(Dispatchers.IO) {
+            FmOnline.region = FmRegion.place(context)
+            FmOnline.directory = directory.load(FmRegion.country(context))
+        }
+    }
+    LaunchedEffect(fmState.station, fmState.powered, FmOnline.directory) {
+        FmOnline.song = ""
+        val stream = FmOnline.directory[fmState.station]?.streamUrl.orEmpty()
+        if (!fmState.powered || stream.isEmpty()) return@LaunchedEffect
+        while (true) {
+            FmOnline.song = withContext(Dispatchers.IO) { IcyMetadata.fetch(stream) }.orEmpty()
+            delay(SONG_REFRESH_MS)
+        }
     }
 
     // Bind the bridge at launch too, so Now playing knows the radio is on without the FM screen being opened.
@@ -325,3 +358,5 @@ private fun mediaScreenActions(
 }
 
 private const val AUDIO_MIME_FILTER = "audio/*"
+
+private const val SONG_REFRESH_MS = 20_000L
