@@ -38,6 +38,13 @@ class FrameLiveSummaryTest {
         assertNull(detail("calendar", value = state.copy(settings = FrameSettings(liveSummaries = false))))
     }
 
+    @Test fun fmRadioSessionShowsOnSableMediasFrame() {
+        val fm = snapshot.copy(music = snapshot.music.copy(detail = "Classic · Song", sourcePackage = "com.android.fmradio"))
+        assertEquals("Classic · Song", detail("org.sableos.media", data = fm))
+        assertNull(detail("yt.music", data = fm))
+        assertTrue(FrameLiveSummary.playsMedia(FrameItem(FrameApp("org.sableos.media", 0)), fm))
+    }
+
     @Test fun accessLossAndMissingDataNeverReuseOldSummaries() {
         assertNull(detail("calendar", value = state.copy(calendarAllowed = false)))
         assertNull(detail("yt.music", value = state.copy(notificationsAllowed = false)))

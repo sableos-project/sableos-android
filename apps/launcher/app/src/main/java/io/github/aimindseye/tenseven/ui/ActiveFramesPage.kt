@@ -287,7 +287,7 @@ private fun RecentFrameCard(
                     .myUserHandle()
                     .hashCode(),
             )?.source
-            ?.label ?: "Live summary"
+            ?.label ?: if (FrameLiveSummary.playsMedia(item, snapshot)) "Now playing" else "Live summary"
     val renderedBadge =
         when {
             summary != null -> badge
