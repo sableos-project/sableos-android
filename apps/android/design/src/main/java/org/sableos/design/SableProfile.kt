@@ -2,6 +2,9 @@ package org.sableos.design
 
 import android.content.Context
 import android.provider.Settings
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * The whole-OS profile: BlackBerry 10 or BlackBerry 7. A profile is the experience as a whole (home,
@@ -38,4 +41,11 @@ enum class SableProfile(
                 Settings.Secure.putString(context.contentResolver, SETTING_KEY, profile.stableValue)
             }.getOrDefault(false)
     }
+}
+
+/** The whole-OS profile for the current composition, read once per composition. */
+@Composable
+fun rememberSableProfile(): SableProfile {
+    val context = LocalContext.current
+    return remember(context) { SableProfile.read(context) }
 }

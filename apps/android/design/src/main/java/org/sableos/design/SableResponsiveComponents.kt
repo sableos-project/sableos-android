@@ -79,10 +79,14 @@ fun Modifier.sableFocusRing(): Modifier =
     composed {
         var focused by remember { mutableStateOf(false) }
         val color = MaterialTheme.colorScheme.primary
+        // BlackBerry 7 fills the focused row with the accent; BlackBerry 10 outlines it.
+        val filled = rememberSableProfile() == SableProfile.BB7
         this
             .onFocusChanged { focused = it.hasFocus }
             .then(
-                if (focused) {
+                if (focused && filled) {
+                    Modifier.background(color.copy(alpha = 0.4f), MaterialTheme.shapes.small)
+                } else if (focused) {
                     Modifier.border(BorderStroke(2.dp, color), MaterialTheme.shapes.small)
                 } else {
                     Modifier
