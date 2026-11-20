@@ -179,12 +179,49 @@ fun SableActionButton(
     }
 }
 
+/** The BlackBerry 7 title bar: the accent blue across the top with the title in white. */
+@Composable
+private fun Bb7TitleBar(
+    title: String,
+    subtitle: String?,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.primary)
+                .padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (subtitle != null) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.85f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
 @Composable
 fun SablePageHeader(
     title: String,
     subtitle: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    if (rememberSableProfile() == SableProfile.BB7) {
+        Bb7TitleBar(title = title, subtitle = subtitle, modifier = modifier)
+        return
+    }
     if (isSableShortWindow()) {
         SableShortHeader(title = title, subtitle = subtitle, modifier = modifier)
         return
