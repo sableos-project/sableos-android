@@ -721,6 +721,7 @@ internal fun mediaInfoLines(playback: PlaybackUiState): List<Pair<String, String
     buildList {
         add("title" to playback.title)
         add("source" to playback.source)
+        if (playback.album.isNotBlank()) add("album" to playback.album)
         val position = formatClock(playback.positionMs)
         add(
             "position" to

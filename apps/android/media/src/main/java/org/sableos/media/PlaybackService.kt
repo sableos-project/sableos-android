@@ -169,6 +169,7 @@ class PlaybackService : MediaSessionService() {
                             uri = item.uri,
                             title = item.title,
                             artist = item.artist,
+                            album = item.album,
                         )
                     }
 
@@ -203,12 +204,14 @@ class PlaybackService : MediaSessionService() {
         uri: String,
         title: String?,
         artist: String?,
+        album: String? = null,
     ): MediaItem {
         val metadata =
             MediaMetadata
                 .Builder()
                 .setTitle(title?.takeIf { it.isNotBlank() } ?: t("local_audio"))
                 .setArtist(artist?.takeIf { it.isNotBlank() } ?: t("unknown_artist"))
+                .setAlbumTitle(album?.takeIf { it.isNotBlank() })
                 .build()
 
         return MediaItem

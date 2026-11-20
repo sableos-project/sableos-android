@@ -19,6 +19,7 @@ internal data class QueueItemUiState(
     val source: String,
     /** The item's address (its media id), used to find its picture. */
     val uri: String = "",
+    val album: String = "",
 )
 
 internal enum class PlaybackSkip {
@@ -38,6 +39,8 @@ internal data class PlaybackUiState(
     val shuffle: Boolean = false,
     val currentIndex: Int = -1,
     val queue: List<QueueItemUiState> = emptyList(),
+    /** The album of the current track, empty when the file has none or it is radio. */
+    val album: String = "",
 )
 
 internal class PlaybackController(
@@ -257,6 +260,7 @@ internal class PlaybackController(
                         ?.toString()
                         ?.takeIf(String::isNotBlank)
                         ?: t("local_audio"),
+                album = metadata.albumTitle?.toString().orEmpty(),
             )
         }
 
@@ -285,6 +289,7 @@ internal class PlaybackController(
                     .takeIf { it != C.INDEX_UNSET }
                     ?: C.INDEX_UNSET,
             queue = cachedQueue,
+            album = metadata.albumTitle?.toString().orEmpty(),
         )
     }
 
