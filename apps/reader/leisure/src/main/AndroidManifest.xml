@@ -37,6 +37,8 @@
         </intent>
         <!-- SableOS global appearance authority (Light/Dark/accent). -->
         <provider android:authorities="org.sableos.appearance" />
+        <!-- SableOS launcher Active Frame covers: what this app's frame says (title and one line). -->
+        <provider android:authorities="org.sableos.launcher.covers" />
     </queries>
 
     <application

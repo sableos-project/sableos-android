@@ -38,9 +38,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.sableos.reader.core.audio.AudiobookSourceLoader
 import org.sableos.reader.engine.audio.AudioManifest
+import org.sableos.reader.engine.audio.AudioTimeFormat
 import org.sableos.reader.engine.audio.AudioPlaybackSettings
 import org.sableos.reader.engine.audio.MonotonicClock
 import org.sableos.reader.engine.audio.PlaybackSourcePolicy
+import org.sableos.reader.frames.FrameCover
 import org.sableos.reader.model.LocatorCodec
 import org.sableos.reader.model.TimeLocator
 import org.vaachak.reader.core.data.local.BookDao
@@ -115,6 +117,8 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
     override fun onDestroy() {
         AudiobookNowPlaying.cleared()
+        val appContext = applicationContext
+        Thread { FrameCover.clear(appContext) }.start()
         writeFinalPosition()
         handler.removeCallbacksAndMessages(null)
         session?.release()
@@ -151,6 +155,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
     private inner class PlaybackListener : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             AudiobookNowPlaying.setPlaying(isPlaying)
+            updateCover()
             if (isPlaying) {
                 handler.removeCallbacks(tick)
                 handler.post(tick)
@@ -211,6 +216,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
             applySettings(settingsStore.load(hash, profileId), active)
             active.open(hash, manifest, mediaItems(book, manifest), resolveStart(book, startMs), play)
             AudiobookNowPlaying.opened(hash, manifest.title, play)
+            updateCover()
             SessionResult(SessionResult.RESULT_SUCCESS)
         }
     }
@@ -269,6 +275,17 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
     private fun recordProgress(snapshot: ProgressSnapshot) {
         scope.launch { writeProgress(snapshot) }
+        updateCover()
+    }
+
+    /** What the launcher's Active Frame says about the audiobook: playing or paused, chapter and position. */
+    private fun updateCover() {
+        val title = AudiobookNowPlaying.state.value?.title ?: return
+        val snapshot = playback?.snapshotNow() ?: return
+        val locator = snapshot.progress.locator as? TimeLocator ?: return
+        val state = if (player.isPlaying) "Playing" else "Paused"
+        val detail = "$state, chapter ${locator.chapterIndex + 1}, ${AudioTimeFormat.clock(locator.positionMs)}"
+        Thread { FrameCover.set(applicationContext, title, detail) }.start()
     }
 
     private suspend fun writeProgress(snapshot: ProgressSnapshot) {
