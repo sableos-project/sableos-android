@@ -19,8 +19,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.sableos.reader.comic.ComicFit
 import org.sableos.reader.comic.ComicViewSettings
 import org.sableos.reader.comic.ComicViewSettingsCodec
+import org.sableos.reader.comic.ComicZoom
 import org.sableos.reader.core.comic.ComicBitmapDecoder
 import org.sableos.reader.core.comic.ComicOpenOutcome
 import org.sableos.reader.core.comic.ComicOpener
@@ -209,7 +211,9 @@ class ComicReaderViewModel @Inject constructor(
     }
 
     private fun prefetchAround(index: Int) {
-        val target = lastTarget ?: return
+        val base = lastTarget ?: return
+        val zoom = mutableState.value.zoomPercent
+        val target = base.first * zoom / ComicZoom.MIN to base.second * zoom / ComicZoom.MIN
         val nav = navigator ?: return
         viewModelScope.launch {
             nav.window().filter { it != index }.forEach { pageBitmap(it, target.first, target.second) }
@@ -232,6 +236,31 @@ class ComicReaderViewModel @Inject constructor(
             is ComicUiAction.SetFit -> updateSettings { it.copy(fit = action.fit) }
             is ComicUiAction.Show -> mutableState.update { it.copy(overlay = action.overlay) }
             ComicUiAction.ToggleChrome -> mutableState.update { it.copy(chromeVisible = !it.chromeVisible) }
+            ComicUiAction.ZoomIn -> changeZoom(ComicZoom.zoomIn(mutableState.value.zoomPercent))
+            ComicUiAction.ZoomOut -> zoomOut()
+            ComicUiAction.ZoomReset -> changeZoom(ComicZoom.MIN)
+        }
+    }
+
+    private fun zoomOut() {
+        val state = mutableState.value
+        val atBottom = state.zoomPercent <= ComicZoom.MIN
+        if (atBottom && state.settings.mode.isPaged && state.settings.fit == ComicFit.FIT_WIDTH) {
+            onAction(ComicUiAction.SetFit(ComicFit.FIT_PAGE))
+        } else {
+            changeZoom(ComicZoom.zoomOut(state.zoomPercent))
+        }
+    }
+
+    /** Zooming needs the page-width fit, so zooming in from the whole-page fit switches to it. */
+    private fun changeZoom(percent: Int) {
+        val state = mutableState.value
+        if (state.settings.mode.isContinuous || percent == state.zoomPercent) return
+        mutableState.update { it.copy(zoomPercent = percent) }
+        if (percent > ComicZoom.MIN && state.settings.fit == ComicFit.FIT_PAGE) {
+            updateSettings { it.copy(fit = ComicFit.FIT_WIDTH) }
+        } else {
+            invalidateRenders()
         }
     }
 

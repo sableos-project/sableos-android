@@ -97,7 +97,7 @@ private fun ComicViewport(state: ComicReaderUiState, viewModel: ComicReaderViewM
             state.isLoading || state.pageCount == 0 -> CircularProgressIndicator()
             // Recreating the viewer on a mode change restarts it at the current page.
             else -> key(mode) {
-                if (mode.isContinuous) StripViewer(state, viewModel, scroll) else PagerViewer(state, viewModel)
+                if (mode.isContinuous) StripViewer(state, viewModel, scroll) else PagerViewer(state, viewModel, scroll)
             }
         }
     }

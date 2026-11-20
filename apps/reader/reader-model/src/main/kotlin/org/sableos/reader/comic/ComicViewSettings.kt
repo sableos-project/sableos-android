@@ -37,7 +37,7 @@ enum class ComicFit(val stableValue: String) {
 /** Per-title viewer choices. Webtoon strips always fit the width; the stored fit only matters for paged modes. */
 data class ComicViewSettings(
     val mode: ComicReadingMode = ComicReadingMode.PAGED_LTR,
-    val fit: ComicFit = ComicFit.FIT_PAGE,
+    val fit: ComicFit = ComicFit.FIT_WIDTH,
 ) {
     val effectiveFit: ComicFit
         get() = if (mode.isContinuous) ComicFit.FIT_WIDTH else fit
@@ -69,6 +69,6 @@ object ComicViewSettingsCodec {
         val stored = text?.takeIf { it.isNotBlank() }
             ?.let { runCatching { json.decodeFromString(StoredComicSettings.serializer(), it) }.getOrNull() }
         val mode = ComicReadingMode.fromStableValue(stored?.mode)
-        return mode?.let { ComicViewSettings(it, ComicFit.fromStableValue(stored?.fit) ?: ComicFit.FIT_PAGE) }
+        return mode?.let { ComicViewSettings(it, ComicFit.fromStableValue(stored?.fit) ?: ComicFit.FIT_WIDTH) }
     }
 }

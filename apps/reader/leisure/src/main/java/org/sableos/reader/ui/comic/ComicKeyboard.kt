@@ -5,9 +5,12 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.sableos.reader.comic.ComicFit
 import org.sableos.reader.comic.ComicKeyCommand
 import org.sableos.reader.comic.ComicKeyPolicy
+import org.sableos.reader.comic.ComicZoom
 import org.sableos.reader.input.LocalEditableFocus
 import org.sableos.reader.input.LocalReaderKeyDispatcher
 
@@ -25,11 +28,13 @@ internal fun ComicKeyboard(viewModel: ComicReaderViewModel, scroll: ScrollTarget
         val unregister = dispatcher.register { input ->
             val state = viewModel.uiState.value
             val overlayOpen = state.overlay != ComicOverlay.NONE
-            val command = ComicKeyPolicy.decide(input, state.settings.mode, editable.focused, overlayOpen)
+            val pageScrolls = state.settings.effectiveFit == ComicFit.FIT_WIDTH
+            val zoomed = state.zoomPercent > ComicZoom.MIN
+            val command = ComicKeyPolicy.decide(
+                input, state.settings.mode, editable.focused, overlayOpen, pageScrolls, zoomed,
+            )
             command?.let {
-                perform(it, viewModel, scroll, latestLeave.value) { delta ->
-                    scope.launch { scroll.scrollBy?.invoke(delta) }
-                }
+                perform(it, viewModel, scroll, latestLeave.value, scope)
             }
             command != null
         }
@@ -42,9 +47,24 @@ private fun perform(
     viewModel: ComicReaderViewModel,
     scroll: ScrollTarget,
     onLeave: () -> Unit,
-    scrollBy: (Float) -> Unit,
+    scope: CoroutineScope,
 ) {
+    val scrollBy = { delta: Float -> scope.launch { scroll.scrollBy?.invoke(delta) }; Unit }
+    val panBy = { delta: Float -> scope.launch { scroll.panBy?.invoke(delta) }; Unit }
     when (command) {
+        ComicKeyCommand.ADVANCE_IN_PAGE -> when {
+            scroll.canScrollDown?.invoke() == true -> scrollBy(scroll.page(1f))
+            else -> viewModel.onAction(ComicUiAction.NextPage)
+        }
+        ComicKeyCommand.REVERSE_IN_PAGE -> when {
+            scroll.canScrollUp?.invoke() == true -> scrollBy(scroll.page(-1f))
+            else -> viewModel.onAction(ComicUiAction.PreviousPage)
+        }
+        ComicKeyCommand.PAN_LEFT -> panBy(scroll.line(-1f))
+        ComicKeyCommand.PAN_RIGHT -> panBy(scroll.line(1f))
+        ComicKeyCommand.ZOOM_IN -> viewModel.onAction(ComicUiAction.ZoomIn)
+        ComicKeyCommand.ZOOM_OUT -> viewModel.onAction(ComicUiAction.ZoomOut)
+        ComicKeyCommand.ZOOM_RESET -> viewModel.onAction(ComicUiAction.ZoomReset)
         ComicKeyCommand.NEXT_PAGE -> viewModel.onAction(ComicUiAction.NextPage)
         ComicKeyCommand.PREVIOUS_PAGE -> viewModel.onAction(ComicUiAction.PreviousPage)
         ComicKeyCommand.SCROLL_LINE_DOWN -> scrollBy(scroll.line(1f))

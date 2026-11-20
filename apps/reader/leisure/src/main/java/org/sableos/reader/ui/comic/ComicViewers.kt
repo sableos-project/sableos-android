@@ -19,12 +19,15 @@ import org.sableos.reader.comic.ComicReadingMode
 
 /** Paged viewer: left-to-right, right-to-left (reversed layout) or top-to-bottom. One page at a time. */
 @Composable
-internal fun PagerViewer(state: ComicReaderUiState, viewModel: ComicReaderViewModel) {
+internal fun PagerViewer(state: ComicReaderUiState, viewModel: ComicReaderViewModel, scroll: ScrollTarget) {
     val mode = state.settings.mode
     val pager = rememberPagerState(initialPage = state.pageIndex.coerceIn(0, state.pageCount - 1)) { state.pageCount }
     PagerSync(pager, viewModel)
     val page: @Composable (Int) -> Unit = { index ->
-        ComicPage(index, state, viewModel, strip = false, modifier = Modifier.fillMaxSize())
+        ComicPage(
+            index, state, viewModel, strip = false, modifier = Modifier.fillMaxSize(),
+            scroll = scroll, active = index == pager.currentPage,
+        )
     }
     if (mode == ComicReadingMode.VERTICAL_PAGER) {
         VerticalPager(state = pager, modifier = Modifier.fillMaxSize(), pageContent = { page(it) })
