@@ -5,12 +5,15 @@ import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,7 +49,30 @@ internal class LockMediaNow(
     val art: android.graphics.Bitmap?,
     val playing: Boolean,
     val controller: MediaController,
+    val positionMs: Long = 0L,
+    val durationMs: Long = 0L,
+    val canSeekSteps: Boolean = false,
 )
+
+/** The position now: the session's last report plus the time since, at the playback speed, while playing. */
+private fun currentPosition(state: PlaybackState?): Long {
+    if (state == null) return 0L
+    val moved =
+        if (state.state == PlaybackState.STATE_PLAYING) {
+            ((android.os.SystemClock.elapsedRealtime() - state.lastPositionUpdateTime) * state.playbackSpeed).toLong()
+        } else {
+            0L
+        }
+    return (state.position + moved).coerceAtLeast(0L)
+}
+
+private fun clock(ms: Long): String {
+    val total = ms / 1_000
+    val h = total / 3_600
+    val m = total % 3_600 / 60
+    val s = total % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
 
 internal fun readLockMedia(context: android.content.Context): LockMediaNow? =
     runCatching {
@@ -69,6 +95,11 @@ internal fun readLockMedia(context: android.content.Context): LockMediaNow? =
                         ?: active.metadata?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON),
                 playing = active.playbackState?.state == PlaybackState.STATE_PLAYING,
                 controller = active,
+                positionMs = currentPosition(active.playbackState),
+                durationMs = active.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L,
+                canSeekSteps =
+                    (active.playbackState?.actions ?: 0L) and
+                        (PlaybackState.ACTION_REWIND or PlaybackState.ACTION_FAST_FORWARD) != 0L,
             )
         }
     }.getOrNull()
@@ -102,7 +133,7 @@ internal fun LockMediaCard(modifier: Modifier = Modifier) {
                 androidx.compose.foundation.Image(
                     bitmap = art.asImageBitmap(),
                     contentDescription = "Album art",
-                    modifier = Modifier.size(72.dp).padding(end = 10.dp),
+                    modifier = Modifier.size(96.dp).padding(end = 10.dp),
                 )
             }
             Column(Modifier.weight(1f)) {
@@ -122,6 +153,16 @@ internal fun LockMediaCard(modifier: Modifier = Modifier) {
                 }
             }
         }
+        if (media.durationMs > 0L) {
+            val fraction = (media.positionMs.toFloat() / media.durationMs).coerceIn(0f, 1f)
+            Box(Modifier.fillMaxWidth().padding(top = 6.dp).height(3.dp).background(Bb10Text.copy(alpha = 0.2f))) {
+                Box(Modifier.fillMaxWidth(fraction).height(3.dp).background(Bb10Text))
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(clock(media.positionMs), color = Bb10Text.copy(alpha = 0.7f), fontSize = 11.sp)
+                Text(clock(media.durationMs), color = Bb10Text.copy(alpha = 0.7f), fontSize = 11.sp)
+            }
+        }
         Row(
             Modifier.fillMaxWidth().padding(top = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -129,9 +170,11 @@ internal fun LockMediaCard(modifier: Modifier = Modifier) {
         ) {
             val controls = media.controller.transportControls
             LockMediaButton("Previous", "|<") { controls.skipToPrevious() }
+            if (media.canSeekSteps) LockMediaButton("Rewind", "<<") { controls.rewind() }
             LockMediaButton(if (media.playing) "Pause" else "Play", if (media.playing) "||" else ">") {
                 if (media.playing) controls.pause() else controls.play()
             }
+            if (media.canSeekSteps) LockMediaButton("Fast forward", ">>") { controls.fastForward() }
             LockMediaButton("Next", ">|") { controls.skipToNext() }
         }
     }
@@ -151,7 +194,7 @@ private fun LockMediaButton(
             .sableFocusRing()
             .clickable(onClick = onClick)
             .semantics { contentDescription = description }
-            .padding(horizontal = 18.dp, vertical = 10.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         color = Bb10Text,
         fontSize = 18.sp,
         fontWeight = FontWeight.Bold,
