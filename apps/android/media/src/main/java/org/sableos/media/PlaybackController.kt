@@ -35,6 +35,7 @@ internal data class PlaybackUiState(
     val durationMs: Long = 0L,
     val hasPrevious: Boolean = false,
     val hasNext: Boolean = false,
+    val shuffle: Boolean = false,
     val currentIndex: Int = -1,
     val queue: List<QueueItemUiState> = emptyList(),
 )
@@ -101,6 +102,10 @@ internal class PlaybackController(
 
     fun stop() {
         controller?.stop()
+    }
+
+    fun toggleShuffle() {
+        controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
     }
 
     fun seekTo(positionMs: Long) {
@@ -274,6 +279,7 @@ internal class PlaybackController(
             durationMs = resolvedDuration(player),
             hasPrevious = player.hasPreviousMediaItem(),
             hasNext = player.hasNextMediaItem(),
+            shuffle = player.shuffleModeEnabled,
             currentIndex =
                 player.currentMediaItemIndex
                     .takeIf { it != C.INDEX_UNSET }
