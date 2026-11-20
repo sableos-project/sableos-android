@@ -41,6 +41,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -144,6 +147,7 @@ internal data class MediaScreenState(
     val favoriteStationIds: Set<String>,
     val playlists: List<MediaPlaylist>,
     val favoritePlaylistIds: Set<String> = emptySet(),
+    val favoriteAlbums: Set<String> = emptySet(),
     val settings: MediaSettings,
     val playlistName: String,
     val selectedPlaylistUris: Set<String>,
@@ -195,6 +199,7 @@ internal data class MediaScreenActions(
     val onDeletePlaylist: (MediaPlaylist) -> Unit,
     val onPlayPlaylist: (MediaPlaylist) -> Unit,
     val onToggleFavoritePlaylist: (MediaPlaylist) -> Unit = {},
+    val onToggleFavoriteAlbum: (String) -> Unit = {},
     val onPlaylistNameChange: (String) -> Unit,
     val onTogglePlaylistItem: (String) -> Unit,
     val onSavePlaylist: () -> Unit,
@@ -349,6 +354,8 @@ internal fun MediaScreen(
                                 favoritePlaylistIds = state.favoritePlaylistIds,
                                 onPlayPlaylist = onPlayPlaylist,
                                 onToggleFavoritePlaylist = actions.onToggleFavoritePlaylist,
+                                favoriteAlbums = state.favoriteAlbums,
+                                onToggleFavoriteAlbum = actions.onToggleFavoriteAlbum,
                             ),
                     )
                 }
@@ -921,6 +928,8 @@ private class FavoriteShortcuts(
     val favoritePlaylistIds: Set<String>,
     val onPlayPlaylist: (MediaPlaylist) -> Unit,
     val onToggleFavoritePlaylist: (MediaPlaylist) -> Unit,
+    val favoriteAlbums: Set<String>,
+    val onToggleFavoriteAlbum: (String) -> Unit,
 ) {
     val count: Int get() = stations.size + fm.size + playlists.size
 }
@@ -1158,8 +1167,15 @@ private fun LazyListScope.collectionResults(
     when (content.pivot) {
         LibraryPivot.Songs -> trackItems(index.songs, tracks, allFavorites = false)
         LibraryPivot.Artists -> groupItems(index.artists, tracks.onPlay)
-        LibraryPivot.Albums -> groupItems(index.albums, tracks.onPlay)
-        LibraryPivot.Favorites -> favoriteItems(index.favorites, tracks, content.shortcuts)
+        LibraryPivot.Albums ->
+            groupItems(index.albums, tracks.onPlay, content.shortcuts.favoriteAlbums, content.shortcuts.onToggleFavoriteAlbum)
+        LibraryPivot.Favorites ->
+            favoriteItems(
+                index.favorites,
+                index.albums.filter { it.name in content.shortcuts.favoriteAlbums },
+                tracks,
+                content.shortcuts,
+            )
         LibraryPivot.Recordings -> recordingItems(index.recordings, tracks)
         LibraryPivot.Playlists -> playlistItems(query, content.visiblePlaylists, index.availableUris, playlists)
     }
@@ -1193,6 +1209,8 @@ private fun LazyListScope.trackItems(
 private fun LazyListScope.groupItems(
     groups: List<MediaGroupSummary>,
     onPlay: (Int) -> Unit,
+    favoriteNames: Set<String>? = null,
+    onToggleFavorite: ((String) -> Unit)? = null,
 ) {
     items(
         count = groups.size,
@@ -1203,6 +1221,8 @@ private fun LazyListScope.groupItems(
             title = group.name,
             detail = group.detail,
             accent = accentFor(group.name.hashCode()),
+            favorite = favoriteNames?.let { group.name in it },
+            onToggleFavorite = onToggleFavorite?.let { toggle -> { toggle(group.name) } },
             onClick = {
                 onPlay(group.sourceIndex)
             },
@@ -1229,10 +1249,11 @@ private fun LazyListScope.recordingItems(
 
 private fun LazyListScope.favoriteItems(
     favorites: List<MediaIndexedTrack>,
+    albums: List<MediaGroupSummary>,
     tracks: CollectionTrackActions,
     shortcuts: FavoriteShortcuts,
 ) {
-    if (favorites.isEmpty() && shortcuts.count == 0) {
+    if (favorites.isEmpty() && albums.isEmpty() && shortcuts.count == 0) {
         item {
             C2InfoPanel(
                 title = t("no_favorite_tracks"),
@@ -1241,6 +1262,20 @@ private fun LazyListScope.favoriteItems(
         }
     } else {
         trackItems(favorites, tracks, allFavorites = true, tag = t("tag_song"))
+        items(
+            count = albums.size,
+            key = { index -> "album-${albums[index].name}" },
+        ) { index ->
+            val album = albums[index]
+            LibraryGroupRow(
+                title = album.name,
+                detail = t("hub_tab_albums") + " · " + album.detail,
+                accent = accentFor(album.name.hashCode()),
+                favorite = true,
+                onToggleFavorite = { shortcuts.onToggleFavoriteAlbum(album.name) },
+                onClick = { tracks.onPlay(album.sourceIndex) },
+            )
+        }
         items(
             count = shortcuts.fm.size,
             key = { index -> "fm-${shortcuts.fm[index].first}" },
@@ -1558,6 +1593,8 @@ private fun LibraryGroupRow(
     detail: String,
     accent: Color,
     onClick: () -> Unit,
+    favorite: Boolean? = null,
+    onToggleFavorite: (() -> Unit)? = null,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Surface(
@@ -1595,6 +1632,19 @@ private fun LibraryGroupRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = SableResponsive.SECONDARY_TEXT_MAX_LINES,
                         overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (favorite != null && onToggleFavorite != null) {
+                    Text(
+                        text = if (favorite) "★" else "☆",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier =
+                            Modifier
+                                .sableFocusRing()
+                                .clickable(role = Role.Button, onClick = onToggleFavorite)
+                                .semantics { contentDescription = t("fm_favourites") }
+                                .padding(horizontal = SableSpacing.Sm),
                     )
                 }
                 Text(
@@ -2463,7 +2513,7 @@ private fun MediaHubFrame(
                             t(
                                 "shortcuts_count",
                                 state.favoriteAudioUris.size + state.fmFavorites.size +
-                                    state.favoriteStationIds.size + state.favoritePlaylistIds.size,
+                                    state.favoriteStationIds.size + state.favoritePlaylistIds.size + state.favoriteAlbums.size,
                             )
                         destination == MediaDestination.Collection && state.libraryPivot == LibraryPivot.Playlists ->
                             t("playlists_count", state.playlists.size)

@@ -69,6 +69,21 @@ internal class MediaLibraryStateRepository(
             values = toggled(current, playlistId),
         )
 
+    fun loadFavoriteAlbums(): Set<String> =
+        preferences
+            .getStringSet(KEY_FAVORITE_ALBUMS, emptySet())
+            ?.toSet()
+            .orEmpty()
+
+    fun toggleFavoriteAlbum(
+        current: Set<String>,
+        album: String,
+    ): Set<String> =
+        persistStringSet(
+            key = KEY_FAVORITE_ALBUMS,
+            values = toggled(current, album),
+        )
+
     fun loadPlaylists(): List<MediaPlaylist> {
         val raw = preferences.getString(KEY_PLAYLISTS, null) ?: return emptyList()
 
@@ -222,5 +237,6 @@ internal class MediaLibraryStateRepository(
         const val KEY_FAVORITE_STATIONS = "favorite_station_ids"
         const val KEY_PLAYLISTS = "playlists"
         const val KEY_FAVORITE_PLAYLISTS = "favorite_playlist_ids"
+        const val KEY_FAVORITE_ALBUMS = "favorite_album_names"
     }
 }
