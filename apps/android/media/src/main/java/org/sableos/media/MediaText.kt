@@ -11,6 +11,14 @@ import org.sableos.design.SableTexts
 object MediaText {
     val EN: Map<String, String> =
         mapOf(
+            "live_fm" to "Live FM",
+            "output" to "Output",
+            "hint_fm_dial" to "Space on/off · J/K station · Shift+J/K 0.1 · Alt+1-9 presets · F star · R record · O output",
+            "hint_fm_stations" to "Enter tune · F star · Alt+1-9 save preset · Back to the dial",
+            "hint_fm_recording" to "R stop recording · Space on/off · J/K station · F star",
+            "hint_favourites" to "Enter play · F remove star · Favourites are shortcuts",
+            "hint_lists" to "Enter play · N new list · Songs and online radio",
+            "hint_recordings" to "Enter play · D delete · Back to the dial",
             "track_n_of_m" to "%1\$d of %2\$d",
             "tag_song" to "Song",
             "tag_fm" to "FM",

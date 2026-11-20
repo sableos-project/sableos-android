@@ -25,7 +25,9 @@ class FmModelTest {
         assertEquals(command(FmKeyCommand.TuneDown), fm(KeyEvent.KEYCODE_J, 'J', shift = true))
         assertEquals(command(FmKeyCommand.TuneUp), fm(KeyEvent.KEYCODE_DPAD_RIGHT, shift = true, repeat = 4))
         assertEquals(command(FmKeyCommand.Output), fm(KeyEvent.KEYCODE_O, 'o'))
-        assertEquals(command(FmKeyCommand.Scan), fm(KeyEvent.KEYCODE_R, 'r'))
+        assertEquals(command(FmKeyCommand.Record), fm(KeyEvent.KEYCODE_R, 'r'))
+        assertEquals(command(FmKeyCommand.Scan), fm(KeyEvent.KEYCODE_S, 's'))
+        assertEquals(command(FmKeyCommand.Stations), fm(KeyEvent.KEYCODE_L, 'l'))
         assertEquals(command(FmKeyCommand.Favorite), fm(KeyEvent.KEYCODE_F, 'f'))
         assertEquals(command(FmKeyCommand.Mute), fm(KeyEvent.KEYCODE_M, 'm'))
     }

@@ -1179,7 +1179,6 @@ private fun LazyListScope.trackItems(
         val item = indexedTrack.item
         LocalTrackRow(
             item = item,
-            accent = accentFor(indexedTrack.sourceIndex),
             favorite = allFavorites || item.uri in tracks.favoriteAudioUris,
             onToggleFavorite = { tracks.onToggleFavorite(item) },
             onPlay = { tracks.onPlay(indexedTrack.sourceIndex) },
@@ -1463,7 +1462,6 @@ private fun buildMediaCollectionIndex(
 @Composable
 private fun LocalTrackRow(
     item: LocalAudioItem,
-    accent: Color,
     favorite: Boolean,
     onToggleFavorite: () -> Unit,
     onPlay: () -> Unit,
@@ -1471,40 +1469,18 @@ private fun LocalTrackRow(
     /** A type tag shown before the artist, used where songs share a list with stations and playlists. */
     tag: String? = null,
 ) {
-    // Dense row: one primary trailing action (play); favorite moves to the menu.
+    // Board row: tag box, bold title, gray artist line, duration. Long press stars or unstars.
     // Focus is reported so F (favorite) and D (remove) act on the focused track.
-    Column(modifier = Modifier.fillMaxWidth()) {
-        SableDenseRow(
-            modifier = Modifier.onFocusChanged { onFocusChange(it.hasFocus) },
-            title = item.title,
-            subtitle = listOfNotNull(tag, item.artist, item.album).filter { it.isNotBlank() }.joinToString(" · "),
-            onClick = onPlay,
-            actions =
-                listOf(
-                    SableRowAction(ROW_ACTION_PLAY, t("play"), primary = true),
-                    SableRowAction(
-                        ROW_ACTION_FAVORITE,
-                        if (favorite) t("remove_from_favorites") else t("add_to_favorites"),
-                    ),
-                ),
-            onAction = { action ->
-                when (action.id) {
-                    ROW_ACTION_PLAY -> onPlay()
-                    ROW_ACTION_FAVORITE -> onToggleFavorite()
-                }
-            },
-            leading = {
-                // The song's own cover art when the file carries one (owner, 2026-11-13).
-                MediaArt(
-                    source = ArtworkSource.Embedded(item.uri),
-                    name = item.title,
-                    fallback = accent,
-                    size = if (isSableShortWindow()) MediaRowArtShort else 46.dp,
-                )
-            },
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    }
+    MediaBoardRow(
+        modifier = Modifier.onFocusChanged { onFocusChange(it.hasFocus) },
+        title = item.title,
+        subtitle = listOfNotNull(item.artist, item.album).filter { it.isNotBlank() }.joinToString(" · "),
+        tag = (tag ?: "\u266A").take(2),
+        trailing = if (item.durationMs > 0L) formatDuration(item.durationMs) else "",
+        onClick = onPlay,
+        onMore = onToggleFavorite,
+        starred = favorite,
+    )
 }
 
 @Composable
@@ -2399,6 +2375,10 @@ private fun MediaHubFrame(
             }.takeIf { destination != MediaDestination.NowPlaying },
             MediaMenuItem(t("now_playing")) { go(MediaDestination.NowPlaying) }
                 .takeIf { destination != MediaDestination.NowPlaying },
+            MediaMenuItem(t("hub_tab_artists")) {
+                actions.onLibraryPivotChange(LibraryPivot.Artists)
+                go(MediaDestination.Collection)
+            }.takeIf { destination != MediaDestination.NowPlaying },
             MediaMenuItem(t("up_next_2")) { go(MediaDestination.Queue) }.takeIf { playback.queue.isNotEmpty() },
         ) +
             (
@@ -2475,25 +2455,47 @@ private fun MediaHubFrame(
         if (destination != MediaDestination.NowPlaying && destination != MediaDestination.Fm && !recordings) {
             MediaNowLine(playback = playback, art = nowArt) { go(MediaDestination.NowPlaying) }
         }
-        MediaActionBar(hubActions(state, actions))
+        MediaActionBar(
+            hubActions(state, actions),
+            hint = hubHint(state.destination, state.libraryPivot, state.fm.recording),
+        )
     }
 }
-
-/** The ♥ of Now playing: stars the playing song (Up next stays in the ⋮ menu). Off for stations and episodes. */
+/**
+ * The heart on the Now playing bar. It stars whatever is playing: a song (a shortcut in Favourites), the tuned FM
+ * station, or an online radio station.
+ */
+@Composable
 private fun nowPlayingHeart(
     state: MediaScreenState,
     actions: MediaScreenActions,
 ): MediaBarAction {
-    val playing = state.playback.queue.getOrNull(state.playback.currentIndex)
-    val song = playing?.let { item -> state.localItems.firstOrNull { it.uri == item.uri } }
-    val starred = song != null && song.uri in state.favoriteAudioUris
-    return MediaBarAction(
-        icon = if (starred) MediaIcons.StarFilled else MediaIcons.Star,
+    fun heart(
+        starred: Boolean,
+        enabled: Boolean,
+        onClick: () -> Unit,
+    ) = MediaBarAction(
+        icon = if (starred) MediaIcons.HeartFilled else MediaIcons.Heart,
         label = t("fm_favourites"),
-        onClick = { song?.let(actions.onToggleFavoriteAudio) },
-        enabled = song != null,
+        onClick = onClick,
+        enabled = enabled,
         active = starred,
     )
+    val playback = state.playback
+    if (state.fm.showsOnNowPlaying(playback)) {
+        val station = state.fm.station
+        return heart(station in state.fmFavorites, FmBand.isValid(station)) { actions.fm?.onToggleFavorite?.invoke(station) }
+    }
+    val playing = playback.queue.getOrNull(playback.currentIndex)
+    val song = playing?.let { item -> state.localItems.firstOrNull { it.uri == item.uri } }
+    if (song != null) {
+        return heart(song.uri in state.favoriteAudioUris, true) { actions.onToggleFavoriteAudio(song) }
+    }
+    val radio = playing?.let { item -> state.stations.firstOrNull { it.url == item.uri } }
+    if (radio != null) {
+        return heart(radio.id in state.favoriteStationIds, true) { actions.onToggleFavoriteStation(radio) }
+    }
+    return heart(false, false) {}
 }
 
 /** The action bar of each view in the Q25 frame (design A). */
@@ -2630,7 +2632,7 @@ private fun fmBarActions(
     val power =
         MediaBarAction(
             icon = if (fm.powered) MediaIcons.Pause else MediaIcons.Play,
-            label = if (fm.powered) t("turn_off") else t("turn_on"),
+            label = if (fm.powered) t("pause") else t("play"),
             onClick = fmActions.onPower,
             active = fm.powered,
         )
@@ -2651,11 +2653,32 @@ private fun fmBarActions(
             ),
         )
     }
+    val stations = MediaBarAction(MediaIcons.Manage, t("fm_stations"), { FmViewState.showStations = true })
+    if (fm.recording) {
+        // The recording board: Stop rec (red) takes the power button's place, and Output takes Record's.
+        return listOf(
+            previous,
+            MediaBarAction(
+                icon = MediaIcons.Stop,
+                label = t("fm_stop_rec"),
+                onClick = fmActions.onToggleRecording,
+                active = true,
+                tint = FmRecordRed,
+            ),
+            next,
+            stations,
+            MediaBarAction(
+                icon = MediaIcons.Dial,
+                label = t("output"),
+                onClick = fmActions.onToggleSpeaker,
+            ),
+        )
+    }
     return listOf(
         previous,
         power,
         next,
-        MediaBarAction(MediaIcons.Manage, t("fm_stations"), { FmViewState.showStations = true }),
+        stations,
         MediaBarAction(
             icon = if (fm.recording) MediaIcons.Stop else MediaIcons.Record,
             label = if (fm.recording) t("fm_stop_rec") else t("fm_record_short"),
@@ -2785,3 +2808,20 @@ private fun NowPlayingQ25(
 
 private val NowPlayingArtShort = 112.dp
 private const val NOW_PLAYING_UPCOMING_ROWS = 20
+
+/** The one-line key hint above the action bar, as on each approved board. */
+@Composable
+private fun hubHint(
+    destination: MediaDestination,
+    pivot: LibraryPivot,
+    recording: Boolean,
+): String? =
+    when {
+        destination == MediaDestination.Fm && FmViewState.showStations -> t("hint_fm_stations")
+        destination == MediaDestination.Fm && recording -> t("hint_fm_recording")
+        destination == MediaDestination.Fm -> FM_KEY_HINT
+        destination == MediaDestination.Collection && pivot == LibraryPivot.Favorites -> t("hint_favourites")
+        destination == MediaDestination.Collection && pivot == LibraryPivot.Playlists -> t("hint_lists")
+        destination == MediaDestination.Collection && pivot == LibraryPivot.Recordings -> t("hint_recordings")
+        else -> null
+    }

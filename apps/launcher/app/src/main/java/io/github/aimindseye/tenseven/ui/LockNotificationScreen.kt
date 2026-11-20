@@ -85,6 +85,7 @@ internal fun LockNotificationScreen(
             .padding(12.dp),
     ) {
         LockClock()
+        LockMediaCard(Modifier.padding(bottom = 8.dp))
         LockNotificationBody(content, actions, Modifier.weight(1f))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             LockFooterAction(

@@ -11,6 +11,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -324,10 +325,26 @@ fun SableTheme(
             )
         }
 
-    val shapes = remember(appearance.cornerStyle) { sableShapes(appearance.cornerStyle) }
+    val profile = rememberSableProfile()
+    val baseShapes = remember(appearance.cornerStyle) { sableShapes(appearance.cornerStyle) }
+    // Dialogs use the extraLarge shape and the surfaceContainerHigh colour. BBOS 10: a flat black card with a
+    // hairline corner. BBOS 7: a square boxed dialog (the title bar and the filled focused button come from
+    // the accent and the focus fill).
+    val shapes =
+        remember(baseShapes, profile) {
+            baseShapes.copy(
+                extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(if (profile == SableProfile.BB7) 0.dp else 2.dp),
+            )
+        }
+    val themed =
+        if (profile == SableProfile.BB10 && colors.background.luminance() < 0.5f) {
+            colors.copy(surfaceContainerHigh = Color(0xFF0B0B0B))
+        } else {
+            colors
+        }
 
     MaterialTheme(
-        colorScheme = colors,
+        colorScheme = themed,
         typography = if (isSableShortWindow()) SableShortTypography else SableTypography,
         shapes = shapes,
         content = content,

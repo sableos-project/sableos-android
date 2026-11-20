@@ -244,4 +244,12 @@
     <string name="tag_radio">Radio</string>
     <string name="tag_playlist">Playlist</string>
     <string name="track_n_of_m">%1$d of %2$d</string>
+    <string name="output">Output</string>
+    <string name="hint_fm_dial">Space on/off · J/K station · Shift+J/K 0.1 · Alt+1-9 presets · F star · R record · O output</string>
+    <string name="hint_fm_stations">Enter tune · F star · Alt+1-9 save preset · Back to the dial</string>
+    <string name="hint_fm_recording">R stop recording · Space on/off · J/K station · F star</string>
+    <string name="hint_favourites">Enter play · F remove star · Favourites are shortcuts</string>
+    <string name="hint_lists">Enter play · N new list · Songs and online radio</string>
+    <string name="hint_recordings">Enter play · D delete · Back to the dial</string>
+    <string name="live_fm">Live FM</string>
 </resources>

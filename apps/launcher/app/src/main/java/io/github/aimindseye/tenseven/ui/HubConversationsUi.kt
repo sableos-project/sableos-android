@@ -2,7 +2,6 @@ package io.github.aimindseye.tenseven.ui
 
 import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,11 +38,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
@@ -52,10 +51,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -297,8 +296,6 @@ internal fun HubUnifiedNavigation(
 ) {
     val currentTab = navigation.currentTab
     val firstTab = navigation.firstTab
-    val messageCount = navigation.messageCount
-    val emailCount = navigation.emailCount
     val searchRequest = navigation.searchRequest
     val closeSearchRequest = navigation.closeSearchRequest
     var searchOpen by remember { mutableStateOf(false) }
@@ -318,17 +315,7 @@ internal fun HubUnifiedNavigation(
         searchOpen = false
         ui.onFilterChange(ui.filter.copy(person = ""))
     }
-    val unreadCount = ui.conversations.sumOf { ui.state.unreadCount(it) }
-    val snoozedCount = ConversationView.snoozedCount(ui.conversations, ui.state, ui.now)
-    val remindCount = ReminderPolicy.pendingCount(ui.reminders)
-    val tabs =
-        io.github.aimindseye.tenseven.model.HubVisibleTabs.items(
-            messages = messageCount,
-            email = emailCount,
-            unread = unreadCount,
-            snoozed = snoozedCount,
-            reminders = remindCount,
-        )
+    val tabs = io.github.aimindseye.tenseven.model.HubVisibleTabs.items()
 
     BackHandler(enabled = ui.remindersSelected || ui.filter.snoozed) {
         hubNavSelect(HubFilter.All, ui = ui, onTabChange = onTabChange)
@@ -381,6 +368,14 @@ private fun hubNavSelected(
             currentTab == HubFilter.All && ui.filter.kind == ConversationKind.Email
         }
 
+        "Calls" -> {
+            currentTab == HubFilter.Calls
+        }
+
+        "Contacts" -> {
+            currentTab == HubFilter.Contacts
+        }
+
         "Snoozed" -> {
             currentTab == HubFilter.All && ui.filter.snoozed
         }
@@ -424,6 +419,14 @@ private fun hubNavActivate(
 
         "Email" -> {
             hubNavSelect(HubFilter.All, ConversationFilter(kind = ConversationKind.Email), ui, onTabChange)
+        }
+
+        "Calls" -> {
+            hubNavSelect(HubFilter.Calls, ui = ui, onTabChange = onTabChange)
+        }
+
+        "Contacts" -> {
+            hubNavSelect(HubFilter.Contacts, ui = ui, onTabChange = onTabChange)
         }
 
         "Snoozed" -> {
@@ -499,30 +502,7 @@ private fun ConversationRow(
     val latestAt = conversation.latestMessage?.timestamp ?: conversation.latestNotification.postedAt
     val whenText = DateUtils.getRelativeTimeSpanString(latestAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
     val source = conversation.latestNotification.appName
-    // Display installed source icons, not a letter avatar: several providers share initials.
-    val sourcePackage = conversation.sourcePackages.firstOrNull()
-    val context = LocalContext.current
-    io.github.aimindseye.tenseven.iconpacks.IconPresentationState
-        .init(context)
-    val sourceGlyph =
-        if (io.github.aimindseye.tenseven.iconpacks.IconPresentationState.selected ==
-            io.github.aimindseye.tenseven.model.IconPresentation.TenSeven
-        ) {
-            sourcePackage?.let(io.github.aimindseye.tenseven.model.AppGlyphs::forPackage)
-        } else {
-            null
-        }
-    val sourceIcon =
-        remember(sourcePackage) {
-            sourcePackage?.let { pkg ->
-                runCatching {
-                    context.packageManager
-                        .getApplicationIcon(pkg)
-                        .toBitmap(NOTIFICATION_ICON_BITMAP_SIZE, NOTIFICATION_ICON_BITMAP_SIZE)
-                        .asImageBitmap()
-                }.getOrNull()
-            }
-        }
+    val avatarSize = if (io.github.aimindseye.tenseven.design.isSableShortWindow()) 32.dp else 44.dp
 
     HubContrastTheme {
         Column(
@@ -571,43 +551,44 @@ private fun ConversationRow(
                         .then(if (filled) Modifier.background(Bb10Blue) else Modifier)
                         .sableFocusRing()
                         .combinedClickable(
-                            onClick = { ui.onOpen(conversation) },
+                            onClick = {
+                                if (locked || conversation.messages.isEmpty()) ui.onOpen(conversation) else HubChatState.openId = conversation.id
+                            },
                             onLongClick = { selectRow(conversation.id, rowFocus) },
                         )
                         .padding(horizontal = 4.dp, vertical = if (io.github.aimindseye.tenseven.design.isSableShortWindow()) 7.dp else 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                if (sourceGlyph != null) {
-                    SableGlyphIcon(glyph = sourceGlyph, modifier = Modifier.size(if (io.github.aimindseye.tenseven.design.isSableShortWindow()) 24.dp else 30.dp))
-                } else if (sourceIcon != null) {
-                    Image(
-                        bitmap = sourceIcon,
-                        contentDescription = source,
-                        modifier = Modifier.size(if (io.github.aimindseye.tenseven.design.isSableShortWindow()) 28.dp else 36.dp).clip(RoundedCornerShape(7.dp)),
-                    )
-                } else {
-                    Text(
-                        text = source.take(1).uppercase(),
-                        modifier =
-                            Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                }
+                HubAvatar(conversation.name, avatarSize)
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = conversation.name,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f, fill = false),
                             style = MaterialTheme.typography.titleSmall,
                             color = if (filled) Color.White else MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
+                        if (!locked && unread > 1 && conversation.sourcePackages.size > 1) {
+                            Text(
+                                "  $unread new in 1 chat",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (filled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
+                        if (!locked && conversation.sourcePackages.size == 1) {
+                            Text(
+                                source,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (filled) Color.White else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 6.dp).border(1.dp, if (filled) Color.White else MaterialTheme.colorScheme.primary).padding(horizontal = 5.dp),
+                                maxLines = 1,
+                            )
+                        }
                         Text(
                             whenText,
                             style = MaterialTheme.typography.labelSmall,
@@ -632,6 +613,7 @@ private fun ConversationRow(
                     )
                 }
             }
+            HubNestedMessages(conversation, locked)
             Spacer(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)))
         }
     }
@@ -793,8 +775,6 @@ private fun buildHubConversationUi(
         },
     )
 
-private const val NOTIFICATION_ICON_BITMAP_SIZE = 96
-
 /** Advances snooze eligibility only while the Hub is started. */
 @Composable
 private fun rememberHubTime(
@@ -825,4 +805,98 @@ private fun hubSourceCount(context: android.content.Context): Int {
             .HubSourceRepository(context)
             .policy()
     return if (policy.automatic) -1 else policy.selected.size
+}
+
+/**
+ * The approved Hub board: a person who wrote through more than one app is one row, with that person's recent
+ * messages nested under it, each tagged with the app it came from (SMS, WhatsApp, Email).
+ */
+@Composable
+@Suppress("FunctionNaming")
+private fun HubNestedMessages(
+    conversation: HubConversation,
+    locked: Boolean,
+) {
+    if (locked || conversation.sourcePackages.size < 2) return
+    val recent =
+        conversation.messages
+            .filter { !it.isHistoric && !it.isOutgoing }
+            .sortedByDescending { it.timestamp }
+            .take(HUB_NESTED_MAX)
+    if (recent.isEmpty()) return
+    val accent = MaterialTheme.colorScheme.primary
+    Column(
+        modifier =
+            Modifier
+                .padding(start = 28.dp)
+                .drawBehind { drawRect(accent, size = androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height)) }
+                .padding(start = 14.dp),
+    ) {
+        recent.forEach { message ->
+            Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        DateUtils.formatDateTime(LocalContext.current, message.timestamp, DateUtils.FORMAT_SHOW_TIME),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        message.appName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accent,
+                        modifier = Modifier.border(1.dp, accent).padding(horizontal = 5.dp),
+                        maxLines = 1,
+                    )
+                }
+                Text(
+                    message.text.replace(Regex("\\s+"), " ").trim(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+private const val HUB_NESTED_MAX = 3
+
+private val HUB_AVATAR_COLORS = listOf(0xFF2E9BD6, 0xFF6B4FA0, 0xFF2E6F5E, 0xFF7A3B3B, 0xFFB5651D, 0xFF3F5F9A)
+
+/** The approved board's round initials avatar; the colour comes from the name so a person keeps theirs. */
+@Composable
+@Suppress("FunctionNaming")
+internal fun HubAvatar(
+    name: String,
+    size: androidx.compose.ui.unit.Dp,
+) {
+    val initials =
+        name
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+            .take(2)
+            .joinToString("") { it.first().uppercase() }
+            .ifEmpty { "?" }
+    Box(
+        modifier =
+            Modifier
+                .size(size)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(Color(HUB_AVATAR_COLORS[(name.hashCode() and 0x7fffffff) % HUB_AVATAR_COLORS.size])),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(initials, color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** True when the whole OS profile is BlackBerry 7. */
+@Composable
+internal fun rememberHubBb7(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        runCatching {
+            android.provider.Settings.Secure.getString(context.contentResolver, "sable_profile")
+        }.getOrNull() == "bb7"
+    }
 }

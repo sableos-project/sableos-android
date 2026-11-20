@@ -57,7 +57,10 @@ internal fun SableHubSectionHeader(label: String) {
 /** "All accounts · 2 unread" under the Hub title, or the app or Priority Hub being shown. */
 @Suppress("FunctionNaming")
 @Composable
-internal fun SableHubSubtitle(ui: HubConversationsUi) {
+internal fun SableHubSubtitle(
+    ui: HubConversationsUi,
+    color: androidx.compose.ui.graphics.Color = Bb10Muted,
+) {
     val source =
         when {
             ui.filter.priority -> "Priority Hub"
@@ -76,7 +79,7 @@ internal fun SableHubSubtitle(ui: HubConversationsUi) {
     Text(
         SableHubKeep.subtitle(source, unread),
         modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
-        color = Bb10Muted,
+        color = color,
         style = MaterialTheme.typography.bodySmall,
     )
 }

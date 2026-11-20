@@ -646,6 +646,8 @@ internal class MediaFmController(
                     FmKeyCommand.Output -> fm.toggleSpeaker()
                     FmKeyCommand.Mute -> fm.toggleMute()
                     FmKeyCommand.Scan -> fm.toggleScan()
+                    FmKeyCommand.Record -> fm.toggleRecording()
+                    FmKeyCommand.Stations -> FmViewState.showStations = true
                 }
             }
         }

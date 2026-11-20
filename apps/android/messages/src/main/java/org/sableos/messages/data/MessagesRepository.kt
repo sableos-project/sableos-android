@@ -53,6 +53,13 @@ class MessagesRepository(
         }.onFailure { Log.w(TAG, "mark read failed for thread $threadId", it) }
     }
 
+    /** Deletes a whole conversation; only the default SMS app may, so failures are logged only. */
+    fun deleteThread(threadId: Long) {
+        runCatching {
+            resolver.delete(android.content.ContentUris.withAppendedId(Telephony.Threads.CONTENT_URI, threadId), null, null)
+        }.onFailure { Log.w(TAG, "delete failed for thread $threadId", it) }
+    }
+
     /** An MMS image part decoded at most [maxPixels] on its longer side, or null. */
     fun attachmentBitmap(
         partId: Long,

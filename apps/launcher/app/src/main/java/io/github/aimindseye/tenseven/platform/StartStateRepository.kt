@@ -300,8 +300,8 @@ class StartStateRepository(
         preferences.edit().putInt(KEY_GRID_COLUMNS, GridColumns.normalize(columns)).apply()
     }
 
-    /** The Tenseven lock layer shown over the system lock screen when the screen wakes; off until chosen. */
-    fun loadLockLayer(): Boolean = preferences.getInt(KEY_LOCK_LAYER, 0) != 0
+    /** The Tenseven lock layer shown over the system lock screen when the screen wakes; on unless turned off. */
+    fun loadLockLayer(): Boolean = preferences.getInt(KEY_LOCK_LAYER, 1) != 0
 
     fun saveLockLayer(enabled: Boolean) {
         preferences.edit().putInt(KEY_LOCK_LAYER, if (enabled) 1 else 0).apply()

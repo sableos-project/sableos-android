@@ -1,8 +1,10 @@
 // Patch history: 0206 (see docs/PATCH_HISTORY.md)
 package org.sableos.media
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -44,6 +47,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.sableos.design.SableProfile
+import org.sableos.design.rememberSableProfile
 import org.sableos.design.sableFocusRing
 import org.sableos.media.MediaText.t
 
@@ -110,17 +115,20 @@ internal fun MediaHubTitleBar(
     onSearch: (() -> Unit)? = null,
     menu: List<MediaMenuItem> = emptyList(),
 ) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val bb7 = rememberSableProfile() == SableProfile.BB7
+    val muted = if (bb7) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
+    val ink = if (bb7) Color.White else MaterialTheme.colorScheme.onSurface
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .then(if (bb7) Modifier.background(MaterialTheme.colorScheme.primary) else Modifier)
                 .height(HubTitleHeight)
                 .padding(start = if (onBack == null) 12.dp else 0.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
-            MediaIconButton(MediaIcons.Back, t("hub_back"), MaterialTheme.colorScheme.onSurface, onBack)
+            MediaIconButton(MediaIcons.Back, t("hub_back"), ink, onBack)
         }
         Text(
             text = title,
@@ -128,6 +136,7 @@ internal fun MediaHubTitleBar(
             fontSize = 22.sp,
             lineHeight = 26.sp,
             fontWeight = FontWeight.SemiBold,
+            color = ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -177,7 +186,7 @@ internal fun MediaHubTabs(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MediaHubTab.entries
-                .filter { it != MediaHubTab.Fm || fmAvailable }
+                .filter { (it != MediaHubTab.Fm || fmAvailable) && it != MediaHubTab.Artists }
                 .forEach { tab ->
                     val chosen = tab == selected
                     val count =
@@ -274,10 +283,22 @@ internal class MediaBarAction(
 
 /** The 50 dp action bar: up to five buttons, each a 20 dp icon over an 11 sp label. */
 @Composable
-internal fun MediaActionBar(actions: List<MediaBarAction>) {
+internal fun MediaActionBar(
+    actions: List<MediaBarAction>,
+    hint: String? = null,
+) {
     if (actions.isEmpty()) return
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        if (hint != null) {
+            Text(
+                text = hint,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 3.dp),
+            )
+        }
         Row(
             modifier =
                 Modifier
@@ -386,6 +407,8 @@ internal object MediaIcons {
     val Manage = stroked("M4 6h16M4 12h16M4 18h16")
     val Dial = stroked("M4 20v-4M8 20v-8M12 20v-12M16 20v-8M20 20v-4")
     val Star = stroked("M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z")
+    val Heart = stroked("M12 20.5s-7.500-4.800-9.500-9.700C1.300 7.600 3.200 4.500 6.500 4.500c2 0 3.700 1.200 5.500 3.400 1.800-2.200 3.500-3.400 5.500-3.400 3.300 0 5.200 3.100 4 6.300-2 4.900-9.500 9.700-9.500 9.700z")
+    val HeartFilled = filled("M12 20.5s-7.500-4.800-9.500-9.700C1.300 7.600 3.200 4.500 6.500 4.500c2 0 3.700 1.200 5.500 3.400 1.800-2.200 3.500-3.400 5.500-3.400 3.300 0 5.200 3.100 4 6.300-2 4.900-9.500 9.700-9.500 9.700z")
     val StarFilled = filled("M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z")
     val Shuffle = stroked("M4 7h11l-3-3M20 17H9l3 3")
 
@@ -414,3 +437,78 @@ private val HubTabsHeight = 30.dp
 private val HubNowLineHeight = 40.dp
 private val HubActionBarHeight = 50.dp
 private val TabUnderlineWidth = 24.dp
+
+/**
+ * The board's list row: 50 dp, a 28 dp tag box (or a frequency column), a 15 sp bold title, an 11 sp
+ * gray line, and text on the right (duration or LIVE). The focused row is a solid accent fill on BBOS 7
+ * and an outline on BBOS 10. Long press or the Menu key is [onMore].
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun MediaBoardRow(
+    title: String,
+    subtitle: String,
+    tag: String,
+    trailing: String,
+    onClick: () -> Unit,
+    onMore: () -> Unit,
+    modifier: Modifier = Modifier,
+    starred: Boolean = false,
+) {
+    val bb7 = rememberSableProfile() == SableProfile.BB7
+    val accent = MaterialTheme.colorScheme.primary
+    var focused by remember { mutableStateOf(false) }
+    val fill = focused && bb7
+    val ink = if (fill) Color.White else MaterialTheme.colorScheme.onSurface
+    val muted = if (fill) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier =
+                modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .onFocusChanged { focused = it.hasFocus }
+                    .sableFocusRing()
+                    .background(if (fill) accent else Color.Transparent)
+                    .combinedClickable(onClick = onClick, onLongClick = onMore)
+                    .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .background(if (fill) Color.White.copy(alpha = 0.25f) else accent.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(tag, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (fill) Color.White else accent, maxLines = 1)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = if (starred) "$title ★" else title,
+                    fontSize = 15.sp,
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        fontSize = 11.sp,
+                        lineHeight = 13.sp,
+                        color = muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (trailing.isNotBlank()) {
+                Spacer(Modifier.width(8.dp))
+                Text(trailing, fontSize = 11.sp, color = muted, maxLines = 1)
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}

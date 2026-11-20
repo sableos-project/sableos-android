@@ -237,8 +237,20 @@ private fun HubPageContent(
     onReturnHome: () -> Unit,
 ) {
     val chrome = remember { HubPageChromeState() }
+    val chatConversation =
+        HubChatState.openId?.let { id ->
+            session.data.conversations.conversations
+                .firstOrNull { it.id == id }
+        }
+    if (chatConversation != null && !session.data.conversations.deviceLocked) {
+        HubContrastTheme {
+            HubChatScreen(chatConversation, session.data.conversations) { HubChatState.openId = null }
+        }
+        return
+    }
     HubContrastTheme {
         Column(Modifier.fillMaxSize()) {
+            if (!sableBottomTabs()) HubBb7TitleBar(session.data.conversations)
             androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
                 HubPagePanel(session, chrome, onReturnHome)
             }
@@ -325,23 +337,7 @@ private fun HubPageHeader(
         }
         SableHubSubtitle(session.data.conversations)
     } else {
-        // BBOS 7 (approved board): a title bar with the Hub icon, the title and the unread line; the menu comes
-        // from the bottom bar (Menu key) and a swipe opens the Hub panel.
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            LineIcon(listOf("M3 5h18v14H3z", "M3 7l9 7 9-7"), Modifier.size(20.dp), Bb10Text)
-            Text(
-                text = HUB_LABEL,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Bb10Text,
-                modifier = Modifier.semantics { heading() },
-            )
-            SableHubSubtitle(session.data.conversations)
-        }
+        // BBOS 7: the blue title bar is drawn above the list (HubBb7TitleBar).
     }
     // BBOS 7 shows its tabs right under the title bar; BBOS 10 has them at the bottom.
     if (!sableBottomTabs()) HubPageNavigation(session, chrome)
@@ -377,6 +373,31 @@ private fun HubPageNavigation(
         onTabChange = session.events.onFilter,
         onOpenCalendar = { session.events.onStartIntent(hubCalendarIntent()) },
     )
+}
+
+/** BlackBerry 7: the accent-blue title bar with the Hub icon, the title and the unread line in white. */
+@Composable
+@Suppress("FunctionNaming")
+private fun HubBb7TitleBar(ui: HubConversationsUi) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.primary)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        LineIcon(listOf("M3 5h18v14H3z", "M3 7l9 7 9-7"), Modifier.size(20.dp), Color.White)
+        Text(
+            text = HUB_LABEL,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.semantics { heading() },
+        )
+        SableHubSubtitle(ui, Color.White.copy(alpha = 0.85f))
+    }
 }
 
 @Composable
