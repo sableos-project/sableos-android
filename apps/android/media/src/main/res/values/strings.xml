@@ -239,4 +239,8 @@
     <string name="fm_none_in_tab">No stations here yet. Press S to scan.</string>
     <string name="fm_recording_saved">Saved to Recordings/FM recordings</string>
     <string name="shuffle">Shuffle</string>
+    <string name="tag_song">Song</string>
+    <string name="tag_fm">FM</string>
+    <string name="tag_radio">Radio</string>
+    <string name="tag_playlist">Playlist</string>
 </resources>

@@ -11,7 +11,7 @@
 
 The `clipboard-check.svg` addition was copied unchanged from the same version’s upstream Git tag,
 https://github.com/tabler/tabler-icons/blob/v3.50.0/icons/outline/clipboard-check.svg,
-on 2026-11-02 (MIT). Its metadata comments are retained.
+on 2026-11-02 (MIT). Its metadata comments are retained. `star.svg` was added the same way on 2026-11-19.
 
 Only the icons Tenseven draws are copied, byte for byte, into `icons/outline/`; `ICON_MANIFEST.tsv`
 lists each with its sha256 and what it is used for. The Kotlin glyph table

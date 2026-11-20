@@ -90,6 +90,26 @@ internal object Bb7Folders {
         appKey: String,
     ) = write(context, name, contents(context, name).filterNot { it == appKey })
 
+    /**
+     * Gives a folder a new name, keeping its apps. Returns the name used (trimmed, and made unique with a number
+     * when taken), or null when [to] is blank or unchanged.
+     */
+    fun rename(
+        context: Context,
+        from: String,
+        to: String,
+    ): String? {
+        val wanted = to.trim().replace(SEPARATOR, " ")
+        if (wanted.isEmpty() || wanted == from) return null
+        val used = names(context).toSet() - from
+        val name = generateSequence(1) { it + 1 }.map { if (it == 1) wanted else "$wanted $it" }.first { it !in used }
+        if (name == from) return null
+        val held = contents(context, from)
+        prefs(context).edit().remove(from).putString(name, held.joinToString(SEPARATOR)).apply()
+        version++
+        return name
+    }
+
     fun delete(
         context: Context,
         name: String,

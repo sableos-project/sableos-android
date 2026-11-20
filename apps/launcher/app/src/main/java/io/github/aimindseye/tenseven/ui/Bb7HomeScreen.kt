@@ -34,8 +34,11 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -226,6 +229,9 @@ private class Bb7HomeSession {
     var selected by mutableIntStateOf(-1)
     var moving by mutableStateOf(false)
     var pickingDesktop by mutableStateOf(false)
+
+    /** The folder being renamed (its current name), or null. */
+    var renamingFolder by mutableStateOf<String?>(null)
     var inDesktopZone by mutableStateOf(false)
     var deskSelected by mutableIntStateOf(0)
     var keyColumns by mutableIntStateOf(Bb7Home.MIN_COLUMNS)
@@ -336,6 +342,20 @@ private val bb7HomePresenter: @Composable (Bb7HomeInputs) -> Unit = { input ->
     val actions = Bb7HomeActions(input, state, model, context, resources)
     val keyboard = Bb7HomeKeyboard(input, state, model, actions)
     Bb7HomeCanvas(input, state, model, actions, keyboard, feeds).render()
+    state.renamingFolder?.let { old ->
+        RenameFolderDialog(
+            current = old,
+            onDismiss = { state.renamingFolder = null },
+            onRename = { typed ->
+                state.renamingFolder = null
+                Bb7Folders.rename(context, old, typed)?.let { renamed ->
+                    input.edits.onDesktopChanged(
+                        input.panel.desktopKeys.map { if (it == Bb7Folders.key(old)) Bb7Folders.key(renamed) else it },
+                    )
+                }
+            },
+        )
+    }
     LaunchedEffect(Unit) { runCatching { state.focus.requestFocus() } }
 }
 
@@ -446,6 +466,7 @@ private class Bb7HomeActions(
             if (held.isNotEmpty()) {
                 add("Remove from Folder" to { input.launch.onOpenMenu(removeFromFolderMenu(name, held)) })
             }
+            add("Rename Folder" to { state.renamingFolder = name })
             add(
                 "Delete Folder" to {
                     Bb7Folders.delete(context, name)
@@ -1511,4 +1532,21 @@ private fun addBb7Desktop(
             onAdded(next)
         }
     }
+}
+
+/** A one-line name box for Rename Folder. */
+@Composable
+private fun RenameFolderDialog(
+    current: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit,
+) {
+    var text by remember(current) { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename Folder", style = MaterialTheme.typography.titleMedium) },
+        text = { OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true) },
+        confirmButton = { TextButton(onClick = { onRename(text) }) { Text("Rename") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
