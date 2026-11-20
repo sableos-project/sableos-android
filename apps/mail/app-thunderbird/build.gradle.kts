@@ -5,6 +5,11 @@ plugins {
     alias(libs.plugins.tb.app.versioning)
 }
 
+// Sable Mail's own Microsoft sign-in registration (docs/MAIL_MICROSOFT_SIGNIN.md in zinwaq25-sableos). They come from the build host, are never committed,
+// and are empty when unset, which leaves Outlook and Hotmail without Microsoft sign-in.
+fun sableOwnerValue(name: String): String =
+    providers.environmentVariable(name).orElse("").get().trim().filter { it != '"' && it != '\\' }
+
 val testCoverageEnabled = providers
     .gradleProperty("testCoverageEnabled")
     .isPresent
@@ -20,6 +25,12 @@ android {
         versionName = "23.0-sable-r8"
 
         buildConfigField("String", "CLIENT_INFO_APP_NAME", "\"Sable Mail\"")
+        buildConfigField("String", "SABLE_MICROSOFT_CLIENT_ID", "\"${sableOwnerValue("SABLE_MAIL_MICROSOFT_CLIENT_ID")}\"")
+        buildConfigField(
+            "String",
+            "SABLE_MICROSOFT_SIGNATURE_HASH",
+            "\"${sableOwnerValue("SABLE_MAIL_MICROSOFT_SIGNATURE_HASH")}\"",
+        )
     }
 
     androidResources {
