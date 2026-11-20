@@ -79,6 +79,9 @@ internal enum class MediaHubTab(
     val label: String get() = t(labelKey)
 
     companion object {
+        /** Not on the strip (the proposal shows Songs, Albums, Radio, FM, Podcasts); reached from the ⋮ menu. */
+        val menuOnly = setOf(Artists, Playlists, Favorites, Recordings)
+
         fun of(
             destination: MediaDestination,
             pivot: LibraryPivot,
@@ -186,7 +189,7 @@ internal fun MediaHubTabs(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MediaHubTab.entries
-                .filter { (it != MediaHubTab.Fm || fmAvailable) && it != MediaHubTab.Artists }
+                .filter { (it != MediaHubTab.Fm || fmAvailable) && it !in MediaHubTab.menuOnly }
                 .forEach { tab ->
                     val chosen = tab == selected
                     val count =

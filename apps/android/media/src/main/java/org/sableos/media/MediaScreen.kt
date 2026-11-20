@@ -2402,6 +2402,18 @@ private fun MediaHubFrame(
                 actions.onLibraryPivotChange(LibraryPivot.Artists)
                 go(MediaDestination.Collection)
             }.takeIf { destination != MediaDestination.NowPlaying },
+            MediaMenuItem(t("hub_tab_lists")) {
+                actions.onLibraryPivotChange(LibraryPivot.Playlists)
+                go(MediaDestination.Collection)
+            }.takeIf { destination != MediaDestination.NowPlaying },
+            MediaMenuItem(t("hub_tab_favourites")) {
+                actions.onLibraryPivotChange(LibraryPivot.Favorites)
+                go(MediaDestination.Collection)
+            }.takeIf { destination != MediaDestination.NowPlaying },
+            MediaMenuItem(t("hub_tab_recordings")) {
+                actions.onLibraryPivotChange(LibraryPivot.Recordings)
+                go(MediaDestination.Collection)
+            }.takeIf { destination != MediaDestination.NowPlaying },
             MediaMenuItem(t("up_next_2")) { go(MediaDestination.Queue) }.takeIf { playback.queue.isNotEmpty() },
         ) +
             (
