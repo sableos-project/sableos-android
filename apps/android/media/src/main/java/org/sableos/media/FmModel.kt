@@ -232,6 +232,8 @@ internal enum class FmKeyCommand {
     Output,
     Mute,
     Scan,
+    Record,
+    Stations,
 }
 
 internal sealed interface FmKeyAction {
@@ -248,7 +250,8 @@ internal sealed interface FmKeyAction {
 /**
  * FM keys (MEDIA_GALLERY_UX.md input contract, applied to the FM mode):
  * Space on/off, J/K or Left/Right seek, Shift+J/K or Shift+Left/Right tune by 0.1 MHz,
- * F star, O speaker/headphones, M mute, R scan (again to stop), Alt+1-9 presets.
+ * F star, O speaker/headphones, M mute, R record (again to stop), S scan (again to stop), L the station list,
+ * Alt+1-9 presets (the approved FM board).
  * Anything else (Esc, volume, view keys) goes to [MediaKeymap].
  */
 internal object FmKeymap {
@@ -308,7 +311,15 @@ internal object FmKeymap {
             }
 
             KeyEvent.KEYCODE_R -> {
+                FmKeyCommand.Record.takeIf { !shift }
+            }
+
+            KeyEvent.KEYCODE_S -> {
                 FmKeyCommand.Scan.takeIf { !shift }
+            }
+
+            KeyEvent.KEYCODE_L -> {
+                FmKeyCommand.Stations.takeIf { !shift }
             }
 
             else -> {

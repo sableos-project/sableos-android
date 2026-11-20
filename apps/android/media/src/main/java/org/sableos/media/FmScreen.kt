@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableSpacing
 import org.sableos.design.SableValuePanel
+import org.sableos.design.sableFocusRing
 import org.sableos.media.MediaText.t
 
 /** Whether the FM destination is offered in the top navigation (the FM bridge is installed). */
@@ -64,7 +65,7 @@ internal object FmViewState {
 
 internal val LocalFmAvailable = staticCompositionLocalOf { false }
 
-internal val FM_KEY_HINT: String get() = t("space_on_off_j_k")
+internal val FM_KEY_HINT: String get() = t("hint_fm_dial")
 
 internal data class FmScreenActions(
     val onPower: () -> Unit,
@@ -99,7 +100,7 @@ internal fun FmScreen(
             if (FmViewState.showStations) {
                 FmStationsScreen(fm, favorites, names, actions)
             } else {
-                FmTunerPanel(fm, favorites, names)
+                FmTunerPanel(fm, favorites, names, actions.onToggleFavorite)
             }
         }
     }
@@ -110,6 +111,7 @@ private fun FmTunerPanel(
     fm: FmUiState,
     favorites: Set<Int>,
     names: Map<Int, String>,
+    onToggleFavorite: (Int) -> Unit,
 ) {
     val tuned = FmBand.isValid(fm.station)
     val name =
@@ -171,9 +173,14 @@ private fun FmTunerPanel(
             val starred = fm.station in favorites
             Icon(
                 imageVector = if (starred) MediaIcons.StarFilled else MediaIcons.Star,
-                contentDescription = null,
+                contentDescription = t("fm_favourites"),
                 tint = if (starred) MediaAccent else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(26.dp),
+                modifier =
+                    Modifier
+                        .sableFocusRing()
+                        .clickable(role = Role.Button) { onToggleFavorite(fm.station) }
+                        .padding(6.dp)
+                        .size(26.dp),
             )
         }
     }

@@ -2477,26 +2477,45 @@ private fun MediaHubFrame(
         }
         MediaActionBar(
             hubActions(state, actions),
-            hint = if (destination == MediaDestination.Fm && !FmViewState.showStations) FM_KEY_HINT else null,
+            hint = hubHint(state.destination, state.libraryPivot, state.fm.recording),
         )
     }
 }
-
-/** The ♥ of Now playing: stars the playing song (Up next stays in the ⋮ menu). Off for stations and episodes. */
+/**
+ * The heart on the Now playing bar. It stars whatever is playing: a song (a shortcut in Favourites), the tuned FM
+ * station, or an online radio station.
+ */
+@Composable
 private fun nowPlayingHeart(
     state: MediaScreenState,
     actions: MediaScreenActions,
 ): MediaBarAction {
-    val playing = state.playback.queue.getOrNull(state.playback.currentIndex)
-    val song = playing?.let { item -> state.localItems.firstOrNull { it.uri == item.uri } }
-    val starred = song != null && song.uri in state.favoriteAudioUris
-    return MediaBarAction(
-        icon = if (starred) MediaIcons.StarFilled else MediaIcons.Star,
+    fun heart(
+        starred: Boolean,
+        enabled: Boolean,
+        onClick: () -> Unit,
+    ) = MediaBarAction(
+        icon = if (starred) MediaIcons.HeartFilled else MediaIcons.Heart,
         label = t("fm_favourites"),
-        onClick = { song?.let(actions.onToggleFavoriteAudio) },
-        enabled = song != null,
+        onClick = onClick,
+        enabled = enabled,
         active = starred,
     )
+    val playback = state.playback
+    if (state.fm.showsOnNowPlaying(playback)) {
+        val station = state.fm.station
+        return heart(station in state.fmFavorites, FmBand.isValid(station)) { actions.fm?.onToggleFavorite?.invoke(station) }
+    }
+    val playing = playback.queue.getOrNull(playback.currentIndex)
+    val song = playing?.let { item -> state.localItems.firstOrNull { it.uri == item.uri } }
+    if (song != null) {
+        return heart(song.uri in state.favoriteAudioUris, true) { actions.onToggleFavoriteAudio(song) }
+    }
+    val radio = playing?.let { item -> state.stations.firstOrNull { it.url == item.uri } }
+    if (radio != null) {
+        return heart(radio.id in state.favoriteStationIds, true) { actions.onToggleFavoriteStation(radio) }
+    }
+    return heart(false, false) {}
 }
 
 /** The action bar of each view in the Q25 frame (design A). */
@@ -2633,7 +2652,7 @@ private fun fmBarActions(
     val power =
         MediaBarAction(
             icon = if (fm.powered) MediaIcons.Pause else MediaIcons.Play,
-            label = if (fm.powered) t("turn_off") else t("turn_on"),
+            label = if (fm.powered) t("pause") else t("play"),
             onClick = fmActions.onPower,
             active = fm.powered,
         )
@@ -2654,11 +2673,32 @@ private fun fmBarActions(
             ),
         )
     }
+    val stations = MediaBarAction(MediaIcons.Manage, t("fm_stations"), { FmViewState.showStations = true })
+    if (fm.recording) {
+        // The recording board: Stop rec (red) takes the power button's place, and Output takes Record's.
+        return listOf(
+            previous,
+            MediaBarAction(
+                icon = MediaIcons.Stop,
+                label = t("fm_stop_rec"),
+                onClick = fmActions.onToggleRecording,
+                active = true,
+                tint = FmRecordRed,
+            ),
+            next,
+            stations,
+            MediaBarAction(
+                icon = MediaIcons.Dial,
+                label = t("output"),
+                onClick = fmActions.onToggleSpeaker,
+            ),
+        )
+    }
     return listOf(
         previous,
         power,
         next,
-        MediaBarAction(MediaIcons.Manage, t("fm_stations"), { FmViewState.showStations = true }),
+        stations,
         MediaBarAction(
             icon = if (fm.recording) MediaIcons.Stop else MediaIcons.Record,
             label = if (fm.recording) t("fm_stop_rec") else t("fm_record_short"),
@@ -2788,3 +2828,20 @@ private fun NowPlayingQ25(
 
 private val NowPlayingArtShort = 112.dp
 private const val NOW_PLAYING_UPCOMING_ROWS = 20
+
+/** The one-line key hint above the action bar, as on each approved board. */
+@Composable
+private fun hubHint(
+    destination: MediaDestination,
+    pivot: LibraryPivot,
+    recording: Boolean,
+): String? =
+    when {
+        destination == MediaDestination.Fm && FmViewState.showStations -> t("hint_fm_stations")
+        destination == MediaDestination.Fm && recording -> t("hint_fm_recording")
+        destination == MediaDestination.Fm -> FM_KEY_HINT
+        destination == MediaDestination.Collection && pivot == LibraryPivot.Favorites -> t("hint_favourites")
+        destination == MediaDestination.Collection && pivot == LibraryPivot.Playlists -> t("hint_lists")
+        destination == MediaDestination.Collection && pivot == LibraryPivot.Recordings -> t("hint_recordings")
+        else -> null
+    }
