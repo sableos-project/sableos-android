@@ -372,8 +372,8 @@ private fun hubNavSelected(
             currentTab == HubFilter.Calls
         }
 
-        "Social" -> {
-            currentTab == HubFilter.All && ui.filter.kind == ConversationKind.Social
+        "Contacts" -> {
+            currentTab == HubFilter.Contacts
         }
 
         "Snoozed" -> {
@@ -425,8 +425,8 @@ private fun hubNavActivate(
             hubNavSelect(HubFilter.Calls, ui = ui, onTabChange = onTabChange)
         }
 
-        "Social" -> {
-            hubNavSelect(HubFilter.All, ConversationFilter(kind = ConversationKind.Social), ui, onTabChange)
+        "Contacts" -> {
+            hubNavSelect(HubFilter.Contacts, ui = ui, onTabChange = onTabChange)
         }
 
         "Snoozed" -> {

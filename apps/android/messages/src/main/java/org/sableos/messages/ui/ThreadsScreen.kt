@@ -6,6 +6,7 @@ package org.sableos.messages.ui
 import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,8 +27,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,8 +48,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableListFocus
 import org.sableos.design.SableListKeys
+import org.sableos.design.SableProfile
 import org.sableos.design.SableSize
 import org.sableos.design.SableSpacing
+import org.sableos.design.rememberSableProfile
 import org.sableos.design.sableFocusRing
 import org.sableos.design.sableListKeys
 import org.sableos.messages.core.MessagesText.t
@@ -79,6 +85,9 @@ internal fun ColumnScope.ThreadsScreen(
     val listState = rememberLazyListState()
     val focus = remember(listState) { SableListFocus(listState) }
     val scope = rememberCoroutineScope()
+    var popup by remember { mutableStateOf<ThreadSummary?>(null) }
+    val bb7 = rememberSableProfile() == SableProfile.BB7
+    popup?.let { ThreadPopup(it, actions) { popup = null } }
     LazyColumn(
         modifier =
             Modifier
@@ -89,7 +98,9 @@ internal fun ColumnScope.ThreadsScreen(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
     ) {
         itemsIndexed(threads, key = { _, thread -> thread.threadId }) { index, thread ->
-            ThreadRow(thread, focus.row(index, thread.threadId)) { actions.openThread(thread) }
+            ThreadRow(thread, focus.row(index, thread.threadId), onMenu = { if (bb7) popup = thread }) {
+                actions.openThread(thread)
+            }
         }
     }
     if (threads.isNotEmpty()) {
@@ -202,6 +213,7 @@ private fun FilterField(
 private fun ThreadRow(
     thread: ThreadSummary,
     modifier: Modifier,
+    onMenu: () -> Unit,
     onOpen: () -> Unit,
 ) {
     val unread = thread.unreadCount > 0
@@ -213,7 +225,11 @@ private fun ThreadRow(
                 .clip(MaterialTheme.shapes.small)
                 .background(if (unread) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
                 .sableFocusRing()
-                .clickable(onClick = onOpen)
+                .onPreviewKeyEvent {
+                    val menuKey = it.type == KeyEventType.KeyDown && it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_MENU
+                    if (menuKey) onMenu()
+                    menuKey
+                }.combinedClickable(onClick = onOpen, onLongClick = onMenu)
                 .heightIn(min = SableSize.ListRowHeight)
                 .padding(end = SableSpacing.Md),
         verticalAlignment = Alignment.CenterVertically,

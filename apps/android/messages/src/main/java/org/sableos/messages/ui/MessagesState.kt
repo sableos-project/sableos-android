@@ -76,4 +76,8 @@ data class MessagesActions(
     val dismissNotice: () -> Unit,
     /** Decodes an MMS image part, scaled to at most the given size. Blocking: call off main. */
     val loadImage: (partId: Long, maxPixels: Int) -> Bitmap?,
+    /** BlackBerry 7 pop-up menu: mark a conversation read, delete it, or call its number. */
+    val markThreadRead: (ThreadSummary) -> Unit = {},
+    val deleteThread: (ThreadSummary) -> Unit = {},
+    val callThread: (ThreadSummary) -> Unit = {},
 )

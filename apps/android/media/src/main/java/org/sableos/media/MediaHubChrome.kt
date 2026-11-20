@@ -44,6 +44,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.sableos.design.SableProfile
+import org.sableos.design.rememberSableProfile
 import org.sableos.design.sableFocusRing
 import org.sableos.media.MediaText.t
 
@@ -110,17 +112,20 @@ internal fun MediaHubTitleBar(
     onSearch: (() -> Unit)? = null,
     menu: List<MediaMenuItem> = emptyList(),
 ) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val bb7 = rememberSableProfile() == SableProfile.BB7
+    val muted = if (bb7) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
+    val ink = if (bb7) Color.White else MaterialTheme.colorScheme.onSurface
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .then(if (bb7) Modifier.background(MaterialTheme.colorScheme.primary) else Modifier)
                 .height(HubTitleHeight)
                 .padding(start = if (onBack == null) 12.dp else 0.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
-            MediaIconButton(MediaIcons.Back, t("hub_back"), MaterialTheme.colorScheme.onSurface, onBack)
+            MediaIconButton(MediaIcons.Back, t("hub_back"), ink, onBack)
         }
         Text(
             text = title,
@@ -128,6 +133,7 @@ internal fun MediaHubTitleBar(
             fontSize = 22.sp,
             lineHeight = 26.sp,
             fontWeight = FontWeight.SemiBold,
+            color = ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

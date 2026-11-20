@@ -5,6 +5,6 @@ import org.junit.Test
 
 class HubVisibleTabsTest {
     @Test fun tabsAreTheApprovedBoardSet() {
-        assertEquals(listOf("All", "Messages", "Email", "Calls", "Social"), HubVisibleTabs.items())
+        assertEquals(listOf("All", "Messages", "Calls", "Contacts"), HubVisibleTabs.items())
     }
 }

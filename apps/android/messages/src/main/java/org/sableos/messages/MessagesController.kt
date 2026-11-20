@@ -68,6 +68,17 @@ class MessagesController(
             openAppSettings = ::openAppSettings,
             dismissNotice = { state.notice = null },
             loadImage = repository::attachmentBitmap,
+            markThreadRead = { thread -> Background.load({ repository.markRead(thread.threadId) }) { reload() } },
+            deleteThread = { thread -> Background.load({ repository.deleteThread(thread.threadId) }) { reload() } },
+            callThread = { thread ->
+                thread.addresses.firstOrNull()?.let { number ->
+                    runCatching {
+                        activity.startActivity(
+                            Intent(Intent.ACTION_DIAL, android.net.Uri.fromParts("tel", number, null)),
+                        )
+                    }
+                }
+            },
         )
 
     val visibleThreads: List<ThreadSummary> get() = ThreadGrouping.filter(state.threads, state.filter)
