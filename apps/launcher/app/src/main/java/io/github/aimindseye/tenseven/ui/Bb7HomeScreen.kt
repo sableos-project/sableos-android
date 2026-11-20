@@ -426,6 +426,50 @@ private class Bb7HomeActions(
         )
     }
 
+    /** A desktop icon: a folder opens its list, an app launches. */
+    fun launchDesktop(app: AppEntry) {
+        if (Bb7Folders.isFolder(app)) {
+            input.launch.onOpenMenu(folderMenu(app))
+        } else {
+            input.launch.onLaunchApp(app)
+        }
+    }
+
+    /** The apps in a folder (one line each, to launch), then the folder's own lines. */
+    private fun folderMenu(folder: AppEntry): List<Pair<String, () -> Unit>> {
+        val name = Bb7Folders.nameOf(folder)
+        val byKey = input.source.apps.associateBy { it.stableKey() }
+        val held = Bb7Folders.contents(context, name).mapNotNull(byKey::get)
+        return buildList {
+            held.forEach { app -> add(app.label to { input.launch.onLaunchApp(app) }) }
+            if (held.isEmpty()) add("Empty folder" to {})
+            if (held.isNotEmpty()) {
+                add("Remove from Folder" to { input.launch.onOpenMenu(removeFromFolderMenu(name, held)) })
+            }
+            add(
+                "Delete Folder" to {
+                    Bb7Folders.delete(context, name)
+                    input.edits.onDesktopChanged(desktopKeys.filterNot { it == Bb7Folders.key(name) })
+                },
+            )
+        }
+    }
+
+    private fun removeFromFolderMenu(
+        name: String,
+        held: List<AppEntry>,
+    ): List<Pair<String, () -> Unit>> =
+        held.map { app -> app.label to { Bb7Folders.remove(context, name, app.stableKey()) } }
+
+    /** Move to Folder: one line per folder; the icon leaves the home screen and goes into the folder. */
+    private fun moveToFolderMenu(app: AppEntry): List<Pair<String, () -> Unit>> =
+        Bb7Folders.names(context).map { name ->
+            name to {
+                Bb7Folders.add(context, name, app.stableKey())
+                input.edits.onDesktopChanged(desktopKeys.filterNot { it == app.stableKey() })
+            }
+        }
+
     fun menuFor(
         app: AppEntry?,
         fromDesktop: Boolean,
@@ -438,7 +482,13 @@ private class Bb7HomeActions(
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 )
             },
-        ) + (if (app != null) appMenu(app, fromDesktop) else emptyList()) + homeMenu()
+        ) + (
+            when {
+                app == null -> emptyList()
+                Bb7Folders.isFolder(app) -> folderMenu(app)
+                else -> appMenu(app, fromDesktop)
+            }
+        ) + homeMenu()
 
     /** The lines for the focused icon, as in the approved menu: Mark as Favourite, Move, Launch, then the rest. */
     private fun appMenu(
@@ -469,6 +519,9 @@ private class Bb7HomeActions(
                 add(resources.getString(R.string.bb7_add_home) to { addToDesktop(app) })
             }
             add(t("app_info") to { input.launch.onOpenAppInfo(app) })
+            if (Bb7Folders.names(context).isNotEmpty()) {
+                add("Move to Folder" to { input.launch.onOpenMenu(moveToFolderMenu(app)) })
+            }
             // Delete is the system uninstaller (it asks to confirm), for removable apps of this user only.
             if (app.canUninstall && app.inLauncherUser) {
                 add(
@@ -497,6 +550,16 @@ private class Bb7HomeActions(
             )
             add("Manage Panels" to { input.launch.onOpenMenu(panelsMenu()) })
             add("Show All" to { openApps() })
+            add(
+                "Add Folder" to {
+                    if (desktopKeys.size < Bb7Home.MAX_DESKTOP_SHORTCUTS) {
+                        val name = Bb7Folders.create(context)
+                        input.edits.onDesktopChanged(Bb7Home.addDesktopShortcut(desktopKeys, Bb7Folders.key(name)))
+                    } else {
+                        Toast.makeText(context, "The home screen is full", Toast.LENGTH_SHORT).show()
+                    }
+                },
+            )
             if (io.github.aimindseye.tenseven.platform.MediaFavourites.available(context)) {
                 add("Favourites" to { io.github.aimindseye.tenseven.platform.MediaFavourites.open(context) })
             }
@@ -598,7 +661,7 @@ private class Bb7HomeKeyboard(
         } else {
             when (key.keyCode) {
                 KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_DPAD_CENTER -> {
-                    input.launch.onLaunchApp(desktopApps[model.deskIndex])
+                    actions.launchDesktop(desktopApps[model.deskIndex])
                     true
                 }
 
@@ -934,7 +997,7 @@ private class Bb7HomeCanvas(
                     Modifier.weight(1f),
                 ),
                 Bb7DesktopEvents(
-                    onLaunch = { input.launch.onLaunchApp(it) },
+                    onLaunch = { actions.launchDesktop(it) },
                     onEmptyTap = {
                         selected = -1
                         inDesktopZone = false
@@ -1257,7 +1320,7 @@ private val bb7IconCell: @Composable (AppEntry, Bb7IconAppearance, () -> Unit, (
                 .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AppMark(app = app, size = display.iconDp)
+        if (Bb7Folders.isFolder(app)) FolderGlyph(display.iconDp) else AppMark(app = app, size = display.iconDp)
         if (display.showLabel) Spacer(Modifier.height(2.dp))
         if (display.showLabel) {
             Text(
@@ -1410,7 +1473,15 @@ private fun rememberBb7Apps(
         }
     val favorites = Bb7Home.panelApps(Bb7Panel.Favorites, apps, selection.favorites, defaultPackages = defaults)
     val byKey = remember(apps) { apps.associateBy { it.stableKey() } }
-    val desktop = Bb7Home.desktopShortcuts(selection.desktop).mapNotNull { byKey[it] }
+    val folderVersion = Bb7Folders.version
+    val desktop =
+        Bb7Home.desktopShortcuts(selection.desktop).mapNotNull { key ->
+            if (Bb7Folders.isFolderKey(key)) {
+                key.removePrefix(Bb7Folders.PREFIX).takeIf { folderVersion >= 0 && it in Bb7Folders.names(context) }?.let(Bb7Folders::entry)
+            } else {
+                byKey[key]
+            }
+        }
     return Bb7AppLists(shown, favorites.map { it.stableKey() }, desktop)
 }
 
