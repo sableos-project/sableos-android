@@ -61,9 +61,11 @@ internal class AccountAutoDiscoveryViewModel(
 
     private fun changeEmailAddress(emailAddress: String) {
         accountStateRepository.clear()
+        val typedPassword = state.value.password.value
         updateState {
             State(
                 emailAddress = StringInputField(value = emailAddress),
+                password = StringInputField(value = typedPassword),
                 isNextButtonVisible = true,
             )
         }
@@ -179,6 +181,12 @@ internal class AccountAutoDiscoveryViewModel(
                 configStep = if (isOAuth) ConfigStep.OAUTH else ConfigStep.PASSWORD,
                 isNextButtonVisible = !isOAuth,
             )
+        }
+
+        // The address and password share one screen, so a password typed up front is submitted as soon as
+        // the server settings are found.
+        if (!isOAuth && state.value.password.value.isNotBlank()) {
+            submitPassword()
         }
     }
 

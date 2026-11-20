@@ -165,7 +165,9 @@ internal fun ContentView(
             onEmailAddressChange = { onEvent(Event.EmailAddressChanged(it)) },
         )
 
-        if (state.configStep == AccountAutoDiscoveryContract.ConfigStep.PASSWORD) {
+        if (state.configStep == AccountAutoDiscoveryContract.ConfigStep.PASSWORD ||
+            state.configStep == AccountAutoDiscoveryContract.ConfigStep.EMAIL_ADDRESS
+        ) {
             Spacer(modifier = Modifier.height(BoltTheme.spacings.double))
             PasswordInput(
                 password = state.password.value,
