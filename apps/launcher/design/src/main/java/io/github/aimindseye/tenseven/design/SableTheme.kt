@@ -44,6 +44,8 @@ enum class AccentPreset(
     Purple("purple", "Purple", Color(0xFF7A42E8), Color.White),
     Orange("orange", "Orange", Color(0xFFF28C45), Color(0xFF1D0C02)),
     Slate("slate", "Slate", Color(0xFF64748B), Color.White),
+    Gold("gold", "Sable Gold", Color(0xFFD6A24A), Color(0xFF000000)),
+    Teal("teal", "Sable Teal", Color(0xFF3BB3C9), Color(0xFF000000)),
 
     /**
      * Not a colour of its own: the launcher takes its colours from the phone (Material You, from the wallpaper) on
