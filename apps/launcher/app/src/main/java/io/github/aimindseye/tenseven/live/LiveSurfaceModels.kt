@@ -46,6 +46,8 @@ data class LiveSurfaceSnapshot(
     val hubApps: List<AppUnreadCount> = emptyList(),
     val calendarPackages: Set<String> = emptySet(),
     val appSummaries: List<io.github.aimindseye.tenseven.frames.AppSummary> = emptyList(),
+    /** Every media session with a title, playing ones first; the frames show each app's own track. */
+    val mediaSessions: List<LiveDatum> = emptyList(),
 ) {
     init {
         require(dateText.isNotBlank())

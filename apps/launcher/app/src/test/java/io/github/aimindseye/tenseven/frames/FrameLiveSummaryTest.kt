@@ -45,6 +45,21 @@ class FrameLiveSummaryTest {
         assertTrue(FrameLiveSummary.playsMedia(FrameItem(FrameApp("org.sableos.media", 0)), fm))
     }
 
+    @Test fun everyPlayingAppShowsItsOwnTrack() {
+        val many =
+            snapshot.copy(
+                mediaSessions =
+                    listOf(
+                        LiveDatum("Media", "Video A", LiveAvailability.LIVE, sourcePackage = "com.google.android.youtube"),
+                        LiveDatum("Media", "Paused: Song B", LiveAvailability.LIVE, sourcePackage = "com.tubi"),
+                    ),
+            )
+        assertEquals("Video A", detail("com.google.android.youtube", data = many))
+        assertEquals("Paused: Song B", detail("com.tubi", data = many))
+        assertEquals("Track · Artist", detail("yt.music", data = many))
+        assertNull(detail("other.app", data = many))
+    }
+
     @Test fun accessLossAndMissingDataNeverReuseOldSummaries() {
         assertNull(detail("calendar", value = state.copy(calendarAllowed = false)))
         assertNull(detail("yt.music", value = state.copy(notificationsAllowed = false)))

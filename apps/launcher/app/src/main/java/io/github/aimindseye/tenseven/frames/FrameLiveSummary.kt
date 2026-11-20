@@ -1,6 +1,7 @@
 package io.github.aimindseye.tenseven.frames
 
 import io.github.aimindseye.tenseven.live.LiveAvailability
+import io.github.aimindseye.tenseven.live.LiveDatum
 import io.github.aimindseye.tenseven.live.LiveSurfaceSnapshot
 
 /** Media belongs only to its package and personal profile; calendar data is a device summary. */
@@ -11,14 +12,21 @@ object FrameLiveSummary {
      */
     private val sessionOwners = mapOf("com.android.fmradio" to "org.sableos.media")
 
-    /** True when the playing media session is [item]'s app (or the FM radio Sable Media drives). */
+    private fun ownerOf(source: String): String = sessionOwners[source] ?: source
+
+    /** The media session that belongs to [item]'s app (or to the FM radio Sable Media drives), playing ones first. */
+    fun sessionOf(
+        item: FrameItem,
+        snapshot: LiveSurfaceSnapshot,
+    ): LiveDatum? =
+        (snapshot.mediaSessions + snapshot.music)
+            .filter { it.sourcePackage != null && ownerOf(it.sourcePackage) == item.app.packageName }
+            .let { found -> found.firstOrNull { !it.detail.startsWith("Paused:") } ?: found.firstOrNull() }
+
     fun playsMedia(
         item: FrameItem,
         snapshot: LiveSurfaceSnapshot,
-    ): Boolean {
-        val source = snapshot.music.sourcePackage ?: return false
-        return item.app.packageName == (sessionOwners[source] ?: source)
-    }
+    ): Boolean = sessionOf(item, snapshot) != null
 
     fun detail(
         state: FramesState,
@@ -28,9 +36,10 @@ object FrameLiveSummary {
     ): String? {
         if (!state.settings.liveSummaries || item.app.userId != personalUser) return null
         summary(state, item, snapshot, personalUser)?.let { return it.detail }
+        val session = if (state.notificationsAllowed) sessionOf(item, snapshot) else null
         val datum =
             when {
-                playsMedia(item, snapshot) && state.notificationsAllowed -> snapshot.music
+                session != null -> session
                 item.app.packageName in snapshot.calendarPackages && state.calendarAllowed -> snapshot.calendar
                 else -> return null
             }
