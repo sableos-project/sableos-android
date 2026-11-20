@@ -54,6 +54,8 @@ private val PanelBlue = Color(0xFF2E9BD6)
 /** What the Menu key offers on the highlighted row (BlackBerry 7 notification list). */
 internal enum class NotificationMenuItem(val label: String) {
     Open("Open"),
+    MarkOpened("Mark Opened"),
+    MarkUnopened("Mark Unopened"),
     Delete("Delete"),
     ClearAll("Clear All"),
     Close("Close"),
@@ -84,6 +86,12 @@ internal fun Bb7NotificationPanel(onClose: () -> Unit) {
         ConversationHub.addChangeListener(listener)
         onDispose { ConversationHub.removeChangeListener(listener) }
     }
+    var tick by remember { mutableIntStateOf(0) }
+    DisposableEffect(Unit) {
+        val listener = { tick++ }
+        ConversationHub.addChangeListener(listener)
+        onDispose { ConversationHub.removeChangeListener(listener) }
+    }
     var selected by remember { mutableIntStateOf(0) }
     var menuOpen by remember { mutableStateOf(false) }
     var menuIndex by remember { mutableIntStateOf(0) }
@@ -106,11 +114,29 @@ internal fun Bb7NotificationPanel(onClose: () -> Unit) {
         onClose()
     }
 
+    fun isUnopened(item: HubNotification): Boolean = ConversationHub.state().unreadCount(item) > 0
+
+    fun conversationOf(item: HubNotification) = ConversationHub.conversations().firstOrNull { it.id == item.conversationId }
+
+    val menuItems =
+        items.getOrNull(selected).let { current ->
+            val unopened = current?.let(::isUnopened) ?: false
+            NotificationMenuItem.entries.filter {
+                when (it) {
+                    NotificationMenuItem.MarkOpened -> unopened
+                    NotificationMenuItem.MarkUnopened -> !unopened
+                    else -> true
+                }
+            }
+        }
+
     fun run(action: NotificationMenuItem) {
         val item = items.getOrNull(selected)
         menuOpen = false
         when (action) {
             NotificationMenuItem.Open -> item?.let(::open)
+            NotificationMenuItem.MarkOpened -> item?.let { conversationOf(it)?.let { c -> ConversationHub.markRead(context, c) } }
+            NotificationMenuItem.MarkUnopened -> item?.let { conversationOf(it)?.let { c -> ConversationHub.markUnread(context, c) } }
             NotificationMenuItem.Delete -> item?.let(::delete)
             NotificationMenuItem.ClearAll -> {
                 ConversationListenerService.cancelKeys(items.map(HubNotification::key))
@@ -145,13 +171,13 @@ internal fun Bb7NotificationPanel(onClose: () -> Unit) {
                             if (menuOpen) {
                                 when (code) {
                                     KeyEvent.KEYCODE_DPAD_DOWN ->
-                                        menuIndex = (menuIndex + 1) % NotificationMenuItem.entries.size
+                                        menuIndex = (menuIndex + 1) % menuItems.size
                                     KeyEvent.KEYCODE_DPAD_UP ->
                                         menuIndex =
-                                            (menuIndex - 1 + NotificationMenuItem.entries.size) %
-                                                NotificationMenuItem.entries.size
+                                            (menuIndex - 1 + menuItems.size) %
+                                                menuItems.size
                                     KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_DPAD_CENTER ->
-                                        run(NotificationMenuItem.entries[menuIndex])
+                                        menuItems.getOrNull(menuIndex)?.let(::run)
                                     KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_BACK -> menuOpen = false
                                     else -> return@onPreviewKeyEvent false
                                 }
@@ -183,8 +209,22 @@ internal fun Bb7NotificationPanel(onClose: () -> Unit) {
                 } else {
                     LazyColumn(state = state) {
                         itemsIndexed(items, key = { _, item -> item.key }) { index, item ->
+                            val dayLabel = dayLabel(context, item.postedAt)
+                            if (index == 0 || dayLabel != dayLabel(context, items[index - 1].postedAt)) {
+                                Text(
+                                    text = dayLabel,
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 11.sp,
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .background(Color.White.copy(alpha = 0.10f))
+                                            .padding(horizontal = 10.dp, vertical = 2.dp),
+                                )
+                            }
                             NotificationRow(
                                 item = item,
+                                unopened = tick >= 0 && isUnopened(item),
                                 selected = index == selected && !menuOpen,
                                 onClick = {
                                     selected = index
@@ -195,7 +235,7 @@ internal fun Bb7NotificationPanel(onClose: () -> Unit) {
                     }
                 }
                 if (menuOpen) {
-                    NotificationMenu(menuIndex) { run(it) }
+                    NotificationMenu(menuItems, menuIndex) { run(it) }
                 }
             }
         }
@@ -205,6 +245,7 @@ internal fun Bb7NotificationPanel(onClose: () -> Unit) {
 @Composable
 private fun NotificationRow(
     item: HubNotification,
+    unopened: Boolean,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -231,7 +272,7 @@ private fun NotificationRow(
                 text = item.conversationName,
                 color = Color.White,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = if (unopened) FontWeight.Bold else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -249,6 +290,7 @@ private fun NotificationRow(
 
 @Composable
 private fun NotificationMenu(
+    entries: List<NotificationMenuItem>,
     index: Int,
     onPick: (NotificationMenuItem) -> Unit,
 ) {
@@ -256,7 +298,7 @@ private fun NotificationMenu(
         verticalArrangement = Arrangement.spacedBy(0.dp),
         modifier = Modifier.fillMaxWidth().background(Color(0xFF1C1C1C)),
     ) {
-        NotificationMenuItem.entries.forEachIndexed { i, entry ->
+        entries.forEachIndexed { i, entry ->
             Text(
                 text = entry.label,
                 color = Color.White,
@@ -269,5 +311,20 @@ private fun NotificationMenu(
                         .padding(horizontal = 14.dp, vertical = 9.dp),
             )
         }
+    }
+}
+
+/** "Today", "Yesterday" or the date: the divider above each day's rows. */
+private fun dayLabel(
+    context: android.content.Context,
+    at: Long,
+): String {
+    val day = 24L * 60 * 60 * 1000
+    val zone = java.util.TimeZone.getDefault()
+    fun dayNumber(t: Long) = (t + zone.getOffset(t)) / day
+    return when (dayNumber(System.currentTimeMillis()) - dayNumber(at)) {
+        0L -> "Today"
+        1L -> "Yesterday"
+        else -> DateFormat.getMediumDateFormat(context).format(Date(at))
     }
 }
