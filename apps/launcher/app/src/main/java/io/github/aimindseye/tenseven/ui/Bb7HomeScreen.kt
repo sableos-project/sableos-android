@@ -1158,13 +1158,19 @@ private val bb7Banner: @Composable (
         val header = rememberHeaderOptions()
         if (!compact) {
             val status = HomeStatusCounts.from(notificationCounts)
+            var panelOpen by remember { mutableStateOf(false) }
             Text(
                 text = "Mail ${status.mail}  \u00B7  Texts ${status.texts}  \u00B7  Missed ${status.missed}",
                 color = Color.White.copy(alpha = 0.9f),
                 fontSize = 12.sp,
                 maxLines = 1,
-                modifier = Modifier.padding(top = 2.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { panelOpen = true }
+                        .padding(top = 2.dp),
             )
+            if (panelOpen) Bb7NotificationPanel(onClose = { panelOpen = false })
         }
         if (!compact && statusMode != HomeStatusMode.Hidden) {
             BbHomeStatus(statusMode, enabledDials, Modifier.fillMaxWidth().padding(vertical = 6.dp))
