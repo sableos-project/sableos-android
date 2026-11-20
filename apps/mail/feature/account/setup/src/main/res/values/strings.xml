@@ -65,4 +65,17 @@
     <string name="account_setup_create_account_creating">Creating account…</string>
     <string name="account_setup_create_account_error">An error occurred while trying to create the account</string>
     <string name="account_setup_create_account_created">Account successfully created</string>
+    <string name="sable_setup_provider_gmail" translatable="false">Gmail</string>
+    <string name="sable_setup_provider_outlook" translatable="false">Outlook.com</string>
+    <string name="sable_setup_provider_icloud" translatable="false">iCloud</string>
+    <string name="sable_setup_provider_yahoo" translatable="false">Yahoo</string>
+    <string name="sable_setup_provider_zoho" translatable="false">Zoho</string>
+    <string name="sable_setup_steps_title" translatable="false">How the servers are found</string>
+    <string name="sable_setup_step_1" translatable="false">Built-in table of known providers, domains and alternate domains</string>
+    <string name="sable_setup_step_2" translatable="false">Thunderbird\'s public settings list for the domain</string>
+    <string name="sable_setup_step_3" translatable="false">The domain\'s own published settings file</string>
+    <string name="sable_setup_step_4" translatable="false">The domain\'s MX records, to spot Google or Microsoft hosting</string>
+    <string name="sable_setup_step_5" translatable="false">Manual server fields, with TLS required and the certificate fingerprint shown before it is trusted</string>
+    <string name="sable_setup_step_6" translatable="false">Password sealed in the Android Keystore, never in clear, never backed up</string>
+    <string name="sable_setup_footer" translatable="false">Same flow in both profiles. Mail then appears in the shared Hub as its own source, and Reply works from there.</string>
 </resources>
