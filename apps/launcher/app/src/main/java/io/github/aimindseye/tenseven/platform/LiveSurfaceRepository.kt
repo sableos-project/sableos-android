@@ -101,6 +101,7 @@ class LiveSurfaceRepository(
                 hubApps = hubAppCounts(),
                 calendarPackages = calendarPackages(),
                 appSummaries = frameSummaries.snapshot(nowEpochMs),
+                mediaSessions = mediaSessions(),
             )
         }
 
@@ -168,6 +169,36 @@ class LiveSurfaceRepository(
      * What is playing, from the active media sessions. Android only lists them to an app that holds notification
      * access, which Tenseven's own listener provides once the user turns it on.
      */
+    private fun mediaSessions(): List<LiveDatum> =
+        try {
+            val manager = appContext.getSystemService(MediaSessionManager::class.java)
+            val listener = ComponentName(appContext, ConversationListenerService::class.java)
+            manager
+                ?.getActiveSessions(listener)
+                .orEmpty()
+                .sortedByDescending { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+                .mapNotNull { controller ->
+                    val metadata = controller.metadata
+                    val track = metadata?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE).orEmpty()
+                    if (track.isBlank()) {
+                        null
+                    } else {
+                        val artist = metadata?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST).orEmpty()
+                        val line = if (artist.isBlank()) track else "$track \u00B7 $artist"
+                        val playing = controller.playbackState?.state == PlaybackState.STATE_PLAYING
+                        LiveDatum(
+                            t("media"),
+                            if (playing) line else "Paused: $line",
+                            LiveAvailability.LIVE,
+                            System.currentTimeMillis(),
+                            controller.packageName,
+                        )
+                    }
+                }
+        } catch (_: RuntimeException) {
+            emptyList()
+        }
+
     private fun nowPlaying(): LiveDatum {
         val title = t("media")
         return try {
