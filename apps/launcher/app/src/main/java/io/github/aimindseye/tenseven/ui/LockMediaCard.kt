@@ -39,7 +39,7 @@ import kotlinx.coroutines.delay
 private const val LOCK_MEDIA_POLL_MS = 1_000L
 
 /** What the lock screen shows for the active media session: a title line and the controller that drives it. */
-private class LockMediaNow(
+internal class LockMediaNow(
     val title: String,
     val artist: String,
     val album: String,
@@ -48,7 +48,7 @@ private class LockMediaNow(
     val controller: MediaController,
 )
 
-private fun readLockMedia(context: android.content.Context): LockMediaNow? =
+internal fun readLockMedia(context: android.content.Context): LockMediaNow? =
     runCatching {
         val manager = context.getSystemService(MediaSessionManager::class.java) ?: return null
         val listener = ComponentName(context, ConversationListenerService::class.java)

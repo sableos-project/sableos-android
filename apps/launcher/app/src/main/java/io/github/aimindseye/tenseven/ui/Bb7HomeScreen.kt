@@ -1189,6 +1189,7 @@ private val bb7Banner: @Composable (
             SoundProfileButton()
             Spacer(Modifier.width(6.dp))
         }
+        if (!compact) HomeNowPlayingStrip(Modifier.padding(vertical = 4.dp))
         if (showStrip && !compact) {
             HomeNotificationStrip(
                 counts = notificationCounts,

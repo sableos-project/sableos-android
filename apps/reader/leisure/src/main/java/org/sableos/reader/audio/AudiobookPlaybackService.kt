@@ -103,6 +103,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
             publish = { mediaSession.setSessionExtras(it) },
         )
         player.addListener(PlaybackListener())
+        AudiobookNowPlaying.toggle = { player.playWhenReady = !player.playWhenReady }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
@@ -113,6 +114,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        AudiobookNowPlaying.cleared()
         writeFinalPosition()
         handler.removeCallbacksAndMessages(null)
         session?.release()
@@ -148,6 +150,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
     private inner class PlaybackListener : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            AudiobookNowPlaying.setPlaying(isPlaying)
             if (isPlaying) {
                 handler.removeCallbacks(tick)
                 handler.post(tick)
@@ -207,6 +210,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
             active.persist(force = true)
             applySettings(settingsStore.load(hash, profileId), active)
             active.open(hash, manifest, mediaItems(book, manifest), resolveStart(book, startMs), play)
+            AudiobookNowPlaying.opened(hash, manifest.title, play)
             SessionResult(SessionResult.RESULT_SUCCESS)
         }
     }
