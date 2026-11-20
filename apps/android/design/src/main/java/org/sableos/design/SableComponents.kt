@@ -1,6 +1,10 @@
 package org.sableos.design
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +19,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.Button
@@ -27,12 +32,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -187,38 +195,67 @@ fun SableActionButton(
 
 private const val READABLE_ON_LIGHT_LUMINANCE = 0.3f
 
-/** The BlackBerry 7 title bar: the accent blue across the top with the title in white. */
+/** The app's launcher icon as a bitmap of [sizePx], or null when the package manager has none. */
+private fun appIconBitmap(
+    context: Context,
+    sizePx: Int,
+): Bitmap? =
+    runCatching {
+        val drawable = context.packageManager.getApplicationIcon(context.packageName)
+        val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, sizePx, sizePx)
+        drawable.draw(canvas)
+        bitmap
+    }.getOrNull()
+
+/** The BlackBerry 7 title bar: the accent blue across the top with the app icon and the title in white. */
 @Composable
 private fun Bb7TitleBar(
     title: String,
     subtitle: String?,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    val context = LocalContext.current
+    val icon = remember(context) { appIconBitmap(context, ICON_PX)?.asImageBitmap() }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier =
             modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.primary)
                 .padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (subtitle != null) {
+        if (icon != null) {
+            Image(
+                bitmap = icon,
+                contentDescription = null,
+                modifier = Modifier.padding(end = SableSpacing.Sm).size(ICON_DP.dp),
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.85f),
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.85f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
+
+private const val ICON_DP = 28
+private const val ICON_PX = 96
 
 @Composable
 fun SablePageHeader(
