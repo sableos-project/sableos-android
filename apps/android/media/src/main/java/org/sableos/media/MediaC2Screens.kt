@@ -47,6 +47,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableDenseRow
+import org.sableos.design.SableDialog
+import org.sableos.design.SableDialogButton
+import org.sableos.design.SableDialogKind
 import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
 import org.sableos.design.SableTile
@@ -701,27 +704,15 @@ internal fun MediaKeyDialogs(
     }
 
     if (pendingRemoval != null) {
-        AlertDialog(
-            onDismissRequest = onDismissRemoval,
-            title = { Text(t("remove_from_collection")) },
-            text = {
-                Text(
-                    t("leaves_the_sable_media_collection", pendingRemoval.title),
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { onConfirmRemoval(pendingRemoval) },
-                    modifier = Modifier.sableFocusRing(),
-                ) {
-                    Text(t("remove"))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismissRemoval, modifier = Modifier.sableFocusRing()) {
-                    Text(t("keep"))
-                }
-            },
+        SableDialog(
+            kind = SableDialogKind.Inquiry,
+            message = t("leaves_the_sable_media_collection", pendingRemoval.title),
+            onDismiss = onDismissRemoval,
+            buttons =
+                listOf(
+                    SableDialogButton(t("remove")) { onConfirmRemoval(pendingRemoval) },
+                    SableDialogButton(t("keep"), onDismissRemoval),
+                ),
         )
     }
 }
