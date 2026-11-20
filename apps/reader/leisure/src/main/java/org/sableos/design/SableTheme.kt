@@ -35,7 +35,9 @@ enum class AccentPreset(
     val color: Color,
     val onColor: Color,
 ) {
-    Blue("blue", "Sable Blue", Color(0xFF2E9BD6), Color(0xFF000000));
+    Blue("blue", "Sable Blue", Color(0xFF2E9BD6), Color(0xFF000000)),
+    Gold("gold", "Sable Gold", Color(0xFFD6A24A), Color(0xFF000000)),
+    Teal("teal", "Sable Teal", Color(0xFF3BB3C9), Color(0xFF000000));
 
     companion object {
         fun fromStableValue(value: String?): AccentPreset =
