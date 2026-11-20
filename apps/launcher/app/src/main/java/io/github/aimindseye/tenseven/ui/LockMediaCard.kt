@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -40,6 +42,8 @@ private const val LOCK_MEDIA_POLL_MS = 1_000L
 private class LockMediaNow(
     val title: String,
     val artist: String,
+    val album: String,
+    val art: android.graphics.Bitmap?,
     val playing: Boolean,
     val controller: MediaController,
 )
@@ -58,6 +62,10 @@ private fun readLockMedia(context: android.content.Context): LockMediaNow? =
             LockMediaNow(
                 title = title,
                 artist = active.metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST).orEmpty(),
+                album = active.metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty(),
+                art =
+                    active.metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+                        ?: active.metadata?.getBitmap(MediaMetadata.METADATA_KEY_ART),
                 playing = active.playbackState?.state == PlaybackState.STATE_PLAYING,
                 controller = active,
             )
@@ -88,16 +96,30 @@ internal fun LockMediaCard(modifier: Modifier = Modifier) {
             .border(1.dp, Bb10Text.copy(alpha = 0.25f))
             .padding(10.dp),
     ) {
-        Text(
-            media.title,
-            color = Bb10Text,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (media.artist.isNotBlank()) {
-            Text(media.artist, color = Bb10Text.copy(alpha = 0.7f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            media.art?.let { art ->
+                androidx.compose.foundation.Image(
+                    bitmap = art.asImageBitmap(),
+                    contentDescription = "Album art",
+                    modifier = Modifier.size(72.dp).padding(end = 10.dp),
+                )
+            }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    media.title,
+                    color = Bb10Text,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (media.artist.isNotBlank()) {
+                    Text(media.artist, color = Bb10Text.copy(alpha = 0.7f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (media.album.isNotBlank()) {
+                    Text(media.album, color = Bb10Text.copy(alpha = 0.7f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
         }
         Row(
             Modifier.fillMaxWidth().padding(top = 4.dp),
