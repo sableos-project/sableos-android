@@ -77,7 +77,7 @@ fun SettingsScreen(
 
     val scrollState = rememberScrollState()
 
-    val settingsTabs = listOf("Global", "Book")
+    val settingsTabs = listOf("Global", "Book", "Comics", "Audio")
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     TidScreen(Tid.Screen.settings) {
@@ -88,6 +88,8 @@ fun SettingsScreen(
                         val tabTid = when (index) {
                             0 -> Tid.Settings.tabGlobal
                             1 -> Tid.Settings.tabBook
+                            2 -> Tid.Settings.tabComics
+                            3 -> Tid.Settings.tabAudio
                             else -> return@forEachIndexed
                         }
                         Tab(
@@ -114,6 +116,8 @@ fun SettingsScreen(
                     when (selectedTab) {
                         0 -> GlobalSettingsTab(activeVaultId, isMultiUserMode, viewModel, navController)
                         1 -> BookSettingsTab(navController)
+                        2 -> ComicSettingsTab(navController)
+                        3 -> AudioSettingsTab(navController)
                     }
                 }
             }
@@ -225,13 +229,23 @@ fun BookSettingsTab(navController: NavController) {
         )
     }
 
-    SettingsGroup(title = "Comics & Audiobooks") {
+}
+
+@Composable
+fun ComicSettingsTab(navController: NavController) {
+    SettingsGroup(title = "Comics") {
         SettingsTile(
-            icon = Icons.Outlined.Photo, title = "Comics", subtitle = "Default reading mode (including manga and webtoon) and fit",
+            icon = Icons.Outlined.Photo, title = "Reading mode and fit", subtitle = "Default reading mode (including manga and webtoon) and fit",
             onClick = { navController.navigate(Screen.ComicDefaults.route) }
         )
+    }
+}
+
+@Composable
+fun AudioSettingsTab(navController: NavController) {
+    SettingsGroup(title = "Audiobooks") {
         SettingsTile(
-            icon = Icons.Default.Audiotrack, title = "Audiobooks", subtitle = "Default speed and skip lengths",
+            icon = Icons.Default.Audiotrack, title = "Playback defaults", subtitle = "Default speed and skip lengths",
             onClick = { navController.navigate(Screen.AudiobookDefaults.route) }
         )
     }
