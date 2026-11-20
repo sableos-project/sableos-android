@@ -114,13 +114,15 @@ private fun FmTunerPanel(
     onToggleFavorite: (Int) -> Unit,
 ) {
     val tuned = FmBand.isValid(fm.station)
+    val online = FmOnline.directory[fm.station]
     val name =
         names[fm.station] ?: fm.programService.ifBlank {
             fm.stations
                 .firstOrNull { it.station == fm.station }
                 ?.name
                 .orEmpty()
-        }
+        }.ifBlank { online?.name.orEmpty() }
+    val song = FmOnline.song
     // The approved FM board: a big frequency with MHz under it, a dial that scrolls round the tuned station, then
     // the station and what is playing.
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -154,7 +156,13 @@ private fun FmTunerPanel(
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                text = if (tuned) t("live_fm") + " \u00B7 " + FmBand.status(fm) else FmBand.status(fm),
+                text =
+                    if (tuned) {
+                        listOfNotNull(t("live_fm"), FmBand.status(fm), online?.genre?.takeIf { it.isNotBlank() })
+                            .joinToString(" \u00B7 ")
+                    } else {
+                        FmBand.status(fm)
+                    },
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -184,7 +192,7 @@ private fun FmTunerPanel(
             )
         }
     }
-    if (fm.radioText.isNotBlank()) {
+    if (fm.radioText.isNotBlank() || song.isNotBlank()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -205,15 +213,36 @@ private fun FmTunerPanel(
                     modifier = Modifier.size(30.dp),
                 )
             }
-            Text(
-                text = fm.radioText,
-                fontSize = 15.sp,
-                lineHeight = 19.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            if (song.isNotBlank()) {
+                val (artist, title) = IcyMetadata.split(song)
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        fontSize = 15.sp,
+                        lineHeight = 19.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = listOf(artist, t("via_internet")).filter { it.isNotBlank() }.joinToString(" \u00B7 "),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            } else {
+                Text(
+                    text = fm.radioText,
+                    fontSize = 15.sp,
+                    lineHeight = 19.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
     if (fm.connected && !fm.antenna) {
@@ -336,10 +365,13 @@ private fun FmStationLine(
     onRename: (String) -> Unit,
 ) {
     var naming by remember(station.station) { mutableStateOf(false) }
-    val title = customName.ifBlank { station.name.ifBlank { "${FmBand.format(station.station)} MHz" } }
+    val online = FmOnline.directory[station.station]
+    val title =
+        customName.ifBlank { station.name.ifBlank { online?.name.orEmpty().ifBlank { "${FmBand.format(station.station)} MHz" } } }
     val detail =
         listOfNotNull(
-            "FM".takeIf { customName.isNotBlank() || station.name.isNotBlank() },
+            "FM".takeIf { customName.isNotBlank() || station.name.isNotBlank() || online != null },
+            online?.genre?.takeIf { it.isNotBlank() },
             preset?.let { "Alt+$it" },
         ).joinToString(" · ")
     val ink = if (current) Color.White else MaterialTheme.colorScheme.onSurface
