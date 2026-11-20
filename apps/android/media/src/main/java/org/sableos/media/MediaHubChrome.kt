@@ -280,10 +280,22 @@ internal class MediaBarAction(
 
 /** The 50 dp action bar: up to five buttons, each a 20 dp icon over an 11 sp label. */
 @Composable
-internal fun MediaActionBar(actions: List<MediaBarAction>) {
+internal fun MediaActionBar(
+    actions: List<MediaBarAction>,
+    hint: String? = null,
+) {
     if (actions.isEmpty()) return
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        if (hint != null) {
+            Text(
+                text = hint,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 3.dp),
+            )
+        }
         Row(
             modifier =
                 Modifier

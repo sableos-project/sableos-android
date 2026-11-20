@@ -2475,7 +2475,10 @@ private fun MediaHubFrame(
         if (destination != MediaDestination.NowPlaying && destination != MediaDestination.Fm && !recordings) {
             MediaNowLine(playback = playback, art = nowArt) { go(MediaDestination.NowPlaying) }
         }
-        MediaActionBar(hubActions(state, actions))
+        MediaActionBar(
+            hubActions(state, actions),
+            hint = if (destination == MediaDestination.Fm && !FmViewState.showStations) FM_KEY_HINT else null,
+        )
     }
 }
 

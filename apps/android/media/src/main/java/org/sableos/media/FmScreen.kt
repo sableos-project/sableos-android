@@ -1,12 +1,13 @@
 // Patch history: 0061, 0085, 0166, 0206 (see docs/PATCH_HISTORY.md)
 package org.sableos.media
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,12 +15,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,8 +34,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,7 +64,7 @@ internal object FmViewState {
 
 internal val LocalFmAvailable = staticCompositionLocalOf { false }
 
-private val FM_KEY_HINT: String get() = t("space_on_off_j_k")
+internal val FM_KEY_HINT: String get() = t("space_on_off_j_k")
 
 internal data class FmScreenActions(
     val onPower: () -> Unit,
@@ -83,7 +88,7 @@ internal fun FmScreen(
     actions: FmScreenActions,
     names: Map<Int, String> = emptyMap(),
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg)) {
+    Column(verticalArrangement = Arrangement.spacedBy(if (FmViewState.showStations) SableSpacing.Lg else SableSpacing.Sm)) {
         if (!fm.available) {
             SableValuePanel(
                 label = t("fm_radio"),
@@ -94,12 +99,7 @@ internal fun FmScreen(
             if (FmViewState.showStations) {
                 FmStationsScreen(fm, favorites, names, actions)
             } else {
-                FmTunerPanel(fm, names)
-                Text(
-                    text = FM_KEY_HINT,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                FmTunerPanel(fm, favorites, names)
             }
         }
     }
@@ -108,6 +108,7 @@ internal fun FmScreen(
 @Composable
 private fun FmTunerPanel(
     fm: FmUiState,
+    favorites: Set<Int>,
     names: Map<Int, String>,
 ) {
     val tuned = FmBand.isValid(fm.station)
@@ -118,99 +119,140 @@ private fun FmTunerPanel(
                 ?.name
                 .orEmpty()
         }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Column(
-            modifier = Modifier.padding(SableSpacing.Md),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
-        ) {
-            if (fm.recording) {
+    // The approved FM board: a big frequency with MHz under it, a dial that scrolls round the tuned station, then
+    // the station and what is playing.
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = if (tuned) FmBand.format(fm.station) else "--.-",
+            fontSize = 50.sp,
+            lineHeight = 54.sp,
+            fontWeight = FontWeight.Light,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+        )
+        Text("MHz", fontSize = 11.sp, color = MediaAccent, letterSpacing = 2.sp)
+        if (fm.recording) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.size(8.dp).background(FmRecordRed, CircleShape))
                 Text(
-                    text = "● " + t("fm_rec") + " " + FmBand.clock(fm.recordMs),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = FmRecordRed,
+                    text = t("fm_rec") + " " + FmBand.clock(fm.recordMs),
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                )
-            }
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = if (tuned) FmBand.format(fm.station) else "--.-",
-                    style = MaterialTheme.typography.displayMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                )
-                Text(
-                    text = " MHz",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = SableSpacing.Sm),
                 )
             }
-            FmDial(station = fm.station.takeIf { tuned })
-            if (name.isNotBlank()) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MediaAccent,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (fm.radioText.isNotBlank()) {
-                Text(
-                    text = fm.radioText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+        }
+    }
+    FmDial(station = fm.station.takeIf { tuned })
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 12.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = FmBand.status(fm),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = name.ifBlank { if (tuned) t("fm_radio") else "" },
+                fontSize = 21.sp,
+                lineHeight = 26.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (tuned) {
+            val starred = fm.station in favorites
+            Icon(
+                imageVector = if (starred) MediaIcons.StarFilled else MediaIcons.Star,
+                contentDescription = null,
+                tint = if (starred) MediaAccent else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(26.dp),
+            )
+        }
+    }
+    if (fm.radioText.isNotBlank()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(64.dp)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    MediaIcons.Dial,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(30.dp),
                 )
             }
             Text(
-                text = FmBand.status(fm),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = fm.radioText,
+                fontSize = 15.sp,
+                lineHeight = 19.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
         }
     }
     if (fm.connected && !fm.antenna) {
         Text(
-            text =
-                t("fm_uses_wired_headphones_as"),
+            text = t("fm_uses_wired_headphones_as"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(horizontal = 12.dp),
         )
     }
 }
 
 internal val FmRecordRed = Color(0xFFE5484D)
-private val FmDialHeight = 36.dp
+private val FmDialHeight = 30.dp
+private const val FM_DIAL_HALF_SPAN = 25 // 2.5 MHz either side of the needle, in 100 kHz steps
 
-/** The tuning dial: a tick every 0.1 MHz, a taller one every MHz, and a needle on the tuned station. */
+/**
+ * The tuning dial of the board: it scrolls round the tuned station, a tick every 0.1 MHz and a taller one every
+ * MHz, a label at each whole MHz, and the needle fixed in the middle.
+ */
 @Composable
 private fun FmDial(station: Int?) {
     val tick = MaterialTheme.colorScheme.outline
+    val major = MaterialTheme.colorScheme.onSurfaceVariant
     val needle = MediaAccent
-    Canvas(Modifier.fillMaxWidth().height(FmDialHeight)) {
-        val low = FmBridgeProtocol.LOWEST_STATION
-        val high = FmBridgeProtocol.HIGHEST_STATION
-        val span = (high - low).toFloat()
-        for (value in low..high) {
-            val x = (value - low) / span * size.width
-            val major = value % 10 == 0
-            val mid = value % 5 == 0
-            val length = if (major) size.height * 0.7f else if (mid) size.height * 0.5f else size.height * 0.3f
-            drawLine(tick, Offset(x, size.height), Offset(x, size.height - length), strokeWidth = if (major) 2f else 1f)
+    val ink = MaterialTheme.colorScheme.onSurfaceVariant
+    val measurer = rememberTextMeasurer()
+    val centre = station ?: ((FmBridgeProtocol.LOWEST_STATION + FmBridgeProtocol.HIGHEST_STATION) / 2)
+    Canvas(Modifier.fillMaxWidth().height(FmDialHeight + 14.dp)) {
+        val from = centre - FM_DIAL_HALF_SPAN
+        val to = centre + FM_DIAL_HALF_SPAN
+        val span = (to - from).toFloat()
+        val tickHeight = FmDialHeight.toPx()
+        for (value in from..to) {
+            if (value < FmBridgeProtocol.LOWEST_STATION || value > FmBridgeProtocol.HIGHEST_STATION) continue
+            val x = (value - from) / span * size.width
+            val whole = value % 10 == 0
+            val half = value % 5 == 0
+            val length = if (whole) tickHeight * 0.6f else if (half) tickHeight * 0.42f else tickHeight * 0.26f
+            drawLine(if (whole) major else tick, Offset(x, tickHeight), Offset(x, tickHeight - length), strokeWidth = if (whole) 3f else 1.5f)
+            if (whole) {
+                val label = measurer.measure((value / 10).toString(), TextStyle(fontSize = 10.sp, color = ink))
+                drawText(label, topLeft = Offset(x - label.size.width / 2f, tickHeight + 2f))
+            }
         }
-        if (station != null) {
-            val x = (station - low) / span * size.width
-            drawLine(needle, Offset(x, 0f), Offset(x, size.height), strokeWidth = 4f)
-        }
+        if (station != null) drawLine(needle, Offset(size.width / 2f, 0f), Offset(size.width / 2f, tickHeight), strokeWidth = 6f)
     }
 }
 
