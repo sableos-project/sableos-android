@@ -15,7 +15,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import io.github.aimindseye.tenseven.model.AppEntry
 
 /**
@@ -101,9 +101,9 @@ internal object Bb7Folders {
 
 /** A folder drawn as a tab-topped rectangle, the size of an app icon. */
 @Composable
-internal fun FolderGlyph(size: Dp) {
-    Box(Modifier.size(size)) {
-        Canvas(Modifier.size(size)) {
+internal fun FolderGlyph(sizeDp: Int) {
+    Box(Modifier.size(sizeDp.dp)) {
+        Canvas(Modifier.size(sizeDp.dp)) {
             val w = this.size.width
             val h = this.size.height
             val blue = Color(0xFF2E9BD6)
