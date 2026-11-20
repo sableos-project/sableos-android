@@ -41,7 +41,6 @@ enum class AccentPreset(
     Blue("blue", "Sable Blue", Color(0xFF2E9BD6), Color(0xFF000000)),
     Gold("gold", "Sable Gold", Color(0xFFD6A24A), Color(0xFF000000)),
     Teal("teal", "Sable Teal", Color(0xFF3BB3C9), Color(0xFF000000)),
-    Red("red", "Sable Red", Color(0xFFC95A5A), Color(0xFF000000)),
     ;
 
     companion object {
