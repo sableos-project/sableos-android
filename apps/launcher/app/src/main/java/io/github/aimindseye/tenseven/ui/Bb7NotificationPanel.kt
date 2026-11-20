@@ -32,6 +32,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.nativeKeyCode
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -140,7 +141,7 @@ internal fun Bb7NotificationPanel(onClose: () -> Unit) {
                         .focusable()
                         .onPreviewKeyEvent { event ->
                             if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                            val code = event.nativeKeyCode
+                            val code = event.key.nativeKeyCode
                             if (menuOpen) {
                                 when (code) {
                                     KeyEvent.KEYCODE_DPAD_DOWN ->
