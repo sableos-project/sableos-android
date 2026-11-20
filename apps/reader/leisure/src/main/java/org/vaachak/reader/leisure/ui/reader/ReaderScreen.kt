@@ -2,6 +2,7 @@
 package org.vaachak.reader.leisure.ui.reader
 
 // --- MAESTRO FIX 1: Import semantics ---
+import org.sableos.reader.ui.Bb7ConfirmDialog
 import android.app.Activity
 import android.view.ActionMode
 import android.view.Menu
@@ -678,7 +679,13 @@ private fun DictionaryPanel(viewModel: ReaderViewModel, isEink: Boolean) {
 
 @Composable
 private fun DeleteHighlightDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Delete Highlight?") }, text = { Text("This action cannot be undone.") }, confirmButton = { TextButton(onClick = onConfirm) { Text("Delete", color = Color.Red) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }, modifier = Modifier.zIndex(4f))
+    Bb7ConfirmDialog(
+        message = "Delete this highlight? This action cannot be undone.",
+        confirmLabel = "Delete",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+        modifier = Modifier.zIndex(4f),
+    )
 }
 
 /** The floating read-aloud controls and their settings sheet, shown while the TTS bar is up. */

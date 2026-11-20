@@ -2,6 +2,7 @@
 package org.vaachak.reader.leisure.ui.bookshelf
 
 // --- MAESTRO FIX 1: Import semantics ---
+import org.sableos.reader.ui.Bb7ConfirmDialog
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -496,17 +497,12 @@ private fun ShelfContent(
 @Composable
 private fun RelinkDialog(target: BookEntity, onDismiss: () -> Unit, onChoose: (isFolder: Boolean) -> Unit) {
     val isFolder = target.format == FOLDER_FORMAT
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Needs file") },
-        text = {
-            Text(
-                "'${target.title}' was restored from a backup, which holds your place and notes but not the " +
-                    if (isFolder) "folder itself. Choose the same folder again to link it." else "file itself. Choose the same file again to link it."
-            )
-        },
-        confirmButton = { TextButton(onClick = { onChoose(isFolder) }) { Text("Choose") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    Bb7ConfirmDialog(
+        message = "'${target.title}' was restored from a backup, which holds your place and notes but not the " +
+            if (isFolder) "folder itself. Choose the same folder again to link it." else "file itself. Choose the same file again to link it.",
+        confirmLabel = "Choose",
+        onConfirm = { onChoose(isFolder) },
+        onDismiss = onDismiss,
     )
 }
 
@@ -755,27 +751,10 @@ fun DeleteBookDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("Remove Book?")
-        },
-        text = {
-            Text(
-                "Are you sure you want to remove '$bookTitle' from your library?\n\n" +
-                        "WARNING: This will permanently delete your reading progress, custom tags, and highlights. " +
-                        "The original file on your device will not be deleted."
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Delete", color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+    Bb7ConfirmDialog(
+        message = "Remove '$bookTitle' from your library? This permanently deletes your reading progress, custom tags and highlights. The original file on your device is not deleted.",
+        confirmLabel = "Delete",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
     )
 }
