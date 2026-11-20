@@ -1664,7 +1664,7 @@ private fun NowPlayingScreen(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = playback.source,
+                text = nowPlayingSourceLine(playback),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -2666,6 +2666,14 @@ private fun fmBarActions(
     )
 }
 
+/** The source, with "3 of 128" after it when more than one track is queued. */
+private fun nowPlayingSourceLine(playback: PlaybackUiState): String =
+    if (playback.queue.size > 1 && playback.currentIndex in playback.queue.indices) {
+        playback.source + " · " + t("track_n_of_m", playback.currentIndex + 1, playback.queue.size)
+    } else {
+        playback.source
+    }
+
 /**
  * Now playing on the Q25 (design A): the picture beside the title, the seek bar, then what plays next.
  * The transport is the action bar below.
@@ -2702,7 +2710,7 @@ private fun NowPlayingQ25(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = playback.source,
+                    text = nowPlayingSourceLine(playback),
                     fontSize = 14.sp,
                     lineHeight = 18.sp,
                     color = muted,
