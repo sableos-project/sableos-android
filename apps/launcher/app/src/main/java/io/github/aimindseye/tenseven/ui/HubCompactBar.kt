@@ -82,7 +82,7 @@ internal fun HubCompactViews(
     onCalendar: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val choices = listOf("All", "Unread", "Messages", "Email", "Snoozed", "Remind", "Calls", "Contacts", "Calendar")
+    val choices = listOf("All", "Unread", "Messages", "Email", "Social", "Snoozed", "Remind", "Calls", "Contacts", "Calendar")
     Column(
         Modifier
             .fillMaxWidth()
@@ -134,6 +134,7 @@ private fun onHubCompactChoice(
                 when (choice) {
                     "Messages" -> ConversationFilter(kind = ConversationKind.Messages)
                     "Email" -> ConversationFilter(kind = ConversationKind.Email)
+                    "Social" -> ConversationFilter(kind = ConversationKind.Social)
                     "Unread" -> ConversationFilter(unreadOnly = true)
                     "Snoozed" -> ConversationFilter(snoozed = true)
                     else -> ConversationFilter()

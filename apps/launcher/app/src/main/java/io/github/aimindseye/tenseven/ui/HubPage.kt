@@ -237,6 +237,17 @@ private fun HubPageContent(
     onReturnHome: () -> Unit,
 ) {
     val chrome = remember { HubPageChromeState() }
+    val chatConversation =
+        HubChatState.openId?.let { id ->
+            session.data.conversations.conversations
+                .firstOrNull { it.id == id }
+        }
+    if (chatConversation != null && !session.data.conversations.deviceLocked) {
+        HubContrastTheme {
+            HubChatScreen(chatConversation, session.data.conversations) { HubChatState.openId = null }
+        }
+        return
+    }
     HubContrastTheme {
         Column(Modifier.fillMaxSize()) {
             if (!sableBottomTabs()) HubBb7TitleBar(session.data.conversations)

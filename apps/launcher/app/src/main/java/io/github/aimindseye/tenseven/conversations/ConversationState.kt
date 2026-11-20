@@ -103,7 +103,22 @@ object Snooze {
     }
 }
 
-enum class ConversationKind { All, Messages, Email }
+enum class ConversationKind { All, Messages, Email, Social }
+
+/** Social apps for the Hub's Social tab (approved board: All, Messages, Email, Calls, Social). */
+internal val HUB_SOCIAL_PACKAGES =
+    setOf(
+        "com.facebook.katana",
+        "com.facebook.lite",
+        "com.instagram.android",
+        "com.twitter.android",
+        "com.linkedin.android",
+        "com.snapchat.android",
+        "com.reddit.frontpage",
+        "org.joinmastodon.android",
+        "com.zhiliaoapp.musically",
+        "com.pinterest",
+    )
 
 /** The Hub list's filters: part of a person's name, unread only, and messages versus email. */
 data class ConversationFilter(
@@ -138,6 +153,7 @@ object ConversationView {
                     ConversationKind.All -> true
                     ConversationKind.Email -> c.isEmail
                     ConversationKind.Messages -> c.latestNotification.kind == HubMessageKind.Message
+                    ConversationKind.Social -> c.sourcePackages.any { it in HUB_SOCIAL_PACKAGES }
                 }
         }
     }
