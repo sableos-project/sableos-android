@@ -49,7 +49,6 @@ import io.github.aimindseye.tenseven.model.Bb7IconSize
 import io.github.aimindseye.tenseven.model.GlanceWidgets
 import io.github.aimindseye.tenseven.model.GridColumns
 import io.github.aimindseye.tenseven.model.GridSettingsPolicy
-import io.github.aimindseye.tenseven.model.HomeStatusMode
 import io.github.aimindseye.tenseven.model.HomeStyle
 import io.github.aimindseye.tenseven.model.SettingsWidgets
 import io.github.aimindseye.tenseven.model.ThemePresets
@@ -178,53 +177,18 @@ internal fun IconGridSection(state: StartStateRepository) {
     }
 }
 
-/** Home header controls stay separate for BB7 and BB10, including when switching styles in Setup. */
+/** The Home status note in Setup. The dials and status line are gone; Home status is always hidden. */
 @Composable
-internal fun HomeDisplaySection(state: StartStateRepository) {
-    val style = homeStyleState(state).value
-    var dials by remember(style) { mutableStateOf(state.loadHomeDials()) }
-    var mode by remember(style) { mutableStateOf(state.loadHomeStatusMode()) }
-
+internal fun HomeDisplaySection(
+    @Suppress("UNUSED_PARAMETER") state: StartStateRepository,
+) {
+    // The status dials and the status line are removed (owner, 2026-11-18); only the note is left.
     Text("Home status and notifications", style = MaterialTheme.typography.titleMedium)
     Text(
         "Notification app icons are now in Hub. Use the lower mail icon for unread items.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf(
-            HomeStatusMode.Dials to "Dials",
-            HomeStatusMode.Text to "Text",
-            HomeStatusMode.Hidden to "Hidden",
-        ).forEach { (option, label) ->
-            StyleCard(
-                title = label,
-                detail = if (option == HomeStatusMode.Dials) "Blue outline" else "",
-                active = mode == option,
-                modifier = Modifier.weight(1f),
-            ) {
-                mode = option
-                state.saveHomeStatusMode(option)
-                dials = state.loadHomeDials()
-            }
-        }
-    }
-    if (mode == HomeStatusMode.Dials) {
-        listOf(
-            "wifi" to "Wi-Fi",
-            "mobile" to "Mobile",
-            "cpu" to "CPU",
-            "ram" to "RAM",
-            "battery" to "Battery",
-            "cell" to "Cell",
-            "storage" to "Storage",
-        ).forEach { (key, title) ->
-            SwitchRow(title, "Show $title dial", key in dials) { enabled ->
-                dials = if (enabled) dials + key else dials - key
-                state.saveHomeDials(dials)
-            }
-        }
-    }
 }
 
 /** The themes: BlackBerry (the default), Phone colours and six more. */
