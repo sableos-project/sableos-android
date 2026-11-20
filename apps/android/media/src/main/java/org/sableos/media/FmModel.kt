@@ -126,6 +126,10 @@ internal object FmBand {
         return if (h > 0) String.format(Locale.ROOT, "%d:%02d:%02d", h, m, sec) else String.format(Locale.ROOT, "%d:%02d", m, sec)
     }
 
+    /** True while the tuner is on and playing, so the FM screen shows the station's call sign instead of the output. */
+    fun isPlaying(state: FmUiState): Boolean =
+        state.connected && !state.scanning && !state.seeking && state.antenna && state.powered && !state.muted
+
     /** One line for the status panel. */
     fun status(state: FmUiState): String =
         when {

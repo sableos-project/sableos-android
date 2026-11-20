@@ -2457,6 +2457,7 @@ private fun MediaHubFrame(
                             t("playlists_count", state.playlists.size)
                         else -> null
                     },
+                noteDot = fmScreen,
                 menu = menu,
             )
             if (!fmStations) {

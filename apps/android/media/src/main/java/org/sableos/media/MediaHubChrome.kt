@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -117,6 +118,7 @@ internal fun MediaHubTitleBar(
     note: String? = null,
     onSearch: (() -> Unit)? = null,
     menu: List<MediaMenuItem> = emptyList(),
+    noteDot: Boolean = false,
 ) {
     val bb7 = rememberSableProfile() == SableProfile.BB7
     val muted = if (bb7) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
@@ -144,6 +146,7 @@ internal fun MediaHubTitleBar(
             overflow = TextOverflow.Ellipsis,
         )
         if (note != null) {
+            if (noteDot) Box(Modifier.size(6.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
             Text(note, fontSize = 11.sp, color = muted, modifier = Modifier.padding(horizontal = 8.dp), maxLines = 1)
         }
         if (onSearch != null) MediaIconButton(MediaIcons.Search, t("hub_search"), muted, onSearch)
