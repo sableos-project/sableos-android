@@ -515,6 +515,7 @@ internal fun MediaScreen(
                                             } else {
                                                 NowPlayingScreen(
                                                     playback = playback,
+                                                    art = { uri -> artworkFor(uri, podcastSubscriptions, stations) },
                                                     onPlayPause = onPlayPause,
                                                     onPrevious = onPrevious,
                                                     onNext = onNext,
@@ -1610,6 +1611,7 @@ private fun LibraryGroupRow(
 @Composable
 private fun NowPlayingScreen(
     playback: PlaybackUiState,
+    art: (String) -> ArtworkSource?,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
@@ -1624,11 +1626,23 @@ private fun NowPlayingScreen(
             style = MaterialTheme.typography.headlineLarge,
         )
 
-        ArtworkTile(
-            accent = accentFor(playback.title.hashCode()),
-            modifier = Modifier.fillMaxWidth(),
-            large = true,
-        )
+        val artSource = art(playback.queue.getOrNull(playback.currentIndex)?.uri.orEmpty())
+        if (artSource != null) {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                MediaArt(
+                    source = artSource,
+                    name = playback.title,
+                    fallback = accentFor(playback.title.hashCode()),
+                    size = NowPlayingArtTall,
+                )
+            }
+        } else {
+            ArtworkTile(
+                accent = accentFor(playback.title.hashCode()),
+                modifier = Modifier.fillMaxWidth(),
+                large = true,
+            )
+        }
 
         Column(
             verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
@@ -1646,6 +1660,15 @@ private fun NowPlayingScreen(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (playback.album.isNotBlank()) {
+                Text(
+                    text = playback.album,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
 
         val duration = playback.durationMs.coerceAtLeast(0L)
@@ -2740,6 +2763,16 @@ private fun NowPlayingQ25(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (playback.album.isNotBlank()) {
+                    Text(
+                        text = playback.album,
+                        fontSize = 13.sp,
+                        lineHeight = 16.sp,
+                        color = muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
         val duration = playback.durationMs.coerceAtLeast(0L)
@@ -2807,6 +2840,7 @@ private fun NowPlayingQ25(
 }
 
 private val NowPlayingArtShort = 112.dp
+private val NowPlayingArtTall = 240.dp
 private const val NOW_PLAYING_UPCOMING_ROWS = 20
 
 /** The one-line key hint above the action bar, as on each approved board. */
