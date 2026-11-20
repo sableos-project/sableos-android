@@ -170,6 +170,7 @@ internal fun StartStrip(
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) { index -> page(index) }
         if (state.currentPage != StartPages.HUB + pageLead) {
+            HomeHintFooter(HomeHints.BB10, Bb10Text.copy(alpha = 0.6f))
             ReferenceHomeBar(
                 slots = quickSlots,
                 pages = HomeBarPages(state.currentPage, pageCount, pageLead),

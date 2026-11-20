@@ -1006,6 +1006,10 @@ private class Bb7HomeCanvas(
                 if (!open && !model.searching) desktop(columns)
                 // The Favourites tray is the bottom of BBOS 7 home (Sable home proposal); no Hub/Camera bar.
                 tray(columns, rowPx)
+                if (!open && !model.searching) {
+                    HomeHintFooter(HomeHints.BB7_FIRST, Color.White.copy(alpha = 0.7f))
+                    HomeHintFooter(HomeHints.BB7_SECOND, Color.White.copy(alpha = 0.7f))
+                }
             }
         }
     }
@@ -1152,6 +1156,16 @@ private val bb7Banner: @Composable (
                 .padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 8.dp),
     ) {
         val header = rememberHeaderOptions()
+        if (!compact) {
+            val status = HomeStatusCounts.from(notificationCounts)
+            Text(
+                text = "Mail ${status.mail}  \u00B7  Texts ${status.texts}  \u00B7  Missed ${status.missed}",
+                color = Color.White.copy(alpha = 0.9f),
+                fontSize = 12.sp,
+                maxLines = 1,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
         if (!compact && statusMode != HomeStatusMode.Hidden) {
             BbHomeStatus(statusMode, enabledDials, Modifier.fillMaxWidth().padding(vertical = 6.dp))
         }
