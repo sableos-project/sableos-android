@@ -85,6 +85,7 @@ internal fun ActiveFramesPage(
             )
             if (strip) HomeNotificationStrip(snapshot.hubApps, enabledApps, expanded, onShowHub, onOpenApp = onOpenNotificationApp)
         }
+        HomeNowPlayingStrip(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
         if (shown(HomeLayout.SEARCH_ROW)) Box(Modifier.padding(horizontal = 6.dp)) { SearchLaunchButton(onClick = onSearch) }
         // Put the access offer outside the grid so it never displaces one of its two visible rows.
         if (!state.usageAllowed) UsageAccessHint(onAllowUsageAccess)

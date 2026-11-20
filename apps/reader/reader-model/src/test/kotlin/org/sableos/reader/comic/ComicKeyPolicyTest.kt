@@ -36,6 +36,36 @@ class ComicKeyPolicyTest {
     }
 
     @Test
+    fun aScrollingPageScrollsWithUpDownAndSpaceAndPansWhenZoomed() {
+        val m = ComicReadingMode.PAGED_LTR
+        val scrolls = { k: KeyInput, zoomed: Boolean -> ComicKeyPolicy.decide(k, m, false, false, true, zoomed) }
+        assertEquals(SCROLL_LINE_DOWN, scrolls(key(ReaderKey.DOWN), false))
+        assertEquals(SCROLL_LINE_UP, scrolls(key(ReaderKey.UP), false))
+        assertEquals(ComicKeyCommand.ADVANCE_IN_PAGE, scrolls(key(ReaderKey.SPACE), false))
+        assertEquals(ComicKeyCommand.REVERSE_IN_PAGE, scrolls(key(ReaderKey.SPACE, shift = true), false))
+        assertEquals(NEXT_PAGE, scrolls(key(ReaderKey.RIGHT), false))
+        assertEquals(ComicKeyCommand.PAN_RIGHT, scrolls(key(ReaderKey.RIGHT), true))
+        assertEquals(ComicKeyCommand.PAN_LEFT, scrolls(key(ReaderKey.LEFT), true))
+        assertEquals(NEXT_PAGE, scrolls(key(ReaderKey.PAGE_DOWN), true))
+        assertNull(scrolls(KeyInput(ReaderKey.SPACE, repeated = true), false))
+    }
+
+    @Test
+    fun zoomKeysWorkInEveryNonContinuousMode() {
+        listOf(ComicReadingMode.PAGED_LTR, ComicReadingMode.PAGED_RTL, ComicReadingMode.VERTICAL_PAGER).forEach { m ->
+            assertEquals(ComicKeyCommand.ZOOM_IN, decide(letter('z'), m))
+            assertEquals(ComicKeyCommand.ZOOM_IN, decide(letter('+'), m))
+            assertEquals(ComicKeyCommand.ZOOM_OUT, decide(letter('x'), m))
+            assertEquals(ComicKeyCommand.ZOOM_OUT, decide(letter('-'), m))
+            assertEquals(ComicKeyCommand.ZOOM_RESET, decide(letter('0'), m))
+            assertNull(decide(letter('z'), m, editing = true))
+            assertNull(decide(letter('z'), m, overlay = true))
+            assertNull(decide(KeyInput(ReaderKey.CHARACTER, 'z', repeated = true), m))
+        }
+        assertNull(decide(letter('z'), ComicReadingMode.WEBTOON))
+    }
+
+    @Test
     fun rightToLeftPagedReversesTheArrowsOnly() {
         val m = ComicReadingMode.PAGED_RTL
         assertEquals(NEXT_PAGE, decide(key(ReaderKey.LEFT), m))

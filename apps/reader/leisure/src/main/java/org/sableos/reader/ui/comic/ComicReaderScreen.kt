@@ -24,6 +24,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.sableos.reader.comic.ComicTapAction
 import org.sableos.reader.comic.ComicTapZones
+import org.sableos.reader.frames.ReportFrameCover
 import org.sableos.reader.layout.rememberReaderLayoutProfile
 
 private val MESSAGE_PADDING = 16.dp
@@ -49,6 +50,9 @@ fun ComicReaderScreen(
         onBack()
     }
     val scroll = remember { ScrollTarget() }
+    if (state.pageCount > 0) {
+        ReportFrameCover(state.title, "Comic, page ${state.pageNumber} of ${state.pageCount}")
+    }
     BackHandler { if (!viewModel.dismissTransientSurface()) leave.value() }
     ComicKeyboard(viewModel, scroll, onLeave = { leave.value() })
 
@@ -97,7 +101,7 @@ private fun ComicViewport(state: ComicReaderUiState, viewModel: ComicReaderViewM
             state.isLoading || state.pageCount == 0 -> CircularProgressIndicator()
             // Recreating the viewer on a mode change restarts it at the current page.
             else -> key(mode) {
-                if (mode.isContinuous) StripViewer(state, viewModel, scroll) else PagerViewer(state, viewModel)
+                if (mode.isContinuous) StripViewer(state, viewModel, scroll) else PagerViewer(state, viewModel, scroll)
             }
         }
     }

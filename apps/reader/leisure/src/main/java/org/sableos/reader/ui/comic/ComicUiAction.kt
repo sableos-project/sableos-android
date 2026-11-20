@@ -30,4 +30,10 @@ sealed interface ComicUiAction {
     data class Show(val overlay: ComicOverlay) : ComicUiAction
 
     data object ToggleChrome : ComicUiAction
+
+    data object ZoomIn : ComicUiAction
+
+    data object ZoomOut : ComicUiAction
+
+    data object ZoomReset : ComicUiAction
 }

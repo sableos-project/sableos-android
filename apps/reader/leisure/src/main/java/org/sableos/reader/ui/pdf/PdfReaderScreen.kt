@@ -34,6 +34,7 @@ import org.sableos.reader.input.LocalReaderKeyDispatcher
 import org.sableos.reader.input.ReaderAction
 import org.sableos.reader.input.ReaderKeyMap
 import org.sableos.reader.input.ReaderSurface
+import org.sableos.reader.frames.ReportFrameCover
 import org.sableos.reader.layout.rememberReaderLayoutProfile
 
 /** Fraction of the page width at each edge that turns pages when tapped; the middle toggles the controls. */
@@ -57,6 +58,9 @@ fun PdfReaderScreen(
     val leave = rememberUpdatedState {
         viewModel.closeDocument()
         onBack()
+    }
+    if (state.pageCount > 0) {
+        ReportFrameCover(state.title, "PDF, page ${state.pageIndex + 1} of ${state.pageCount}")
     }
     BackHandler { if (!viewModel.dismissTransientSurface()) leave.value() }
     PdfKeyboard(viewModel, onLeave = { leave.value() })

@@ -98,13 +98,19 @@ internal class AudiobookPlayback(
 
     /** Writes the current position: throttled while playing, immediately when [force] (pause, stop, close). */
     fun persist(force: Boolean) {
+        if (bookHash == null || !throttle.shouldWrite(force)) return
+        snapshotNow()?.let(record)
+    }
+
+    /** The position right now, ignoring the throttle; null when no book is open. */
+    fun snapshotNow(): ProgressSnapshot? {
         val hash = bookHash
         val line = timeline
-        if (hash == null || line == null || !throttle.shouldWrite(force)) return
+        if (hash == null || line == null) return null
         val position = globalPosition()
         val chapter = line.chapterIndexAt(position)
-        val progress = ReadingProgress.time(position, line.durationMs, chapter, System.currentTimeMillis())
-        record(ProgressSnapshot(hash, progress))
+        val now = System.currentTimeMillis()
+        return ProgressSnapshot(hash, ReadingProgress.time(position, line.durationMs, chapter, now))
     }
 
     private fun publishState() {

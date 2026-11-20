@@ -35,7 +35,13 @@ class ComicViewSettingsTest {
     @Test
     fun unknownFitFallsBackButUnknownKeysAreIgnored() {
         val decoded = ComicViewSettingsCodec.decode("{\"v\":9,\"mode\":\"WEBTOON\",\"fit\":\"STRETCH\",\"x\":1}")
-        assertEquals(ComicViewSettings(ComicReadingMode.WEBTOON, ComicFit.FIT_PAGE), decoded)
+        assertEquals(ComicViewSettings(ComicReadingMode.WEBTOON, ComicFit.FIT_WIDTH), decoded)
+    }
+
+    @Test
+    fun newComicsFillTheScreenWidth() {
+        assertEquals(ComicFit.FIT_WIDTH, ComicViewSettings().fit)
+        assertEquals(ComicFit.FIT_WIDTH, ComicViewSettings().effectiveFit)
     }
 
     @Test

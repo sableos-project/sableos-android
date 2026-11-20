@@ -165,6 +165,8 @@ object Tid {
     object Settings {
         const val tabGlobal = "settings_tab_global"
         const val tabBook = "settings_tab_book"
+        const val tabComics = "settings_tab_comics"
+        const val tabAudio = "settings_tab_audio"
     }
 
 

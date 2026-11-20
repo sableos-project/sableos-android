@@ -90,7 +90,9 @@ import org.sableos.reader.input.ReaderKeyDispatcher
 import org.sableos.reader.layout.rememberReaderLayoutProfile
 import org.sableos.reader.model.PublicationKind
 import org.sableos.reader.model.PublicationTypes
+import org.sableos.reader.frames.ReportFrameCover
 import org.sableos.reader.ui.audio.AudiobookReaderScreen
+import org.sableos.reader.ui.audio.NowPlayingBar
 import org.sableos.reader.ui.backup.BackupScreen
 import org.sableos.reader.ui.comic.ComicReaderScreen
 import org.sableos.reader.ui.pdf.PdfReaderScreen
@@ -264,15 +266,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun NavGraphBuilder.libraryDestination(navController: NavHostController, isEink: Boolean, isMultiUser: Boolean) {
         composable(Screen.Library.route) {
-            MainAppScreen(
-                navController = navController,
-                bookshelfViewModel = bookshelfViewModel,
-                isEink = isEink,
-                isMultiUser = isMultiUser,
-                onBookClick = { bookHash -> openBook(navController, bookHash) },
-                onHighlightsClick = { navController.navigate(Screen.Highlights.route) },
-                onSwitchProfileClick = { navController.navigate(PROFILE_PICKER_ROUTE) }
-            )
+            Column(Modifier.fillMaxSize()) {
+                Box(Modifier.weight(1f)) {
+                    MainAppScreen(
+                        navController = navController,
+                        bookshelfViewModel = bookshelfViewModel,
+                        isEink = isEink,
+                        isMultiUser = isMultiUser,
+                        onBookClick = { bookHash -> openBook(navController, bookHash) },
+                        onHighlightsClick = { navController.navigate(Screen.Highlights.route) },
+                        onSwitchProfileClick = { navController.navigate(PROFILE_PICKER_ROUTE) }
+                    )
+                }
+                NowPlayingBar(onOpen = { bookHash -> openBook(navController, bookHash) })
+            }
         }
     }
 
@@ -342,6 +349,7 @@ class MainActivity : AppCompatActivity() {
 
         val loaded = book
         if (loaded != null) {
+            ReportFrameCover(loaded.title, "Reading")
             ReaderScreen(
                 initialUri = loaded.localUri,
                 initialLocatorJson = locatorJson,

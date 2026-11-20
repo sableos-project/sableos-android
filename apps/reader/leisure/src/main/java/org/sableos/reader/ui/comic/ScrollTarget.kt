@@ -2,10 +2,15 @@ package org.sableos.reader.ui.comic
 
 /**
  * What the keyboard handler can ask of the current viewer. The continuous viewer installs [scrollBy]; paged viewers
- * leave it null because paged modes never scroll with the arrow keys.
+ * install them only on a page that is taller or wider than the screen (page-width fit or zoomed in).
  */
 class ScrollTarget {
     var scrollBy: (suspend (Float) -> Unit)? = null
+
+    /** Sideways pan of a zoomed paged page; null when the page does not scroll sideways. */
+    var panBy: (suspend (Float) -> Unit)? = null
+    var canScrollDown: (() -> Boolean)? = null
+    var canScrollUp: (() -> Boolean)? = null
     var viewportHeightPx: Int = 0
     var linePx: Float = 0f
 

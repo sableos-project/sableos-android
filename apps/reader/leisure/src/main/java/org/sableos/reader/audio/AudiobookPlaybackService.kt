@@ -2,6 +2,8 @@
 package org.sableos.reader.audio
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -25,6 +27,7 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import dagger.hilt.android.AndroidEntryPoint
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import javax.inject.Inject
@@ -34,6 +37,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.sableos.reader.core.audio.AudiobookSourceLoader
 import org.sableos.reader.engine.audio.AudioManifest
@@ -102,22 +106,31 @@ class AudiobookPlaybackService : MediaLibraryService() {
             publish = { mediaSession.setSessionExtras(it) },
         )
         player.addListener(PlaybackListener())
+        AudiobookNowPlaying.toggle = { player.playWhenReady = !player.playWhenReady }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        writeFinalPosition()
         if (!player.playWhenReady || player.mediaItemCount == 0) stopSelf()
     }
 
     override fun onDestroy() {
-        playback?.persist(force = true)
+        AudiobookNowPlaying.cleared()
+        writeFinalPosition()
         handler.removeCallbacksAndMessages(null)
         session?.release()
         session = null
         player.release()
         scope.cancel()
         super.onDestroy()
+    }
+
+    /** Saves the listening position before the service can disappear; the write must finish, so it is not async. */
+    private fun writeFinalPosition() {
+        val snapshot = playback?.snapshotNow() ?: return
+        runCatching { runBlocking { writeProgress(snapshot) } }
     }
 
     private fun buildPlayer(): ExoPlayer {
@@ -140,6 +153,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
     private inner class PlaybackListener : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            AudiobookNowPlaying.setPlaying(isPlaying)
             if (isPlaying) {
                 handler.removeCallbacks(tick)
                 handler.post(tick)
@@ -150,6 +164,14 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             if (playbackState == Player.STATE_ENDED) playback?.persist(force = true)
+        }
+
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int,
+        ) {
+            if (reason == Player.DISCONTINUITY_REASON_SEEK) playback?.persist(force = true)
         }
     }
 
@@ -190,7 +212,9 @@ class AudiobookPlaybackService : MediaLibraryService() {
         } else {
             active.persist(force = true)
             applySettings(settingsStore.load(hash, profileId), active)
-            active.open(hash, manifest, mediaItems(book, manifest), resolveStart(book, startMs), play)
+            val cover = withContext(Dispatchers.IO) { coverBytes(book.coverPath) }
+            active.open(hash, manifest, mediaItems(book, manifest, cover), resolveStart(book, startMs), play)
+            AudiobookNowPlaying.opened(hash, manifest.title, play)
             SessionResult(SessionResult.RESULT_SUCCESS)
         }
     }
@@ -207,7 +231,27 @@ class AudiobookPlaybackService : MediaLibraryService() {
         return if (requestedMs >= 0) requestedMs else saved ?: 0L
     }
 
-    private fun mediaItems(book: BookEntity, manifest: AudioManifest): List<MediaItem> {
+    /**
+     * The cover as a small JPEG. The session hands it to the lock screen and other controllers as a bitmap; a file path
+     * alone cannot be read by another app.
+     */
+    private fun coverBytes(path: String?): ByteArray? = path?.let {
+        runCatching {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(it, bounds)
+            var sample = 1
+            while (bounds.outWidth / (sample * 2) >= COVER_MAX_PX && bounds.outHeight / (sample * 2) >= COVER_MAX_PX) {
+                sample *= 2
+            }
+            val bitmap = BitmapFactory.decodeFile(it, BitmapFactory.Options().apply { inSampleSize = sample })
+            ByteArrayOutputStream().use { out ->
+                bitmap?.compress(Bitmap.CompressFormat.JPEG, COVER_QUALITY, out)
+                out.toByteArray().takeIf { bytes -> bytes.isNotEmpty() }
+            }
+        }.getOrNull()
+    }
+
+    private fun mediaItems(book: BookEntity, manifest: AudioManifest, cover: ByteArray?): List<MediaItem> {
         val artwork = book.coverPath?.let { Uri.fromFile(File(it)) }
         return manifest.tracks.mapIndexed { index, track ->
             MediaItem.Builder()
@@ -219,6 +263,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
                         .setArtist(manifest.author)
                         .setAlbumTitle(manifest.title)
                         .setArtworkUri(artwork)
+                        .apply { cover?.let { setArtworkData(it, MediaMetadata.PICTURE_TYPE_FRONT_COVER) } }
                         .build(),
                 )
                 .build()
@@ -248,21 +293,25 @@ class AudiobookPlaybackService : MediaLibraryService() {
     }
 
     private fun recordProgress(snapshot: ProgressSnapshot) {
+        scope.launch { writeProgress(snapshot) }
+    }
+
+    private suspend fun writeProgress(snapshot: ProgressSnapshot) {
         val progress = snapshot.progress
-        scope.launch {
-            bookDao.updateTypedProgress(
-                bookHash = snapshot.bookHash,
-                profileId = profileId,
-                progress = progress.fraction,
-                progressJson = LocatorCodec.encode(progress.locator),
-                finished = progress.isFinished,
-                timestamp = progress.updatedAt,
-            )
-        }
+        bookDao.updateTypedProgress(
+            bookHash = snapshot.bookHash,
+            profileId = profileId,
+            progress = progress.fraction,
+            progressJson = LocatorCodec.encode(progress.locator),
+            finished = progress.isFinished,
+            timestamp = progress.updatedAt,
+        )
     }
 
     private companion object {
         const val TICK_MS = 1_000L
         const val CONTINUE = -1L
+        const val COVER_MAX_PX = 512
+        const val COVER_QUALITY = 85
     }
 }
