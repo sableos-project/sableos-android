@@ -34,6 +34,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.sableos.reader.core.audio.AudiobookSourceLoader
 import org.sableos.reader.engine.audio.AudioManifest
@@ -107,17 +108,24 @@ class AudiobookPlaybackService : MediaLibraryService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        writeFinalPosition()
         if (!player.playWhenReady || player.mediaItemCount == 0) stopSelf()
     }
 
     override fun onDestroy() {
-        playback?.persist(force = true)
+        writeFinalPosition()
         handler.removeCallbacksAndMessages(null)
         session?.release()
         session = null
         player.release()
         scope.cancel()
         super.onDestroy()
+    }
+
+    /** Saves the listening position before the service can disappear; the write must finish, so it is not async. */
+    private fun writeFinalPosition() {
+        val snapshot = playback?.snapshotNow() ?: return
+        runCatching { runBlocking { writeProgress(snapshot) } }
     }
 
     private fun buildPlayer(): ExoPlayer {
@@ -150,6 +158,14 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             if (playbackState == Player.STATE_ENDED) playback?.persist(force = true)
+        }
+
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int,
+        ) {
+            if (reason == Player.DISCONTINUITY_REASON_SEEK) playback?.persist(force = true)
         }
     }
 
@@ -248,17 +264,19 @@ class AudiobookPlaybackService : MediaLibraryService() {
     }
 
     private fun recordProgress(snapshot: ProgressSnapshot) {
+        scope.launch { writeProgress(snapshot) }
+    }
+
+    private suspend fun writeProgress(snapshot: ProgressSnapshot) {
         val progress = snapshot.progress
-        scope.launch {
-            bookDao.updateTypedProgress(
-                bookHash = snapshot.bookHash,
-                profileId = profileId,
-                progress = progress.fraction,
-                progressJson = LocatorCodec.encode(progress.locator),
-                finished = progress.isFinished,
-                timestamp = progress.updatedAt,
-            )
-        }
+        bookDao.updateTypedProgress(
+            bookHash = snapshot.bookHash,
+            profileId = profileId,
+            progress = progress.fraction,
+            progressJson = LocatorCodec.encode(progress.locator),
+            finished = progress.isFinished,
+            timestamp = progress.updatedAt,
+        )
     }
 
     private companion object {

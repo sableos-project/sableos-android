@@ -10,11 +10,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -56,7 +58,7 @@ import org.sableos.reader.layout.rememberReaderLayoutProfile
 private val SCREEN_PADDING = 16.dp
 private val COVER_SIZE = 220.dp
 private val COMPACT_COVER_SIZE = 120.dp
-private val SHORT_COVER_SIZE = 88.dp
+private val SHORT_COVER_SIZE = 124.dp
 private val SHORT_SPACING = 8.dp
 
 /**
@@ -138,25 +140,29 @@ private fun PlayerContent(
     // A 720x720 keyboard phone is about 387 dp tall: the cover sits beside the chapter title and the spacing tightens
     // so the seek bar, transport and status all stay on screen. The column still scrolls as a last resort.
     val spacing = if (profile.isShort) SHORT_SPACING else SCREEN_PADDING
-    Column(
-        modifier = Modifier.fillMaxSize().sableVerticalScroll().padding(spacing),
-        verticalArrangement = Arrangement.spacedBy(spacing),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        AudioTopRow(state, viewModel::onAction, onBack)
-        if (profile.isShort) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Cover(state, SHORT_COVER_SIZE)
-                Spacer(Modifier.width(SCREEN_PADDING))
-                Column(Modifier.weight(1f)) { ChapterAndAuthor(state) }
+    // The column is at least as tall as the screen and spreads its rows evenly, so the player fills the display.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val screenHeight = maxHeight
+        Column(
+            modifier = Modifier.fillMaxWidth().heightIn(min = screenHeight).sableVerticalScroll().padding(spacing),
+            verticalArrangement = Arrangement.SpaceEvenly,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            AudioTopRow(state, viewModel::onAction, onBack)
+            if (profile.isShort) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Cover(state, SHORT_COVER_SIZE)
+                    Spacer(Modifier.width(SCREEN_PADDING))
+                    Column(Modifier.weight(1f)) { ChapterAndAuthor(state) }
+                }
+            } else {
+                Cover(state, if (compact) COMPACT_COVER_SIZE else COVER_SIZE)
+                ChapterAndAuthor(state)
             }
-        } else {
-            Cover(state, if (compact) COMPACT_COVER_SIZE else COVER_SIZE)
-            ChapterAndAuthor(state)
+            AudioSeekBar(state, viewModel::onAction)
+            AudioTransport(state, viewModel::onAction, togglePlayback)
+            AudioStatusRow(state, viewModel::onAction)
         }
-        AudioSeekBar(state, viewModel::onAction)
-        AudioTransport(state, viewModel::onAction, togglePlayback)
-        AudioStatusRow(state, viewModel::onAction)
     }
 }
 
@@ -164,7 +170,7 @@ private fun PlayerContent(
 private fun ChapterAndAuthor(state: AudiobookUiState) {
     Text(
         state.chapterTitle,
-        style = MaterialTheme.typography.titleMedium,
+        style = MaterialTheme.typography.titleLarge,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
     )
