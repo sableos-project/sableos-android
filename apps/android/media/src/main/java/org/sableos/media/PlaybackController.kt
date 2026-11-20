@@ -52,6 +52,8 @@ internal class PlaybackController(
     private var cachedQueue: List<QueueItemUiState> = emptyList()
     private var closed = false
     private var progressUpdatesEnabled = false
+    private var shuffled = false
+    private var originalOrder: List<String> = emptyList()
 
     private val listener =
         object : Player.Listener {
@@ -107,9 +109,38 @@ internal class PlaybackController(
         controller?.stop()
     }
 
+    /**
+     * Shuffle reorders the songs still to come, so the Up next list shows the new order and Next follows it. Turning it
+     * off puts the queue back in the order it had.
+     */
     fun toggleShuffle() {
-        controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
+        val player = controller ?: return
+        val count = player.mediaItemCount
+        if (shuffled) {
+            val order = originalOrder
+            order.forEachIndexed { target, id ->
+                val at = (0 until count).firstOrNull { player.getMediaItemAt(it).mediaId == id }
+                if (at != null && at != target && target < count) {
+                    player.moveMediaItem(at, target)
+                }
+            }
+            shuffled = false
+            originalOrder = emptyList()
+        } else if (count > 1) {
+            originalOrder = List(count) { player.getMediaItemAt(it).mediaId }
+            val first = player.currentMediaItemIndex.coerceAtLeast(0) + 1
+            for (slot in first until count - 1) {
+                val pick = (slot until count).random()
+                if (pick != slot) {
+                    player.moveMediaItem(pick, slot)
+                }
+            }
+            shuffled = true
+        }
+        publishState(refreshQueue = true)
     }
+
+    private fun queueIds(player: Player): List<String> = List(player.mediaItemCount) { player.getMediaItemAt(it).mediaId }
 
     fun seekTo(positionMs: Long) {
         controller?.seekTo(positionMs.coerceAtLeast(0L))
@@ -236,6 +267,11 @@ internal class PlaybackController(
             return
         }
 
+        if (shuffled && queueIds(player).toSet() != originalOrder.toSet()) {
+            shuffled = false
+            originalOrder = emptyList()
+        }
+
         if (refreshQueue) {
             cachedQueue = buildQueue(player)
         }
@@ -283,7 +319,7 @@ internal class PlaybackController(
             durationMs = resolvedDuration(player),
             hasPrevious = player.hasPreviousMediaItem(),
             hasNext = player.hasNextMediaItem(),
-            shuffle = player.shuffleModeEnabled,
+            shuffle = shuffled,
             currentIndex =
                 player.currentMediaItemIndex
                     .takeIf { it != C.INDEX_UNSET }

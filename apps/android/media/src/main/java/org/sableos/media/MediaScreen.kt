@@ -2591,6 +2591,7 @@ private fun hubActions(
             }
             listOf(
                 playPause,
+                MediaBarAction(MediaIcons.Stop, t("stop"), actions.onStop, enabled = playback.queue.isNotEmpty()),
                 next,
                 shuffle,
                 upNext,
@@ -2604,7 +2605,6 @@ private fun hubActions(
                             MediaMenuItem(t("import_folder"), actions.onAddLocalFolder),
                         ),
                 ),
-                settings,
             )
         }
 
