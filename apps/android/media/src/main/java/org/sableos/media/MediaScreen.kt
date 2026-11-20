@@ -1179,7 +1179,6 @@ private fun LazyListScope.trackItems(
         val item = indexedTrack.item
         LocalTrackRow(
             item = item,
-            accent = accentFor(indexedTrack.sourceIndex),
             favorite = allFavorites || item.uri in tracks.favoriteAudioUris,
             onToggleFavorite = { tracks.onToggleFavorite(item) },
             onPlay = { tracks.onPlay(indexedTrack.sourceIndex) },
@@ -1463,7 +1462,6 @@ private fun buildMediaCollectionIndex(
 @Composable
 private fun LocalTrackRow(
     item: LocalAudioItem,
-    accent: Color,
     favorite: Boolean,
     onToggleFavorite: () -> Unit,
     onPlay: () -> Unit,
@@ -1471,40 +1469,18 @@ private fun LocalTrackRow(
     /** A type tag shown before the artist, used where songs share a list with stations and playlists. */
     tag: String? = null,
 ) {
-    // Dense row: one primary trailing action (play); favorite moves to the menu.
+    // Board row: tag box, bold title, gray artist line, duration. Long press stars or unstars.
     // Focus is reported so F (favorite) and D (remove) act on the focused track.
-    Column(modifier = Modifier.fillMaxWidth()) {
-        SableDenseRow(
-            modifier = Modifier.onFocusChanged { onFocusChange(it.hasFocus) },
-            title = item.title,
-            subtitle = listOfNotNull(tag, item.artist, item.album).filter { it.isNotBlank() }.joinToString(" · "),
-            onClick = onPlay,
-            actions =
-                listOf(
-                    SableRowAction(ROW_ACTION_PLAY, t("play"), primary = true),
-                    SableRowAction(
-                        ROW_ACTION_FAVORITE,
-                        if (favorite) t("remove_from_favorites") else t("add_to_favorites"),
-                    ),
-                ),
-            onAction = { action ->
-                when (action.id) {
-                    ROW_ACTION_PLAY -> onPlay()
-                    ROW_ACTION_FAVORITE -> onToggleFavorite()
-                }
-            },
-            leading = {
-                // The song's own cover art when the file carries one (owner, 2026-11-13).
-                MediaArt(
-                    source = ArtworkSource.Embedded(item.uri),
-                    name = item.title,
-                    fallback = accent,
-                    size = if (isSableShortWindow()) MediaRowArtShort else 46.dp,
-                )
-            },
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    }
+    MediaBoardRow(
+        modifier = Modifier.onFocusChanged { onFocusChange(it.hasFocus) },
+        title = item.title,
+        subtitle = listOfNotNull(item.artist, item.album).filter { it.isNotBlank() }.joinToString(" · "),
+        tag = (tag ?: "\u266A").take(2),
+        trailing = if (item.durationMs > 0L) formatDuration(item.durationMs) else "",
+        onClick = onPlay,
+        onMore = onToggleFavorite,
+        starred = favorite,
+    )
 }
 
 @Composable
@@ -2399,6 +2375,10 @@ private fun MediaHubFrame(
             }.takeIf { destination != MediaDestination.NowPlaying },
             MediaMenuItem(t("now_playing")) { go(MediaDestination.NowPlaying) }
                 .takeIf { destination != MediaDestination.NowPlaying },
+            MediaMenuItem(t("hub_tab_artists")) {
+                actions.onLibraryPivotChange(LibraryPivot.Artists)
+                go(MediaDestination.Collection)
+            }.takeIf { destination != MediaDestination.NowPlaying },
             MediaMenuItem(t("up_next_2")) { go(MediaDestination.Queue) }.takeIf { playback.queue.isNotEmpty() },
         ) +
             (

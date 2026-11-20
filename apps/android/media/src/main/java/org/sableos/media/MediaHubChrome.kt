@@ -1,8 +1,10 @@
 // Patch history: 0206 (see docs/PATCH_HISTORY.md)
 package org.sableos.media
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -183,7 +186,7 @@ internal fun MediaHubTabs(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MediaHubTab.entries
-                .filter { it != MediaHubTab.Fm || fmAvailable }
+                .filter { (it != MediaHubTab.Fm || fmAvailable) && it != MediaHubTab.Artists }
                 .forEach { tab ->
                     val chosen = tab == selected
                     val count =
@@ -434,3 +437,78 @@ private val HubTabsHeight = 30.dp
 private val HubNowLineHeight = 40.dp
 private val HubActionBarHeight = 50.dp
 private val TabUnderlineWidth = 24.dp
+
+/**
+ * The board's list row: 50 dp, a 28 dp tag box (or a frequency column), a 15 sp bold title, an 11 sp
+ * gray line, and text on the right (duration or LIVE). The focused row is a solid accent fill on BBOS 7
+ * and an outline on BBOS 10. Long press or the Menu key is [onMore].
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun MediaBoardRow(
+    title: String,
+    subtitle: String,
+    tag: String,
+    trailing: String,
+    onClick: () -> Unit,
+    onMore: () -> Unit,
+    modifier: Modifier = Modifier,
+    starred: Boolean = false,
+) {
+    val bb7 = rememberSableProfile() == SableProfile.BB7
+    val accent = MaterialTheme.colorScheme.primary
+    var focused by remember { mutableStateOf(false) }
+    val fill = focused && bb7
+    val ink = if (fill) Color.White else MaterialTheme.colorScheme.onSurface
+    val muted = if (fill) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier =
+                modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .onFocusChanged { focused = it.hasFocus }
+                    .sableFocusRing()
+                    .background(if (fill) accent else Color.Transparent)
+                    .combinedClickable(onClick = onClick, onLongClick = onMore)
+                    .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .background(if (fill) Color.White.copy(alpha = 0.25f) else accent.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(tag, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (fill) Color.White else accent, maxLines = 1)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = if (starred) "$title ★" else title,
+                    fontSize = 15.sp,
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        fontSize = 11.sp,
+                        lineHeight = 13.sp,
+                        color = muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (trailing.isNotBlank()) {
+                Spacer(Modifier.width(8.dp))
+                Text(trailing, fontSize = 11.sp, color = muted, maxLines = 1)
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}

@@ -154,14 +154,14 @@ private fun FmTunerPanel(
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                text = FmBand.status(fm),
+                text = if (tuned) t("live_fm") + " \u00B7 " + FmBand.status(fm) else FmBand.status(fm),
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = name.ifBlank { if (tuned) t("fm_radio") else "" },
+                text = name.ifBlank { if (tuned) FmBand.format(fm.station) + " MHz" else "" },
                 fontSize = 21.sp,
                 lineHeight = 26.sp,
                 fontWeight = FontWeight.Bold,

@@ -251,4 +251,5 @@
     <string name="hint_favourites">Enter play · F remove star · Favourites are shortcuts</string>
     <string name="hint_lists">Enter play · N new list · Songs and online radio</string>
     <string name="hint_recordings">Enter play · D delete · Back to the dial</string>
+    <string name="live_fm">Live FM</string>
 </resources>
