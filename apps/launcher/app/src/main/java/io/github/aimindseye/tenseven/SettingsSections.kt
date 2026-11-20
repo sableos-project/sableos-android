@@ -321,6 +321,24 @@ internal fun HubSection() {
     }
 }
 
+/** What the lock layer shows: each part can be hidden. */
+@Composable
+private fun LockShowSwitches(state: StartStateRepository) {
+    listOf(
+        Triple("clock", "Clock", "The time."),
+        Triple("date", "Date", "Day and date."),
+        Triple("weather", "Weather", "Temperature and conditions for your Home weather city or device location."),
+        Triple("media", "Media player", "What is playing, with its controls."),
+        Triple("notifications", "Notification icons", "Apps with waiting notifications."),
+    ).forEach { (key, title, detail) ->
+        var shown by remember { mutableStateOf(state.loadLockShow(key)) }
+        SwitchRow(title, detail, shown) {
+            shown = it
+            state.saveLockShow(key, it)
+        }
+    }
+}
+
 /** The lock layer switch, the two permissions it needs, and a preview. */
 @Composable
 internal fun LockLayerSection(state: StartStateRepository) {
@@ -356,6 +374,7 @@ internal fun LockLayerSection(state: StartStateRepository) {
         state.saveLockLayer(it)
     }
     if (lockLayer) {
+        LockShowSwitches(state)
         if (!accessAllowed) {
             Card(stringResource(R.string.ls_lock_access), stringResource(R.string.ls_lock_access_detail), false) {
                 runCatching { context.startActivity(ConversationAccess.settingsIntent()) }

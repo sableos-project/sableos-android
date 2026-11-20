@@ -307,6 +307,16 @@ class StartStateRepository(
         preferences.edit().putInt(KEY_LOCK_LAYER, if (enabled) 1 else 0).apply()
     }
 
+    /** Which parts of the lock layer are shown (clock, date, weather, media, notifications); all on unless turned off. */
+    fun loadLockShow(item: String): Boolean = preferences.getBoolean("lock_show_$item", true)
+
+    fun saveLockShow(
+        item: String,
+        shown: Boolean,
+    ) {
+        preferences.edit().putBoolean("lock_show_$item", shown).apply()
+    }
+
     /** Explicit selection is separate from theme and Android WallpaperManager. */
     fun loadWallpaperSetId(): String =
         WallpaperSets.selectedId(
