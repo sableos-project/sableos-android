@@ -4,6 +4,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.tooling.preview.Preview
 import net.thunderbird.components.ui.bolt.PreviewWithThemes
 import net.thunderbird.components.ui.bolt.atom.textfield.TextFieldOutlinedEmailAddress
@@ -31,7 +36,16 @@ fun EmailAddressInput(
             label = stringResource(Res.string.bolt_molecule_email_address_input_label),
             isEnabled = isEnabled,
             hasError = errorMessage != null,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onPreviewKeyEvent { event ->
+                    // BlackBerry rule: Space types "@" (then ".") in an email address, which never holds a space.
+                    if (event.key != Key.Spacebar) return@onPreviewKeyEvent false
+                    if (event.type == KeyEventType.KeyDown && emailAddress.isNotEmpty()) {
+                        onEmailAddressChange(emailAddress + if ('@' in emailAddress) '.' else '@')
+                    }
+                    true
+                },
         )
     }
 }
