@@ -65,7 +65,8 @@ private fun readLockMedia(context: android.content.Context): LockMediaNow? =
                 album = active.metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty(),
                 art =
                     active.metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-                        ?: active.metadata?.getBitmap(MediaMetadata.METADATA_KEY_ART),
+                        ?: active.metadata?.getBitmap(MediaMetadata.METADATA_KEY_ART)
+                        ?: active.metadata?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON),
                 playing = active.playbackState?.state == PlaybackState.STATE_PLAYING,
                 controller = active,
             )
