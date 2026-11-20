@@ -414,7 +414,32 @@ private class Bb7HomeActions(
             }
         }
 
-    fun shortMenu(): List<Pair<String, () -> Unit>> {
+    /**
+     * The 3 x 3 menu of an icon held with the trackpad (approved board): Mark as Favourite, Move, Hide Icon, Move to
+     * Folder, Launch in the centre, Delete, and Full Menu in the last corner. Blank cells keep the grid shape.
+     * Without a focused app (or on a folder) it is the home's shortcut grid.
+     */
+    fun shortMenu(
+        app: AppEntry?,
+        fromDesktop: Boolean,
+    ): List<Pair<String, () -> Unit>> {
+        if (app == null || Bb7Folders.isFolder(app)) return homeShortMenu()
+        val lines = appMenu(app, fromDesktop).toMap()
+        val blank = "" to {}
+        val favourite = if ("Mark as Favourite" in lines) "Mark as Favourite" else "Unmark as Favourite"
+        val cells =
+            listOf(
+                favourite,
+                t("move_2"),
+                if ("Hide Icon" in lines) "Hide Icon" else resources.getString(R.string.bb7_add_home),
+                "Move to Folder",
+                "Launch",
+                "Delete",
+            ).map { title -> lines[title]?.let { title to it } ?: blank }
+        return SableShortMenu(cells + listOf(blank, blank, "Full Menu" to { input.launch.onOpenMenu(menuFor(app, fromDesktop)) }))
+    }
+
+    private fun homeShortMenu(): List<Pair<String, () -> Unit>> {
         fun open(action: String) {
             context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
@@ -630,7 +655,8 @@ private class Bb7HomeKeyboard(
                     SableCenterPress.pending = key
                 } else if (SableCenterPress.pending != null) {
                     SableCenterPress.pending = null
-                    input.launch.onOpenMenu(actions.shortMenu())
+                    val focused = if (model.inDesktop) desktopApps.getOrNull(model.deskIndex) else shown.getOrNull(state.selected)
+                    input.launch.onOpenMenu(actions.shortMenu(focused, model.inDesktop))
                 }
                 return true
             }

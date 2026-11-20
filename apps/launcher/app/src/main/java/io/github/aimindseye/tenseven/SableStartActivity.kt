@@ -475,6 +475,7 @@ class SableStartActivity : ComponentActivity() {
                 setPadding(dp(8), dp(8), dp(8), dp(8))
             }
         items.forEach { (title, action) ->
+            val blank = title.isEmpty()
             val cell =
                 android.widget.TextView(this).apply {
                     text = title
@@ -482,8 +483,8 @@ class SableStartActivity : ComponentActivity() {
                     textSize = 13f
                     gravity = android.view.Gravity.CENTER
                     setPadding(dp(4), dp(16), dp(4), dp(16))
-                    isFocusable = true
-                    isClickable = true
+                    isFocusable = !blank
+                    isClickable = !blank
                     background =
                         android.graphics.drawable.StateListDrawable().apply {
                             addState(intArrayOf(android.R.attr.state_focused), ColorDrawable(Color.rgb(0x2E, 0x9B, 0xD6)))
@@ -526,7 +527,9 @@ class SableStartActivity : ComponentActivity() {
             (resources.displayMetrics.widthPixels * MENU_WIDTH_FRACTION).toInt(),
             WindowManager.LayoutParams.WRAP_CONTENT,
         )
-        grid.getChildAt(0)?.requestFocus()
+        // Launch (the centre cell) is the default action of an icon's menu; the home menu starts on its first cell.
+        val launchIndex = items.indexOfFirst { it.first == "Launch" }
+        grid.getChildAt(if (launchIndex >= 0) launchIndex else 0)?.requestFocus()
     }
 
     private fun showBb7Menu(contextual: List<Pair<String, () -> Unit>>) {
