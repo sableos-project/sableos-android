@@ -191,9 +191,16 @@ internal fun MediaHubTabs(
                     .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // The approved board's strip, the same on every screen: Songs, Albums, Radio, FM, Podcasts.
+            // Lists, Favourites and Recordings are reached from the Media menu.
             MediaHubTab.entries
-                .filter { (it != MediaHubTab.Fm || fmAvailable) && it != MediaHubTab.Artists }
-                .forEach { tab ->
+                .filter { tab ->
+                    when (tab) {
+                        MediaHubTab.Fm -> fmAvailable
+                        MediaHubTab.Artists, MediaHubTab.Playlists, MediaHubTab.Favorites, MediaHubTab.Recordings -> false
+                        else -> true
+                    }
+                }.forEach { tab ->
                     val chosen = tab == selected
                     val inView = remember { BringIntoViewRequester() }
                     LaunchedEffect(chosen) {
