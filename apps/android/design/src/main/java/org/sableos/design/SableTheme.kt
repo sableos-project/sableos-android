@@ -39,6 +39,8 @@ enum class AccentPreset(
     val onColor: Color,
 ) {
     Blue("blue", "Sable Blue", Color(0xFF2E9BD6), Color(0xFF000000)),
+    Gold("gold", "Sable Gold", Color(0xFFD6A24A), Color(0xFF000000)),
+    Teal("teal", "Sable Teal", Color(0xFF3BB3C9), Color(0xFF000000)),
     ;
 
     companion object {
@@ -50,6 +52,8 @@ data class SableAppearance(
     val mode: AppearanceMode = AppearanceMode.FollowSystem,
     val accent: AccentPreset = AccentPreset.Blue,
     val cornerStyle: SableCornerStyle = SableCornerStyle.DEFAULT,
+    /** Panel opacity 0.5..1.0 (Settings, Display); panels and dialogs are drawn at this alpha. */
+    val panelOpacity: Float = 1f,
 )
 
 object SableDesignContract {
@@ -336,11 +340,22 @@ fun SableTheme(
                 extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(if (profile == SableProfile.BB7) 0.dp else 2.dp),
             )
         }
-    val themed =
+    val dialogBase =
         if (profile == SableProfile.BB10 && colors.background.luminance() < 0.5f) {
             colors.copy(surfaceContainerHigh = Color(0xFF0B0B0B))
         } else {
             colors
+        }
+    val panelAlpha = appearance.panelOpacity.coerceIn(0.5f, 1f)
+    val themed =
+        if (panelAlpha >= 1f) {
+            dialogBase
+        } else {
+            dialogBase.copy(
+                surfaceContainer = dialogBase.surfaceContainer.copy(alpha = panelAlpha),
+                surfaceContainerHigh = dialogBase.surfaceContainerHigh.copy(alpha = panelAlpha),
+                surfaceContainerHighest = dialogBase.surfaceContainerHighest.copy(alpha = panelAlpha),
+            )
         }
 
     MaterialTheme(

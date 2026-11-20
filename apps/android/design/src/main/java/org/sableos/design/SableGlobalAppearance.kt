@@ -34,6 +34,9 @@ object SableGlobalAppearanceContract {
      */
     const val COLUMN_CORNER_STYLE = "corner_style"
 
+    /** Settings-owned panel opacity in percent (50..100, step 10); a provider without it reads as 100. */
+    const val COLUMN_PANEL_OPACITY = "panel_opacity"
+
     val CONTENT_URI: Uri =
         Uri.parse("content://$AUTHORITY/$PATH_APPEARANCE")
 }
@@ -47,6 +50,7 @@ fun readGlobalSableAppearance(context: Context): SableAppearance =
                     SableGlobalAppearanceContract.COLUMN_MODE,
                     SableGlobalAppearanceContract.COLUMN_ACCENT,
                     SableGlobalAppearanceContract.COLUMN_CORNER_STYLE,
+                    SableGlobalAppearanceContract.COLUMN_PANEL_OPACITY,
                 ),
                 null,
                 null,
@@ -76,7 +80,19 @@ fun readGlobalSableAppearance(context: Context): SableAppearance =
                 val cornerStyle =
                     if (cornerIndex >= 0) cursor.getString(cornerIndex) else null
 
+                val opacityIndex =
+                    cursor.getColumnIndex(
+                        SableGlobalAppearanceContract.COLUMN_PANEL_OPACITY,
+                    )
+                val opacity =
+                    if (opacityIndex >= 0 && !cursor.isNull(opacityIndex)) {
+                        cursor.getInt(opacityIndex).coerceIn(50, 100) / 100f
+                    } else {
+                        1f
+                    }
+
                 SableAppearance(
+                    panelOpacity = opacity,
                     mode = AppearanceMode.fromStableValue(mode),
                     accent = AccentPreset.fromStableValue(accent),
                     cornerStyle = SableCornerStyle.fromStableValue(cornerStyle),
