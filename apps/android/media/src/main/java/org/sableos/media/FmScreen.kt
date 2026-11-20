@@ -158,8 +158,17 @@ private fun FmTunerPanel(
             Text(
                 text =
                     if (tuned) {
-                        listOfNotNull(t("live_fm"), FmBand.status(fm), online?.genre?.takeIf { it.isNotBlank() })
-                            .joinToString(" \u00B7 ")
+                        // The approved board reads "Live FM · call sign · genre"; the output is in the title bar.
+                        // Only a state that needs attention (scanning, muted, no antenna) replaces the call sign.
+                        listOfNotNull(
+                            t("live_fm"),
+                            if (FmBand.isPlaying(fm)) {
+                                fm.programService.trim().takeIf { it.isNotBlank() && it != name }
+                            } else {
+                                FmBand.status(fm)
+                            },
+                            online?.genre?.takeIf { it.isNotBlank() },
+                        ).joinToString(" \u00B7 ")
                     } else {
                         FmBand.status(fm)
                     },
