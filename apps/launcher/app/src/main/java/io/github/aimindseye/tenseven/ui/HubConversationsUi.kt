@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -632,6 +633,7 @@ private fun ConversationRow(
                     )
                 }
             }
+            HubNestedMessages(conversation, locked)
             Spacer(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)))
         }
     }
@@ -826,3 +828,58 @@ private fun hubSourceCount(context: android.content.Context): Int {
             .policy()
     return if (policy.automatic) -1 else policy.selected.size
 }
+
+/**
+ * The approved Hub board: a person who wrote through more than one app is one row, with that person's recent
+ * messages nested under it, each tagged with the app it came from (SMS, WhatsApp, Email).
+ */
+@Composable
+@Suppress("FunctionNaming")
+private fun HubNestedMessages(
+    conversation: HubConversation,
+    locked: Boolean,
+) {
+    if (locked || conversation.sourcePackages.size < 2) return
+    val recent =
+        conversation.messages
+            .filter { !it.isHistoric && !it.isOutgoing }
+            .sortedByDescending { it.timestamp }
+            .take(HUB_NESTED_MAX)
+    if (recent.isEmpty()) return
+    val accent = MaterialTheme.colorScheme.primary
+    Column(
+        modifier =
+            Modifier
+                .padding(start = 28.dp)
+                .drawBehind { drawRect(accent, size = androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height)) }
+                .padding(start = 14.dp),
+    ) {
+        recent.forEach { message ->
+            Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        DateUtils.formatDateTime(LocalContext.current, message.timestamp, DateUtils.FORMAT_SHOW_TIME),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        message.appName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accent,
+                        modifier = Modifier.border(1.dp, accent).padding(horizontal = 5.dp),
+                        maxLines = 1,
+                    )
+                }
+                Text(
+                    message.text.replace(Regex("\\s+"), " ").trim(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+private const val HUB_NESTED_MAX = 3
