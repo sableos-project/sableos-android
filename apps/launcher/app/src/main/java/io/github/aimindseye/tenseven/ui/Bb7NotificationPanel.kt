@@ -88,7 +88,7 @@ internal fun Bb7NotificationPanel(onClose: () -> Unit) {
     }
     var tick by remember { mutableIntStateOf(0) }
     DisposableEffect(Unit) {
-        val listener = { tick++ }
+        val listener: () -> Unit = { tick++ }
         ConversationHub.addChangeListener(listener)
         onDispose { ConversationHub.removeChangeListener(listener) }
     }
