@@ -15,6 +15,7 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.util.Locale
 
 /** What an FM station is, from the public radio directory: its name, genre and an internet stream of the same broadcast. */
@@ -179,6 +180,23 @@ internal object FmRegion {
         return code.uppercase(Locale.ROOT)
     }
 
+    /** The state or region the phone is in ("New Jersey"), or empty when location is off or no geocoder answers. */
+    @Suppress("DEPRECATION", "MissingPermission")
+    fun state(context: Context): String {
+        if (context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) return ""
+        return runCatching {
+            val manager = context.getSystemService(LocationManager::class.java)
+            val here =
+                manager.getProviders(true).mapNotNull { manager.getLastKnownLocation(it) }.maxByOrNull { it.time }
+                    ?: return ""
+            Geocoder(context, Locale.getDefault())
+                .getFromLocation(here.latitude, here.longitude, 1)
+                ?.firstOrNull()
+                ?.adminArea
+                .orEmpty()
+        }.getOrDefault("")
+    }
+
     /** The town the phone is in when location is allowed and a geocoder exists, else the country's name. */
     @Suppress("DEPRECATION", "MissingPermission")
     fun place(context: Context): String {
@@ -199,33 +217,46 @@ internal object FmRegion {
     }
 }
 
-/** The public Radio Browser directory, cached for a week per country. Blocking; call off the main thread. */
+/**
+ * The public Radio Browser directory for the phone's state, cached for a week. The directory is matched to a tuned
+ * frequency by number alone, and one number is used in every city, so it is narrowed to the state and left empty when
+ * the state is unknown: a frequency with no name is better than another city's name. Blocking; call off the main thread.
+ */
 internal class FmDirectoryRepository(
     context: Context,
 ) {
     private val preferences = context.getSharedPreferences("sable_media_fm_directory", Context.MODE_PRIVATE)
 
-    fun cached(country: String): Map<Int, FmDirectoryEntry> =
-        preferences.getString("entries_$country", null)?.let(FmDirectoryParser::decode).orEmpty()
+    fun cached(key: String): Map<Int, FmDirectoryEntry> =
+        preferences.getString("entries_$key", null)?.let(FmDirectoryParser::decode).orEmpty()
 
-    fun load(country: String): Map<Int, FmDirectoryEntry> {
-        val fresh = System.currentTimeMillis() - preferences.getLong("at_$country", 0L) < WEEK_MS
-        if (fresh) cached(country).takeIf { it.isNotEmpty() }?.let { return it }
-        val fetched = runCatching { fetch(country) }.getOrNull()
+    fun load(
+        country: String,
+        state: String,
+    ): Map<Int, FmDirectoryEntry> {
+        if (state.isBlank()) return emptyMap()
+        val key = "$country|$state"
+        val fresh = System.currentTimeMillis() - preferences.getLong("at_$key", 0L) < WEEK_MS
+        if (fresh) cached(key).takeIf { it.isNotEmpty() }?.let { return it }
+        val fetched = runCatching { fetch(country, state) }.getOrNull()
         if (!fetched.isNullOrEmpty()) {
             preferences
                 .edit()
-                .putString("entries_$country", FmDirectoryParser.encode(fetched))
-                .putLong("at_$country", System.currentTimeMillis())
+                .putString("entries_$key", FmDirectoryParser.encode(fetched))
+                .putLong("at_$key", System.currentTimeMillis())
                 .apply()
             return fetched
         }
-        return cached(country)
+        return cached(key)
     }
 
-    private fun fetch(country: String): Map<Int, FmDirectoryEntry> {
+    private fun fetch(
+        country: String,
+        state: String,
+    ): Map<Int, FmDirectoryEntry> {
         val url =
             "https://all.api.radio-browser.info/json/stations/search?countrycode=$country" +
+                "&state=${URLEncoder.encode(state, "UTF-8")}&stateExact=true" +
                 "&hidebroken=true&order=clickcount&reverse=true&limit=1000"
         val connection = URL(url).openConnection() as HttpURLConnection
         return try {

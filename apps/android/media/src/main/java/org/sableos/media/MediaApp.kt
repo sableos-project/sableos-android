@@ -126,9 +126,15 @@ internal fun MediaApp(
 
     // The FM screen's online side: the place, the country's station directory and, while a station is tuned, what
     // its internet stream is playing. All of it is optional; FM works without it.
+    val refreshOnline: suspend () -> Unit = {
+        withContext(Dispatchers.IO) {
+            FmOnline.region = FmRegion.place(context)
+            FmOnline.directory = FmDirectoryRepository(context).load(FmRegion.country(context), FmRegion.state(context))
+        }
+    }
     val askLocation =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) uiScope.launch { FmOnline.region = withContext(Dispatchers.IO) { FmRegion.place(context) } }
+            if (granted) uiScope.launch { refreshOnline() }
         }
     LaunchedEffect(state.destination == MediaDestination.Fm) {
         if (state.destination != MediaDestination.Fm) return@LaunchedEffect
@@ -137,11 +143,7 @@ internal fun MediaApp(
         ) {
             askLocation.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
         }
-        val directory = FmDirectoryRepository(context)
-        withContext(Dispatchers.IO) {
-            FmOnline.region = FmRegion.place(context)
-            FmOnline.directory = directory.load(FmRegion.country(context))
-        }
+        refreshOnline()
     }
     LaunchedEffect(fmState.station, fmState.powered, FmOnline.directory) {
         FmOnline.song = ""
