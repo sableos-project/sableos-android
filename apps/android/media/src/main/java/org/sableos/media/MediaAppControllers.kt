@@ -86,6 +86,11 @@ internal class MediaLibraryController(
         }
     }
 
+    fun toggleFavoriteAlbum(album: String) {
+        state.favoriteAlbums = repositories.libraryState.toggleFavoriteAlbum(state.favoriteAlbums, album)
+        toast(if (album in state.favoriteAlbums) t("added_to_favorites") else t("removed_from_favorites"))
+    }
+
     fun playLocal(selectedIndex: Int) {
         host.playLocalQueue(state.localItems, selectedIndex)
         state.destination = MediaDestination.NowPlaying
