@@ -26,6 +26,7 @@ dependencies {
     implementation(projects.mail.protocols.smtp)
     implementation(projects.feature.mail.folder.api)
 
+    implementation(libs.jetbrains.compose.material3)
     implementation(projects.feature.autodiscovery.service)
 
 

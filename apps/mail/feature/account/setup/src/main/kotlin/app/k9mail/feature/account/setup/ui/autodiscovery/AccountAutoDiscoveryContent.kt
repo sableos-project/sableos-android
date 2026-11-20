@@ -159,6 +159,11 @@ internal fun ContentView(
             contentPadding = PaddingValues(),
             modifier = Modifier.testTag("account_setup_email_address_input"),
         )
+        Spacer(modifier = Modifier.height(BoltTheme.spacings.default))
+        SableProviderChips(
+            emailAddress = state.emailAddress.value,
+            onEmailAddressChange = { onEvent(Event.EmailAddressChanged(it)) },
+        )
 
         if (state.configStep == AccountAutoDiscoveryContract.ConfigStep.PASSWORD) {
             Spacer(modifier = Modifier.height(BoltTheme.spacings.double))
@@ -179,5 +184,7 @@ internal fun ContentView(
                 isEnabled = isAutoDiscoverySettingsTrusted || isConfigurationApproved,
             )
         }
+        Spacer(modifier = Modifier.height(BoltTheme.spacings.triple))
+        SableSetupSteps()
     }
 }
