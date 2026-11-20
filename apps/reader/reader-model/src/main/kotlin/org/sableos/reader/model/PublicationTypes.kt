@@ -9,6 +9,13 @@ object PublicationTypes {
     const val COMIC_MIME: String = "application/vnd.comicbook+zip"
     const val COMIC_MIME_LEGACY: String = "application/x-cbz"
 
+    /** Comic book archive in RAR form (CBR): the registered type plus the unofficial one file managers report. */
+    const val COMIC_RAR_MIME: String = "application/vnd.comicbook-rar"
+    const val COMIC_RAR_MIME_LEGACY: String = "application/x-cbr"
+
+    /** Generic RAR types providers report for `.cbr`; only trusted together with the `.cbr` extension. */
+    private val rarTypes = setOf("application/vnd.rar", "application/x-rar-compressed", "application/x-rar")
+
     private const val AUDIO_PREFIX: String = "audio/"
 
     /** Audio file extensions Sable Reader plays as audiobooks (the Media3 decoders available on every device). */
@@ -30,6 +37,8 @@ object PublicationTypes {
             mime == EPUB_MIME -> PublicationKind.EPUB
             mime == PDF_MIME -> PublicationKind.PDF
             mime == COMIC_MIME || mime == COMIC_MIME_LEGACY -> PublicationKind.COMIC
+            mime == COMIC_RAR_MIME || mime == COMIC_RAR_MIME_LEGACY -> PublicationKind.COMIC
+            mime in rarTypes -> byExtension(displayName)?.takeIf { it == PublicationKind.COMIC }
             mime == ZIP_MIME -> byExtension(displayName)?.takeIf { it == PublicationKind.COMIC }
             mime != null && mime.startsWith(AUDIO_PREFIX) -> PublicationKind.AUDIOBOOK
             mime.isNullOrEmpty() || mime in genericTypes -> byExtension(displayName)
@@ -41,7 +50,7 @@ object PublicationTypes {
         when (displayName?.substringAfterLast('.', "")?.lowercase()) {
             "epub" -> PublicationKind.EPUB
             "pdf" -> PublicationKind.PDF
-            "cbz" -> PublicationKind.COMIC
+            "cbz", "cbr" -> PublicationKind.COMIC
             in AUDIO_EXTENSIONS -> PublicationKind.AUDIOBOOK
             else -> null
         }

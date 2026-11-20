@@ -38,6 +38,15 @@ class PublicationTypesTest {
     }
 
     @Test
+    fun cbrIsAComicByTypeOrExtension() {
+        assertEquals(PublicationKind.COMIC, PublicationTypes.detect("application/vnd.comicbook-rar", null))
+        assertEquals(PublicationKind.COMIC, PublicationTypes.detect("application/x-cbr", null))
+        assertEquals(PublicationKind.COMIC, PublicationTypes.detect("application/octet-stream", "Issue 1.CBR"))
+        assertEquals(PublicationKind.COMIC, PublicationTypes.detect("application/vnd.rar", "Issue 1.cbr"))
+        assertNull(PublicationTypes.detect("application/vnd.rar", "backup.rar"))
+    }
+
+    @Test
     fun audioFilesAreAudiobooksByTypeOrExtension() {
         assertEquals(PublicationKind.AUDIOBOOK, PublicationTypes.detect("audio/mpeg", null))
         assertEquals(PublicationKind.AUDIOBOOK, PublicationTypes.detect("audio/mp4", "x.bin"))
