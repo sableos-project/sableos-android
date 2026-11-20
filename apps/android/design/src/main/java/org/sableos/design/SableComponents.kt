@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -161,10 +163,14 @@ fun SableActionButton(
     onClick: () -> Unit,
 ) {
     if (primary) {
+        // The label takes whichever of black or white reads better on the accent, so a light accent never gets pale text.
+        val container = MaterialTheme.colorScheme.primary
+        val label = if (container.luminance() > READABLE_ON_LIGHT_LUMINANCE) Color.Black else Color.White
         Button(
             onClick = onClick,
             modifier = modifier.heightIn(min = SableSize.TouchTarget),
             shape = MaterialTheme.shapes.medium,
+            colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = label),
         ) {
             Text(text)
         }
@@ -178,6 +184,8 @@ fun SableActionButton(
         }
     }
 }
+
+private const val READABLE_ON_LIGHT_LUMINANCE = 0.3f
 
 /** The BlackBerry 7 title bar: the accent blue across the top with the title in white. */
 @Composable
