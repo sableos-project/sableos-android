@@ -22,6 +22,19 @@ class Ui(private val context: Context, val palette: SablePalette) {
 
     fun dp(value: Int): Int = (value * density).toInt()
 
+    /** The whole-OS profile (Settings.Secure sable_profile): BlackBerry 7 fills the focus and has a title bar. */
+    val bb7: Boolean =
+        runCatching {
+            android.provider.Settings.Secure.getString(context.contentResolver, "sable_profile")
+        }.getOrNull() == "bb7"
+
+    /** The BlackBerry 7 title bar: the accent across the top with the screen name in the on-accent colour. */
+    fun titleBar(title: String): TextView =
+        text(BODY_SP, palette.onAccent, bold = true, s = title).apply {
+            setBackgroundColor(palette.accent)
+            setPadding(dp(PAD), dp(PAD / 2), dp(PAD), dp(PAD / 2))
+        }
+
     fun text(
         sp: Float,
         color: Int = palette.text,
@@ -39,7 +52,12 @@ class Ui(private val context: Context, val palette: SablePalette) {
         StateListDrawable().apply {
             addState(
                 intArrayOf(android.R.attr.state_focused),
-                box(palette.focus, palette.accent, corner)
+                if (bb7) {
+                    val fillAccent = (palette.accent and 0x00FFFFFF) or FOCUS_FILL_ALPHA
+                    box(fillAccent, fillAccent, corner)
+                } else {
+                    box(palette.focus, palette.accent, corner)
+                }
             )
             addState(
                 intArrayOf(android.R.attr.state_pressed),
@@ -95,6 +113,9 @@ class Ui(private val context: Context, val palette: SablePalette) {
         const val TITLE_SP = 20f
         const val BODY_SP = 16f
         const val SMALL_SP = 13f
+
+        /** Alpha of the BlackBerry 7 focus fill (40%). */
+        const val FOCUS_FILL_ALPHA = 0x66000000
         const val BUTTON_SP = 15f
 
         /** BlackBerry call green and end red, readable in dark and light. */

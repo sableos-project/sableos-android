@@ -81,6 +81,7 @@ class PhoneActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(palette.window)
         }
+        if (ui.bb7) root.addView(ui.titleBar(t("app_title")))
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(ui.dp(Ui.PAD / 2), ui.dp(Ui.PAD / 2), ui.dp(Ui.PAD / 2), 0)
