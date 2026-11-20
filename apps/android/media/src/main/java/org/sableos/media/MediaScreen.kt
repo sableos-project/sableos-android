@@ -2475,6 +2475,23 @@ private fun MediaHubFrame(
     }
 }
 
+/** The ♥ of Now playing: stars the playing song (Up next stays in the ⋮ menu). Off for stations and episodes. */
+private fun nowPlayingHeart(
+    state: MediaScreenState,
+    actions: MediaScreenActions,
+): MediaBarAction {
+    val playing = state.playback.queue.getOrNull(state.playback.currentIndex)
+    val song = playing?.let { item -> state.localItems.firstOrNull { it.uri == item.uri } }
+    val starred = song != null && song.uri in state.favoriteAudioUris
+    return MediaBarAction(
+        icon = if (starred) MediaIcons.StarFilled else MediaIcons.Star,
+        label = t("fm_favourites"),
+        onClick = { song?.let(actions.onToggleFavoriteAudio) },
+        enabled = song != null,
+        active = starred,
+    )
+}
+
 /** The action bar of each view in the Q25 frame (design A). */
 @Composable
 private fun hubActions(
@@ -2551,7 +2568,7 @@ private fun hubActions(
                 playPause,
                 next,
                 shuffle,
-                upNext,
+                nowPlayingHeart(state, actions),
                 MediaBarAction(MediaIcons.Stop, t("stop"), actions.onStop, enabled = playback.queue.isNotEmpty()),
             )
         }
