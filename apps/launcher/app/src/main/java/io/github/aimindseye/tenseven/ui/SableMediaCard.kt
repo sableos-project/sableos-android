@@ -98,7 +98,7 @@ internal fun SableMediaCard(
         if (compact) {
             media.artist.ifBlank { media.album }
         } else {
-            listOf(media.artist, media.album).filter { it.isNotBlank() }.joinToString(" · ")
+            listOf(media.artist, media.album).filter { it.isNotBlank() }.distinct().joinToString(" · ")
         }
     val app = if (compact) "" else appLabel(context, media.controller.packageName)
     val coverSize = if (compact) 40.dp else 72.dp

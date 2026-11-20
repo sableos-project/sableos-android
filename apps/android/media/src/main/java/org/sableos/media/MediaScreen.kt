@@ -1475,7 +1475,7 @@ private fun LocalTrackRow(
     MediaBoardRow(
         modifier = Modifier.onFocusChanged { onFocusChange(it.hasFocus) },
         title = item.title,
-        subtitle = listOfNotNull(item.artist, item.album).filter { it.isNotBlank() }.joinToString(" · "),
+        subtitle = listOfNotNull(item.artist, item.album).filter { it.isNotBlank() }.distinct().joinToString(" · "),
         tag = (tag ?: "\u266A").take(2),
         trailing = if (item.durationMs > 0L) formatDuration(item.durationMs) else "",
         onClick = onPlay,
