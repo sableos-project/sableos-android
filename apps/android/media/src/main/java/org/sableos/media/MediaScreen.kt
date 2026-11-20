@@ -2582,6 +2582,7 @@ private fun hubActions(
                 MediaBarAction(MediaIcons.Stop, t("stop"), actions.onStop, enabled = playback.queue.isNotEmpty()),
                 next,
                 shuffle,
+                upNext,
                 MediaBarAction(
                     icon = MediaIcons.Add,
                     label = t("hub_add"),
