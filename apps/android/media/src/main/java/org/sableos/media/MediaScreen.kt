@@ -1169,6 +1169,7 @@ private fun LazyListScope.trackItems(
     rows: List<MediaIndexedTrack>,
     tracks: CollectionTrackActions,
     allFavorites: Boolean,
+    tag: String? = null,
 ) {
     items(
         count = rows.size,
@@ -1183,6 +1184,7 @@ private fun LazyListScope.trackItems(
             onToggleFavorite = { tracks.onToggleFavorite(item) },
             onPlay = { tracks.onPlay(indexedTrack.sourceIndex) },
             onFocusChange = { focused -> tracks.onFocusChange(item, focused) },
+            tag = tag,
         )
     }
 }
@@ -1238,7 +1240,7 @@ private fun LazyListScope.favoriteItems(
             )
         }
     } else {
-        trackItems(favorites, tracks, allFavorites = true)
+        trackItems(favorites, tracks, allFavorites = true, tag = t("tag_song"))
         items(
             count = shortcuts.fm.size,
             key = { index -> "fm-${shortcuts.fm[index].first}" },
@@ -1246,7 +1248,7 @@ private fun LazyListScope.favoriteItems(
             val (station, name) = shortcuts.fm[index]
             LibraryGroupRow(
                 title = name,
-                detail = t("fm_radio") + " · ${FmBand.format(station)} MHz",
+                detail = t("tag_fm") + " · ${FmBand.format(station)} MHz",
                 accent = accentFor(station),
                 onClick = { shortcuts.onPlayFm(station) },
             )
@@ -1258,7 +1260,7 @@ private fun LazyListScope.favoriteItems(
             val station = shortcuts.stations[index]
             LibraryGroupRow(
                 title = station.name,
-                detail = t("live_radio"),
+                detail = t("tag_radio"),
                 accent = accentFor(station.id.hashCode()),
                 onClick = { shortcuts.onPlayStation(station) },
             )
@@ -1270,7 +1272,7 @@ private fun LazyListScope.favoriteItems(
             val playlist = shortcuts.playlists[index]
             LibraryGroupRow(
                 title = playlist.name,
-                detail = t("hub_tab_playlists"),
+                detail = t("tag_playlist"),
                 accent = accentFor(playlist.id.hashCode()),
                 onClick = { shortcuts.onPlayPlaylist(playlist) },
             )
@@ -1466,6 +1468,8 @@ private fun LocalTrackRow(
     onToggleFavorite: () -> Unit,
     onPlay: () -> Unit,
     onFocusChange: (Boolean) -> Unit,
+    /** A type tag shown before the artist, used where songs share a list with stations and playlists. */
+    tag: String? = null,
 ) {
     // Dense row: one primary trailing action (play); favorite moves to the menu.
     // Focus is reported so F (favorite) and D (remove) act on the focused track.
@@ -1473,7 +1477,7 @@ private fun LocalTrackRow(
         SableDenseRow(
             modifier = Modifier.onFocusChanged { onFocusChange(it.hasFocus) },
             title = item.title,
-            subtitle = listOf(item.artist, item.album).filter { it.isNotBlank() }.joinToString(" · "),
+            subtitle = listOfNotNull(tag, item.artist, item.album).filter { it.isNotBlank() }.joinToString(" · "),
             onClick = onPlay,
             actions =
                 listOf(

@@ -76,6 +76,9 @@ enum class AppGlyph(
     SETUP("list-check", GLYPH_ACCENT_TEAL),
     STORE("shopping-bag", GLYPH_ACCENT_GREEN),
     SERVICES("puzzle", GLYPH_ACCENT_BLUE),
+
+    /** The Favourites home tile, which opens the Media app's Favourites list. */
+    FAVOURITES("star", GLYPH_ACCENT_GOLD),
 }
 
 /**
@@ -111,6 +114,7 @@ object AppGlyphs {
             "org.sableos.calendar" to AppGlyph.CALENDAR,
             "org.sableos.weather" to AppGlyph.WEATHER,
             "org.sableos.media" to AppGlyph.MEDIA,
+            "org.sableos.favourites" to AppGlyph.FAVOURITES,
             "org.sableos.calculator" to AppGlyph.CALCULATOR,
             "org.sableos.reader" to AppGlyph.READER,
             "org.sableos.textreader" to AppGlyph.TEXT_READER,

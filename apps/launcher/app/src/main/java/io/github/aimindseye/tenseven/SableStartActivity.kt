@@ -69,7 +69,9 @@ class SableStartActivity : ComponentActivity() {
             this,
             launcherAppsRepository,
             onInventory = { inventory ->
-                screen.appsState.value = inventory.apps
+                screen.appsState.value =
+                    inventory.apps +
+                    listOfNotNull(io.github.aimindseye.tenseven.platform.MediaFavourites.tile(this))
                 screen.privateSpaceLockedState.value = inventory.privateSpaceLocked
                 screen.workPausedState.value = inventory.workPaused
             },
