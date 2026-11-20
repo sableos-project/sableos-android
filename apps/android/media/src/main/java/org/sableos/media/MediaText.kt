@@ -11,6 +11,7 @@ import org.sableos.design.SableTexts
 object MediaText {
     val EN: Map<String, String> =
         mapOf(
+            "track_n_of_m" to "%1\$d of %2\$d",
             "tag_song" to "Song",
             "tag_fm" to "FM",
             "tag_radio" to "Radio",

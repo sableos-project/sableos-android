@@ -243,4 +243,5 @@
     <string name="tag_fm">FM</string>
     <string name="tag_radio">Radio</string>
     <string name="tag_playlist">Playlist</string>
+    <string name="track_n_of_m">%1$d of %2$d</string>
 </resources>
