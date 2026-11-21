@@ -199,6 +199,7 @@
     <string name="hub_more">خيارات أخرى</string>
     <string name="hub_playing">قيد التشغيل</string>
     <string name="hub_paused">متوقف مؤقتًا</string>
+    <string name="hub_stopped">متوقف</string>
     <string name="hub_add">إضافة</string>
     <string name="hub_settings">الإعدادات</string>
     <string name="hub_refresh">تحديث</string>

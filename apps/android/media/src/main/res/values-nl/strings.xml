@@ -199,6 +199,7 @@
     <string name="hub_more">Meer opties</string>
     <string name="hub_playing">speelt</string>
     <string name="hub_paused">gepauzeerd</string>
+    <string name="hub_stopped">gestopt</string>
     <string name="hub_add">Toevoegen</string>
     <string name="hub_settings">Instellingen</string>
     <string name="hub_refresh">Vernieuwen</string>

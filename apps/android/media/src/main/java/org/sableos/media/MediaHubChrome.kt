@@ -279,7 +279,12 @@ internal fun MediaNowLine(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = if (playback.isPlaying) t("hub_playing") else t("hub_paused"),
+                text =
+                    when {
+                        playback.isPlaying -> t("hub_playing")
+                        playback.stopped -> t("hub_stopped")
+                        else -> t("hub_paused")
+                    },
                 fontSize = 11.sp,
                 color = if (playback.isPlaying) accent else MaterialTheme.colorScheme.onSurfaceVariant,
             )

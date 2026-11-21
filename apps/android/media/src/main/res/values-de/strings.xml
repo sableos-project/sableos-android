@@ -199,6 +199,7 @@
     <string name="hub_more">Weitere Optionen</string>
     <string name="hub_playing">läuft</string>
     <string name="hub_paused">pausiert</string>
+    <string name="hub_stopped">gestoppt</string>
     <string name="hub_add">Hinzufügen</string>
     <string name="hub_settings">Einstellungen</string>
     <string name="hub_refresh">Aktualisieren</string>

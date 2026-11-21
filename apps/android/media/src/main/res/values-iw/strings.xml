@@ -199,6 +199,7 @@
     <string name="hub_more">אפשרויות נוספות</string>
     <string name="hub_playing">מתנגן</string>
     <string name="hub_paused">מושהה</string>
+    <string name="hub_stopped">נעצר</string>
     <string name="hub_add">הוספה</string>
     <string name="hub_settings">הגדרות</string>
     <string name="hub_refresh">רענון</string>
