@@ -199,6 +199,7 @@
     <string name="hub_more">और विकल्प</string>
     <string name="hub_playing">चल रहा है</string>
     <string name="hub_paused">रुका हुआ</string>
+    <string name="hub_stopped">रुका हुआ</string>
     <string name="hub_add">जोड़ें</string>
     <string name="hub_settings">सेटिंग</string>
     <string name="hub_refresh">रीफ़्रेश</string>

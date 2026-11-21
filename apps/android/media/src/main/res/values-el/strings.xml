@@ -199,6 +199,7 @@
     <string name="hub_more">Περισσότερες επιλογές</string>
     <string name="hub_playing">παίζει</string>
     <string name="hub_paused">σε παύση</string>
+    <string name="hub_stopped">σταματημένο</string>
     <string name="hub_add">Προσθήκη</string>
     <string name="hub_settings">Ρυθμίσεις</string>
     <string name="hub_refresh">Ανανέωση</string>

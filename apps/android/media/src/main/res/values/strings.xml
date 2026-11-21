@@ -201,6 +201,7 @@
     <string name="hub_more">More options</string>
     <string name="hub_playing">playing</string>
     <string name="hub_paused">paused</string>
+    <string name="hub_stopped">stopped</string>
     <string name="hub_add">Add</string>
     <string name="hub_settings">Settings</string>
     <string name="hub_refresh">Refresh</string>

@@ -199,6 +199,7 @@
     <string name="hub_more">その他のオプション</string>
     <string name="hub_playing">再生中</string>
     <string name="hub_paused">一時停止中</string>
+    <string name="hub_stopped">停止中</string>
     <string name="hub_add">追加</string>
     <string name="hub_settings">設定</string>
     <string name="hub_refresh">更新</string>

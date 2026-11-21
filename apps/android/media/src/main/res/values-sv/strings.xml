@@ -199,6 +199,7 @@
     <string name="hub_more">Fler alternativ</string>
     <string name="hub_playing">spelas</string>
     <string name="hub_paused">pausad</string>
+    <string name="hub_stopped">stoppad</string>
     <string name="hub_add">Lägg till</string>
     <string name="hub_settings">Inställningar</string>
     <string name="hub_refresh">Uppdatera</string>

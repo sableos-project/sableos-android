@@ -199,6 +199,7 @@
     <string name="hub_more">Другие действия</string>
     <string name="hub_playing">играет</string>
     <string name="hub_paused">пауза</string>
+    <string name="hub_stopped">остановлено</string>
     <string name="hub_add">Добавить</string>
     <string name="hub_settings">Настройки</string>
     <string name="hub_refresh">Обновить</string>

@@ -199,6 +199,7 @@
     <string name="hub_more">Plus d\'options</string>
     <string name="hub_playing">en lecture</string>
     <string name="hub_paused">en pause</string>
+    <string name="hub_stopped">arrêté</string>
     <string name="hub_add">Ajouter</string>
     <string name="hub_settings">Réglages</string>
     <string name="hub_refresh">Actualiser</string>

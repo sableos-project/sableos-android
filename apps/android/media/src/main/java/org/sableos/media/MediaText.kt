@@ -292,6 +292,7 @@ object MediaText {
             "hub_more" to "More options",
             "hub_playing" to "playing",
             "hub_paused" to "paused",
+            "hub_stopped" to "stopped",
             "hub_add" to "Add",
             "hub_settings" to "Settings",
             "hub_refresh" to "Refresh",

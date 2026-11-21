@@ -199,6 +199,7 @@
     <string name="hub_more">更多选项</string>
     <string name="hub_playing">正在播放</string>
     <string name="hub_paused">已暂停</string>
+    <string name="hub_stopped">已停止</string>
     <string name="hub_add">添加</string>
     <string name="hub_settings">设置</string>
     <string name="hub_refresh">刷新</string>

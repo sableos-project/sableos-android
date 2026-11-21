@@ -199,6 +199,7 @@
     <string name="hub_more">مزید اختیارات</string>
     <string name="hub_playing">چل رہا ہے</string>
     <string name="hub_paused">رکا ہوا</string>
+    <string name="hub_stopped">رکا ہوا</string>
     <string name="hub_add">شامل کریں</string>
     <string name="hub_settings">ترتیبات</string>
     <string name="hub_refresh">تازہ کریں</string>

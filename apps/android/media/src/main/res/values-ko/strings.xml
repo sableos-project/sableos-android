@@ -199,6 +199,7 @@
     <string name="hub_more">옵션 더보기</string>
     <string name="hub_playing">재생 중</string>
     <string name="hub_paused">일시정지됨</string>
+    <string name="hub_stopped">정지됨</string>
     <string name="hub_add">추가</string>
     <string name="hub_settings">설정</string>
     <string name="hub_refresh">새로고침</string>

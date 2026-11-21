@@ -44,6 +44,8 @@ internal data class PlaybackUiState(
     val album: String = "",
     /** The current song could not be opened, for example because Android no longer lets Sable Media read it. */
     val failed: Boolean = false,
+    /** Stop was pressed: a song is queued but nothing is playing or paused. */
+    val stopped: Boolean = false,
 )
 
 internal class PlaybackController(
@@ -342,6 +344,10 @@ internal class PlaybackController(
             queue = cachedQueue,
             album = metadata.albumTitle?.toString().orEmpty(),
             failed = failed && player.playerError != null,
+            stopped =
+                player.playbackState == Player.STATE_IDLE &&
+                    player.mediaItemCount > 0 &&
+                    player.playerError == null,
         )
     }
 

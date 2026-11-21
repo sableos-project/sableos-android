@@ -199,6 +199,7 @@
     <string name="hub_more">Diğer seçenekler</string>
     <string name="hub_playing">çalıyor</string>
     <string name="hub_paused">duraklatıldı</string>
+    <string name="hub_stopped">durduruldu</string>
     <string name="hub_add">Ekle</string>
     <string name="hub_settings">Ayarlar</string>
     <string name="hub_refresh">Yenile</string>
