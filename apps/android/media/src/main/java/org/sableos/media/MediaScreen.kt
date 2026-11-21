@@ -1164,17 +1164,27 @@ private fun LazyListScope.collectionResults(
             )
         }
     }
+    // A group's picture is the one inside its first song's file.
+    val uriBySource = index.songs.associate { it.sourceIndex to it.item.uri }
+    val coverOf: (Int) -> ArtworkSource? = { sourceIndex -> uriBySource[sourceIndex]?.let { ArtworkSource.Embedded(it) } }
     when (content.pivot) {
         LibraryPivot.Songs -> trackItems(index.songs, tracks, allFavorites = false)
-        LibraryPivot.Artists -> groupItems(index.artists, tracks.onPlay)
+        LibraryPivot.Artists -> groupItems(index.artists, tracks.onPlay, coverOf = coverOf)
         LibraryPivot.Albums ->
-            groupItems(index.albums, tracks.onPlay, content.shortcuts.favoriteAlbums, content.shortcuts.onToggleFavoriteAlbum)
+            groupItems(
+                index.albums,
+                tracks.onPlay,
+                content.shortcuts.favoriteAlbums,
+                content.shortcuts.onToggleFavoriteAlbum,
+                coverOf,
+            )
         LibraryPivot.Favorites ->
             favoriteItems(
                 index.favorites,
                 index.albums.filter { it.name in content.shortcuts.favoriteAlbums },
                 tracks,
                 content.shortcuts,
+                coverOf,
             )
         LibraryPivot.Recordings -> recordingItems(index.recordings, tracks)
         LibraryPivot.Playlists -> playlistItems(query, content.visiblePlaylists, index.availableUris, playlists)
@@ -1211,6 +1221,7 @@ private fun LazyListScope.groupItems(
     onPlay: (Int) -> Unit,
     favoriteNames: Set<String>? = null,
     onToggleFavorite: ((String) -> Unit)? = null,
+    coverOf: (Int) -> ArtworkSource? = { null },
 ) {
     items(
         count = groups.size,
@@ -1221,6 +1232,7 @@ private fun LazyListScope.groupItems(
             title = group.name,
             detail = group.detail,
             accent = accentFor(group.name.hashCode()),
+            art = coverOf(group.sourceIndex),
             favorite = favoriteNames?.let { group.name in it },
             onToggleFavorite = onToggleFavorite?.let { toggle -> { toggle(group.name) } },
             onClick = {
@@ -1252,6 +1264,7 @@ private fun LazyListScope.favoriteItems(
     albums: List<MediaGroupSummary>,
     tracks: CollectionTrackActions,
     shortcuts: FavoriteShortcuts,
+    coverOf: (Int) -> ArtworkSource?,
 ) {
     if (favorites.isEmpty() && albums.isEmpty() && shortcuts.count == 0) {
         item {
@@ -1271,6 +1284,7 @@ private fun LazyListScope.favoriteItems(
                 title = album.name,
                 detail = t("hub_tab_albums") + " · " + album.detail,
                 accent = accentFor(album.name.hashCode()),
+                art = coverOf(album.sourceIndex),
                 favorite = true,
                 onToggleFavorite = { shortcuts.onToggleFavoriteAlbum(album.name) },
                 onClick = { tracks.onPlay(album.sourceIndex) },
@@ -1593,6 +1607,7 @@ private fun LibraryGroupRow(
     detail: String,
     accent: Color,
     onClick: () -> Unit,
+    art: ArtworkSource? = null,
     favorite: Boolean? = null,
     onToggleFavorite: (() -> Unit)? = null,
 ) {
@@ -1613,10 +1628,8 @@ private fun LibraryGroupRow(
                 horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ArtworkTile(
-                    accent = accent,
-                    modifier = Modifier.width(46.dp),
-                )
+                // The picture from the file when it has one, else the name's first letter on a colour tile.
+                MediaArt(source = art, name = title, fallback = accent, size = 46.dp)
                 Column(
                     modifier = Modifier.weight(1f),
                 ) {
