@@ -128,30 +128,25 @@ internal class PlaybackController(
 
     /**
      * Shuffle reorders the songs still to come, so the Up next list shows the new order and Next follows it. Turning it
-     * off puts the queue back in the order it had.
+     * off puts them back in the order they had. The whole run of songs after the current one is replaced in a single
+     * step: moving them one by one made hundreds of calls, each rebuilding the queue list, and froze a large library.
      */
     fun toggleShuffle() {
         val player = controller ?: return
         val count = player.mediaItemCount
+        val first = player.currentMediaItemIndex.coerceAtLeast(0) + 1
+        if (first >= count) {
+            return
+        }
+        val tail = List(count - first) { player.getMediaItemAt(first + it) }
         if (shuffled) {
-            val order = originalOrder
-            order.forEachIndexed { target, id ->
-                val at = (0 until count).firstOrNull { player.getMediaItemAt(it).mediaId == id }
-                if (at != null && at != target && target < count) {
-                    player.moveMediaItem(at, target)
-                }
-            }
+            val position = originalOrder.withIndex().associate { (index, id) -> id to index }
+            player.replaceMediaItems(first, count, tail.sortedBy { position[it.mediaId] ?: Int.MAX_VALUE })
             shuffled = false
             originalOrder = emptyList()
-        } else if (count > 1) {
+        } else if (tail.size > 1) {
             originalOrder = List(count) { player.getMediaItemAt(it).mediaId }
-            val first = player.currentMediaItemIndex.coerceAtLeast(0) + 1
-            for (slot in first until count - 1) {
-                val pick = (slot until count).random()
-                if (pick != slot) {
-                    player.moveMediaItem(pick, slot)
-                }
-            }
+            player.replaceMediaItems(first, count, tail.shuffled())
             shuffled = true
         }
         publishState(refreshQueue = true)
