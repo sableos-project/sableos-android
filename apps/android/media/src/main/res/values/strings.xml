@@ -253,4 +253,5 @@
     <string name="hint_recordings">Enter play · D delete · Back to the dial</string>
     <string name="live_fm">Live FM</string>
     <string name="via_internet">via internet</string>
+    <string name="cant_read_song">Can\'t read this song. Use Import folder to add its folder again.</string>
 </resources>

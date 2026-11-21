@@ -111,6 +111,11 @@ internal fun MediaApp(
         wasRecording = fmState.recording
     }
 
+    // A song Android will not let Sable Media read says so, instead of sitting on Paused.
+    LaunchedEffect(playbackState.failed, playbackState.currentIndex) {
+        if (playbackState.failed) state.message = t("cant_read_song")
+    }
+
     LaunchedEffect(openFmToken) {
         if (openFmToken > 0) state.navigate(MediaDestination.Fm)
     }

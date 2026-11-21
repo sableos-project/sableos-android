@@ -3,6 +3,7 @@ package org.sableos.media
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import android.view.KeyEvent
 import androidx.activity.OnBackPressedDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -214,7 +215,7 @@ internal class MediaLibraryController(
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION,
             )
-        }
+        }.onFailure { Log.w("SableMedia", "Could not keep read access to $uri", it) }
     }
 
     private fun addToCollection(

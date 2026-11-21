@@ -8,6 +8,7 @@ import android.os.Looper
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -41,6 +42,8 @@ internal data class PlaybackUiState(
     val queue: List<QueueItemUiState> = emptyList(),
     /** The album of the current track, empty when the file has none or it is radio. */
     val album: String = "",
+    /** The current song could not be opened, for example because Android no longer lets Sable Media read it. */
+    val failed: Boolean = false,
 )
 
 internal class PlaybackController(
@@ -54,9 +57,21 @@ internal class PlaybackController(
     private var progressUpdatesEnabled = false
     private var shuffled = false
     private var originalOrder: List<String> = emptyList()
+    private var failed = false
 
     private val listener =
         object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                failed = true
+            }
+
+            override fun onMediaItemTransition(
+                mediaItem: MediaItem?,
+                reason: Int,
+            ) {
+                failed = false
+            }
+
             override fun onEvents(
                 player: Player,
                 events: Player.Events,
@@ -326,6 +341,7 @@ internal class PlaybackController(
                     ?: C.INDEX_UNSET,
             queue = cachedQueue,
             album = metadata.albumTitle?.toString().orEmpty(),
+            failed = failed && player.playerError != null,
         )
     }
 

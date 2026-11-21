@@ -251,4 +251,5 @@
     <string name="hint_recordings">Enter play · D delete · Back to the dial</string>
     <string name="live_fm">Live FM</string>
     <string name="via_internet">via internet</string>
+    <string name="cant_read_song">Impossible de lire ce morceau. Utilisez « Importer un dossier » pour ajouter à nouveau son dossier.</string>
 </resources>
