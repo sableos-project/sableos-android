@@ -42,6 +42,9 @@ internal class FmController(
     /** A station the person asked for (a Favourites shortcut) before the bridge was bound; played on connect. */
     private var pendingStation: Int? = null
 
+    /** Songs, podcasts and online radio are about to play: the tuner is switched off once the bridge answers. */
+    private var pendingPowerDown = false
+
     var state = FmUiState(available = isAvailable(context))
         private set
 
@@ -54,6 +57,10 @@ internal class FmController(
                 bridge = service?.let(::Messenger)
                 publish(state.copy(connected = bridge != null))
                 send(FmBridgeProtocol.MSG_REGISTER)
+                if (pendingPowerDown) {
+                    pendingPowerDown = false
+                    send(FmBridgeProtocol.MSG_POWER_DOWN)
+                }
                 pendingStation?.let { station ->
                     pendingStation = null
                     // The bridge's state is not known yet; power-up on a running radio retunes to the station.
@@ -89,6 +96,21 @@ internal class FmController(
         } else {
             val start = state.station.takeIf(FmBand::isValid) ?: FmPresets.ordered(favorites).firstOrNull() ?: 0
             send(FmBridgeProtocol.MSG_POWER_UP, start)
+        }
+    }
+
+    /**
+     * The radio and the player share the audio output, so FM yields when a song, an episode or an online station
+     * starts: a radio left on kept the player paused at 0:00. Reaches the radio even when its screen was never opened.
+     */
+    fun yieldToPlayer() {
+        if (!state.available) return
+        when {
+            bridge == null -> {
+                pendingPowerDown = true
+                connect()
+            }
+            state.powered -> send(FmBridgeProtocol.MSG_POWER_DOWN)
         }
     }
 

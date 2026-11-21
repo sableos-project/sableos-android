@@ -130,6 +130,7 @@ class MainActivity : ComponentActivity() {
         title: String,
         source: String,
     ) {
+        fmController.yieldToPlayer()
         startService(
             Intent(this, PlaybackService::class.java)
                 .setAction(PlaybackService.ACTION_PLAY_URI)
@@ -147,6 +148,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
+        fmController.yieldToPlayer()
         val requestToken =
             PlaybackQueueRequestStore.publish(
                 items = items,
