@@ -136,6 +136,7 @@ class PlaybackService : MediaSessionService() {
         source: String?,
     ) {
         cancelPendingQueueBuild()
+        val playable = PlayableUri(this).resolve(uri)
         val metadata =
             MediaMetadata
                 .Builder()
@@ -146,7 +147,7 @@ class PlaybackService : MediaSessionService() {
         val mediaItem =
             MediaItem
                 .Builder()
-                .setUri(uri)
+                .setUri(playable)
                 .setMediaId(uri.toString())
                 .setMediaMetadata(metadata)
                 .build()
@@ -163,10 +164,12 @@ class PlaybackService : MediaSessionService() {
         val generation = ++queueGeneration
         queueBuildJob =
             serviceScope.launch {
+                val playable = PlayableUri(this@PlaybackService)
                 val mediaItems =
                     request.items.map { item ->
                         mediaItem(
                             uri = item.uri,
+                            playable = playable.resolve(Uri.parse(item.uri)),
                             title = item.title,
                             artist = item.artist,
                             album = item.album,
@@ -202,6 +205,7 @@ class PlaybackService : MediaSessionService() {
 
     private fun mediaItem(
         uri: String,
+        playable: Uri,
         title: String?,
         artist: String?,
         album: String? = null,
@@ -216,7 +220,7 @@ class PlaybackService : MediaSessionService() {
 
         return MediaItem
             .Builder()
-            .setUri(Uri.parse(uri))
+            .setUri(playable)
             .setMediaId(uri)
             .setMediaMetadata(metadata)
             .build()

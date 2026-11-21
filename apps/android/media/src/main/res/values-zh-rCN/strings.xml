@@ -251,4 +251,5 @@
     <string name="hint_recordings">Enter play · D delete · Back to the dial</string>
     <string name="live_fm">Live FM</string>
     <string name="via_internet">via internet</string>
+    <string name="cant_read_song">无法读取这首歌。请使用“导入文件夹”重新添加其文件夹。</string>
 </resources>

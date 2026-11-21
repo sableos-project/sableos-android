@@ -12,6 +12,7 @@ object MediaText {
     val EN: Map<String, String> =
         mapOf(
             "live_fm" to "Live FM",
+            "cant_read_song" to "Can't read this song. Use Import folder to add its folder again.",
             "via_internet" to "via internet",
             "output" to "Output",
             "hint_fm_dial" to "Space on/off · J/K station · Shift+J/K 0.1 · Alt+1-9 presets · F star · R record · O output",

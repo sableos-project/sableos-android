@@ -251,4 +251,5 @@
     <string name="hint_recordings">Enter play · D delete · Back to the dial</string>
     <string name="live_fm">Live FM</string>
     <string name="via_internet">via internet</string>
+    <string name="cant_read_song">이 곡을 읽을 수 없습니다. \'폴더 가져오기\'로 해당 폴더를 다시 추가하세요.</string>
 </resources>

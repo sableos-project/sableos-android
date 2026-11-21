@@ -251,4 +251,5 @@
     <string name="hint_recordings">Enter play · D delete · Back to the dial</string>
     <string name="live_fm">Live FM</string>
     <string name="via_internet">via internet</string>
+    <string name="cant_read_song">यह गाना पढ़ा नहीं जा सका। इसका फ़ोल्डर फिर से जोड़ने के लिए «फ़ोल्डर आयात करें» का उपयोग करें।</string>
 </resources>
