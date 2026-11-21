@@ -2605,6 +2605,10 @@ private fun hubActions(
             active = playback.isPlaying,
         )
     val next = MediaBarAction(MediaIcons.Next, t("next"), actions.onNext, enabled = playback.hasNext)
+    val prev = MediaBarAction(MediaIcons.Previous, t("previous"), actions.onPrevious, enabled = playback.hasPrevious)
+    val stop = MediaBarAction(MediaIcons.Stop, t("stop"), actions.onStop, enabled = playback.queue.isNotEmpty() || playback.isPlaying)
+    // The same four transport buttons lead every screen's bar; each screen adds its own one or two after them.
+    val transport = listOf(prev, playPause, stop, next)
     val upNext =
         MediaBarAction(
             MediaIcons.UpNext,
@@ -2612,7 +2616,6 @@ private fun hubActions(
             { go(MediaDestination.Queue) },
             enabled = playback.queue.isNotEmpty(),
         )
-    val settings = MediaBarAction(MediaIcons.Settings, t("hub_settings"), { go(MediaDestination.Settings) })
     val shuffle =
         MediaBarAction(
             icon = MediaIcons.Shuffle,
@@ -2623,7 +2626,6 @@ private fun hubActions(
         )
     return when (state.destination) {
         MediaDestination.Collection -> {
-            val prev = MediaBarAction(MediaIcons.Previous, t("previous"), actions.onPrevious, enabled = playback.hasPrevious)
             val favourites =
                 MediaBarAction(
                     icon = MediaIcons.Star,
@@ -2635,16 +2637,11 @@ private fun hubActions(
                 MediaBarAction(MediaIcons.Dial, t("hub_tab_songs"), { actions.onLibraryPivotChange(LibraryPivot.Songs) })
             val dial = MediaBarAction(MediaIcons.Dial, t("fm_dial"), { go(MediaDestination.Fm) })
             when (state.libraryPivot) {
-                LibraryPivot.Playlists, LibraryPivot.Favorites -> return listOf(prev, playPause, next, songs, favourites)
-                LibraryPivot.Recordings -> return listOf(prev, playPause, next, dial, favourites)
+                LibraryPivot.Playlists, LibraryPivot.Favorites -> return transport + listOf(songs, favourites)
+                LibraryPivot.Recordings -> return transport + listOf(dial, favourites)
                 else -> Unit
             }
-            listOf(
-                playPause,
-                MediaBarAction(MediaIcons.Stop, t("stop"), actions.onStop, enabled = playback.queue.isNotEmpty()),
-                next,
-                shuffle,
-                upNext,
+            val add =
                 MediaBarAction(
                     icon = MediaIcons.Add,
                     label = t("hub_add"),
@@ -2654,47 +2651,35 @@ private fun hubActions(
                             MediaMenuItem(t("add_audio_files"), actions.onAddLocalAudio),
                             MediaMenuItem(t("import_folder"), actions.onAddLocalFolder),
                         ),
-                ),
-            )
+                )
+            transport + listOf(shuffle, add)
         }
 
         MediaDestination.NowPlaying -> {
-            listOf(
-                MediaBarAction(MediaIcons.Previous, t("previous"), actions.onPrevious, enabled = playback.hasPrevious),
-                playPause,
-                next,
-                shuffle,
-                nowPlayingHeart(state, actions),
-                MediaBarAction(MediaIcons.Stop, t("stop"), actions.onStop, enabled = playback.queue.isNotEmpty()),
-            )
+            transport + listOf(shuffle, nowPlayingHeart(state, actions))
         }
 
         MediaDestination.Podcasts -> {
-            listOf(
-                playPause,
-                next,
-                upNext,
+            val refresh =
                 MediaBarAction(
                     MediaIcons.Refresh,
                     t("hub_refresh"),
                     actions.onRefreshPodcasts,
                     enabled = state.podcastSubscriptions.isNotEmpty() && !state.podcastBusy,
-                ),
-            )
+                )
+            transport + listOf(upNext, refresh)
         }
 
         MediaDestination.Radio -> {
-            listOf(
-                playPause,
-                MediaBarAction(MediaIcons.Add, t("add_station_2"), actions.onAddStation),
+            val add = MediaBarAction(MediaIcons.Add, t("add_station_2"), actions.onAddStation)
+            val manage =
                 MediaBarAction(
                     MediaIcons.Manage,
                     t("manage"),
                     actions.onManageStations,
                     enabled = state.stations.isNotEmpty(),
-                ),
-                settings,
-            )
+                )
+            transport + listOf(add, manage)
         }
 
         MediaDestination.Fm -> {
@@ -2735,6 +2720,7 @@ private fun fmBarActions(
         return listOf(
             previous,
             power,
+            stop,
             next,
             MediaBarAction(MediaIcons.Dial, t("fm_dial"), { FmViewState.showStations = false }),
             MediaBarAction(
