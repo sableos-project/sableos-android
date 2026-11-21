@@ -2719,13 +2719,16 @@ private fun fmBarActions(
 ): List<MediaBarAction> {
     if (fmActions == null || !fm.available) return emptyList()
     val previous = MediaBarAction(MediaIcons.Previous, t("previous"), { fmActions.onSeek(false) }, enabled = fm.powered)
+    // Pause silences the tuner and keeps it on; Stop switches it off.
+    val playing = fm.powered && !fm.muted
     val power =
         MediaBarAction(
-            icon = if (fm.powered) MediaIcons.Pause else MediaIcons.Play,
-            label = if (fm.powered) t("pause") else t("play"),
-            onClick = fmActions.onPower,
-            active = fm.powered,
+            icon = if (playing) MediaIcons.Pause else MediaIcons.Play,
+            label = if (playing) t("pause") else t("play"),
+            onClick = if (fm.powered) fmActions.onToggleMute else fmActions.onPower,
+            active = playing,
         )
+    val stop = MediaBarAction(MediaIcons.Stop, t("stop"), fmActions.onPower, enabled = fm.powered)
     val next = MediaBarAction(MediaIcons.Next, t("next"), { fmActions.onSeek(true) }, enabled = fm.powered)
     if (FmViewState.showStations) {
         val starred = fm.station in favorites
@@ -2767,6 +2770,7 @@ private fun fmBarActions(
     return listOf(
         previous,
         power,
+        stop,
         next,
         stations,
         MediaBarAction(
