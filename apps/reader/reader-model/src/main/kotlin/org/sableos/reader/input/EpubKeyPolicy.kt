@@ -12,6 +12,12 @@ enum class EpubKeyCommand {
     OPEN_CONTENTS,
     OPEN_FIND,
     OPEN_APPEARANCE,
+    OPEN_HIGHLIGHTS,
+    TEXT_LARGER,
+    TEXT_SMALLER,
+    CYCLE_THEME,
+    TOGGLE_SPEECH,
+    SHOW_KEYS,
     TOGGLE_CHROME,
     ESCAPE,
 }
@@ -52,6 +58,12 @@ object EpubKeyPolicy {
         ReaderAction.OPEN_CONTENTS -> EpubKeyCommand.OPEN_CONTENTS
         ReaderAction.OPEN_FIND -> EpubKeyCommand.OPEN_FIND
         ReaderAction.OPEN_APPEARANCE -> EpubKeyCommand.OPEN_APPEARANCE
+        ReaderAction.OPEN_HIGHLIGHTS -> EpubKeyCommand.OPEN_HIGHLIGHTS
+        ReaderAction.TEXT_LARGER -> EpubKeyCommand.TEXT_LARGER
+        ReaderAction.TEXT_SMALLER -> EpubKeyCommand.TEXT_SMALLER
+        ReaderAction.CYCLE_THEME -> EpubKeyCommand.CYCLE_THEME
+        ReaderAction.TOGGLE_SPEECH -> EpubKeyCommand.TOGGLE_SPEECH
+        ReaderAction.SHOW_KEYS -> EpubKeyCommand.SHOW_KEYS
         ReaderAction.TOGGLE_CHROME -> EpubKeyCommand.TOGGLE_CHROME
         else -> null
     }
