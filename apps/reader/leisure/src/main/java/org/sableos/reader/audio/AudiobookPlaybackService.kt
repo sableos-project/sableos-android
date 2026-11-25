@@ -84,12 +84,16 @@ class AudiobookPlaybackService : MediaLibraryService() {
     /** A finished or long-paused audiobook is stopped so it leaves the lock screen and notification; the position is already saved. */
     private val idleStop: Runnable =
         Runnable {
-            handler.removeCallbacks(idleStop)
             if (!::player.isInitialized || player.isPlaying) return@Runnable
-            playback?.persist(force = true)
-            player.stop()
-            AudiobookNowPlaying.hidden()
+            stopNow()
         }
+
+    private fun stopNow() {
+        handler.removeCallbacks(idleStop)
+        playback?.persist(force = true)
+        player.stop()
+        AudiobookNowPlaying.hidden()
+    }
 
     private fun onTick() {
         val active = playback
@@ -116,6 +120,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
             publish = { mediaSession.setSessionExtras(it) },
         )
         player.addListener(PlaybackListener())
+        AudiobookNowPlaying.stop = ::stopNow
         AudiobookNowPlaying.toggle = {
             if (player.playbackState == Player.STATE_IDLE && player.mediaItemCount > 0) player.prepare()
             player.playWhenReady = !player.playWhenReady

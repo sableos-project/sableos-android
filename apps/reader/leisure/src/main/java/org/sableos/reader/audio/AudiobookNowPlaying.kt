@@ -19,6 +19,10 @@ object AudiobookNowPlaying {
     @Volatile
     var toggle: (() -> Unit)? = null
 
+    /** Set by the service; stops playback, saves the position and hides the bar. */
+    @Volatile
+    var stop: (() -> Unit)? = null
+
     internal fun opened(bookHash: String, title: String, playing: Boolean) {
         mutable.value = NowPlaying(bookHash, title, playing)
     }
@@ -35,5 +39,6 @@ object AudiobookNowPlaying {
     internal fun cleared() {
         mutable.value = null
         toggle = null
+        stop = null
     }
 }

@@ -36,6 +36,7 @@ import org.sableos.reader.audio.AudiobookNowPlaying
 private object NowPlayingIcons {
     val Play = filled("M7 5v14l12-7z")
     val Pause = filled("M6 5h4v14H6zM14 5h4v14h-4z")
+    val Stop = filled("M6 6h12v12H6z")
 
     private fun filled(path: String): ImageVector =
         ImageVector
@@ -70,6 +71,24 @@ fun NowPlayingBar(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
                     maxLines = 1,
+                )
+            }
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .clickable { AudiobookNowPlaying.stop?.invoke() }
+                    .semantics {
+                        contentDescription = "Stop"
+                        role = Role.Button
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    NowPlayingIcons.Stop,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(22.dp),
                 )
             }
             val description = if (playing.playing) "Pause" else "Play"
