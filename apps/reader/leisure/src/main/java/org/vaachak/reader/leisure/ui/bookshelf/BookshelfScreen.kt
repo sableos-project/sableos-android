@@ -69,10 +69,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -81,6 +90,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -200,9 +210,45 @@ fun BookshelfScreen(
     val containerColor = MaterialTheme.colorScheme.background
     val contentColor = MaterialTheme.colorScheme.onBackground
     val layout = rememberReaderLayoutProfile()
+    val keyFocus = remember { FocusRequester() }
+    val keyScope = rememberCoroutineScope()
+    val say: (String) -> Unit = { message -> keyScope.launch { snackbarHostState.showSnackbar(message) } }
+    LaunchedEffect(Unit) { runCatching { keyFocus.requestFocus() } }
 
     TidScreen(Tid.Screen.bookshelf) {
         Scaffold(
+            modifier = Modifier
+                .focusRequester(keyFocus)
+                .focusable()
+                .onPreviewKeyEvent { event ->
+                    // Letters belong to the search box while it is open.
+                    if (event.type != KeyEventType.KeyDown || isSearchActive) return@onPreviewKeyEvent false
+                    when (event.key) {
+                        Key.S -> {
+                            val next = LibraryKeys.nextSort(state.sortOrder)
+                            viewModel.updateSortOrder(next)
+                            say("Sorted by ${LibraryKeys.sortLabel(next)}")
+                            true
+                        }
+                        Key.F -> {
+                            val next = LibraryKeys.nextFilter(state.availableFilters, state.activeFilter)
+                            viewModel.setFilter(next)
+                            say("Showing $next")
+                            true
+                        }
+                        Key.C -> {
+                            val book = LibraryKeys.currentBook(state)
+                            if (book != null) handleBookClick(book.bookHash) else say("No book in progress")
+                            true
+                        }
+                        Key.Slash -> {
+                            if (selectedTab != READING_TAB) isSearchActive = true
+                            true
+                        }
+                        Key.H -> { onHighlightsClick(); true }
+                        else -> false
+                    }
+                },
             containerColor = containerColor,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
