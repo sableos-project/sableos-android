@@ -23,6 +23,10 @@ enum class EpubKeyCommand {
     SPEECH_SLOWER,
     SPEECH_FASTER,
     SHOW_KEYS,
+    HIGHLIGHT,
+    LOOKUP_WORD,
+    FIND_NEXT,
+    FIND_PREVIOUS,
     TOGGLE_CHROME,
     ESCAPE,
 }
@@ -74,6 +78,10 @@ object EpubKeyPolicy {
         ReaderAction.SPEECH_SLOWER -> EpubKeyCommand.SPEECH_SLOWER
         ReaderAction.SPEECH_FASTER -> EpubKeyCommand.SPEECH_FASTER
         ReaderAction.SHOW_KEYS -> EpubKeyCommand.SHOW_KEYS
+        ReaderAction.HIGHLIGHT -> EpubKeyCommand.HIGHLIGHT
+        ReaderAction.LOOKUP_WORD -> EpubKeyCommand.LOOKUP_WORD
+        ReaderAction.FIND_NEXT -> EpubKeyCommand.FIND_NEXT
+        ReaderAction.FIND_PREVIOUS -> EpubKeyCommand.FIND_PREVIOUS
         ReaderAction.TOGGLE_CHROME -> EpubKeyCommand.TOGGLE_CHROME
         else -> null
     }

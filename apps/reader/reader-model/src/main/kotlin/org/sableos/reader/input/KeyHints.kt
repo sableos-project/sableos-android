@@ -28,8 +28,11 @@ object KeyHints {
             add(KeyHint("L / Shift+L", "Highlights / bookmarks"))
             add(KeyHint("S / Shift+S", "Text bigger / smaller"))
             add(KeyHint("M", "Switch theme"))
+            add(KeyHint("H", "Highlight the selection or the first paragraph"))
             add(KeyHint("K", "Key list"))
         }
+        if (caps.dictionaryLookup) add(KeyHint("D", "Look up the selected word"))
+        if (caps.textSearch && context.surface != ReaderSurface.AUDIO) add(KeyHint("N / Shift+N", "Next / previous find result"))
         if (caps.textToSpeech) {
             add(KeyHint("V", "Read aloud"))
             add(KeyHint(", / .", "Previous / next sentence while reading aloud"))

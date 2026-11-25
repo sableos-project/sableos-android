@@ -16,7 +16,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -238,6 +244,17 @@ fun ReaderScreen(
                 EpubKeyCommand.CYCLE_THEME -> viewModel.cycleReaderTheme()
                 EpubKeyCommand.TOGGLE_SPEECH -> viewModel.toggleTts()
                 EpubKeyCommand.SHOW_KEYS -> showKeyList = true
+                EpubKeyCommand.FIND_NEXT -> viewModel.stepFindResult(1)
+                EpubKeyCommand.FIND_PREVIOUS -> viewModel.stepFindResult(-1)
+                EpubKeyCommand.HIGHLIGHT -> scope.launch {
+                    val navigator = currentNavigatorFragment
+                    val target = navigator?.currentSelection()?.locator ?: navigator?.firstVisibleElementLocator()
+                    if (target != null) viewModel.prepareHighlight(target) else viewModel.showMessage("Nothing to highlight here")
+                }
+                EpubKeyCommand.LOOKUP_WORD -> scope.launch {
+                    val word = currentNavigatorFragment?.currentSelection()?.locator?.text?.highlight
+                    if (word.isNullOrBlank()) viewModel.showMessage("Select a word first, then press D") else viewModel.lookupWord(word)
+                }
                 EpubKeyCommand.SPEECH_PREVIOUS_SENTENCE -> viewModel.skipSentence(-1)
                 EpubKeyCommand.SPEECH_NEXT_SENTENCE -> viewModel.skipSentence(1)
                 EpubKeyCommand.SPEECH_SLOWER -> viewModel.adjustTtsSpeed(-1)
@@ -753,6 +770,7 @@ private fun ReaderKeyListDialog(onDismiss: () -> Unit) {
                     "S / Shift+S  text bigger / smaller\n" +
                     "M  switch theme    V  read aloud\n" +
                     ",  .  sentence back / forward    -  +  speech speed\n" +
+                    "H  highlight    D  look up    N / Shift+N  find result\n" +
                     "L  highlights    Shift+L  bookmarks\n" +
                     "K  this list\n" +
                     "Esc  close, then leave",
@@ -902,11 +920,26 @@ fun TagSelectorDialog(
     onDismiss: () -> Unit
 ) {
     val tags = listOf("General", "Research", "Quotes", "Characters")
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Save Highlight As...") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // The first letter of each tag saves the highlight with it: G, R, Q or C.
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .focusRequester(focus)
+                    .focusable()
+                    .onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        val letter = event.utf16CodePoint.toChar().uppercaseChar()
+                        val tag = tags.firstOrNull { it.first() == letter } ?: return@onPreviewKeyEvent false
+                        onTagSelected(tag)
+                        true
+                    },
+            ) {
                 tags.forEach { tag ->
                     // --- MAESTRO FIX 3: Explicit description for the tags ---
                     OutlinedButton(
@@ -917,7 +950,7 @@ fun TagSelectorDialog(
                                 contentDescription = "Select tag: $tag"
                             },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
-                    ) { Text(tag) }
+                    ) { Text("$tag  (${tag.first()})") }
                 }
             }
         },
