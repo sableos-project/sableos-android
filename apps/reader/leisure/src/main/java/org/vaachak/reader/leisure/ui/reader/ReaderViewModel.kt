@@ -535,7 +535,30 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    /** The results of the last find, kept after the panel closes so N and Shift+N can step through them. */
+    private var keptFindResults: List<Locator> = emptyList()
+    private var keptFindIndex = -1
+
+    fun showMessage(text: String) {
+        _snackbarMessage.value = text
+    }
+
+    /** The next or previous find result (N, Shift+N), wrapping around the ends. */
+    fun stepFindResult(delta: Int) {
+        if (keptFindResults.isEmpty()) {
+            _snackbarMessage.value = "No find results yet. Press F to search."
+            return
+        }
+        val size = keptFindResults.size
+        keptFindIndex = ((keptFindIndex + delta) % size + size) % size
+        val target = keptFindResults[keptFindIndex]
+        _snackbarMessage.value = "Result ${keptFindIndex + 1} of $size"
+        viewModelScope.launch { _jumpEvent.emit(target) }
+    }
+
     fun onSearchResultClicked(l: Locator) {
+        keptFindResults = _searchResults.value
+        keptFindIndex = keptFindResults.indexOf(l)
         viewModelScope.launch {
             _showSearch.value = false
             _jumpEvent.emit(l)

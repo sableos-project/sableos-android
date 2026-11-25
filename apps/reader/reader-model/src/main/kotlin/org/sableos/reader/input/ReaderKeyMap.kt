@@ -120,7 +120,11 @@ object ReaderKeyMap {
             '-' -> ReaderAction.SPEECH_SLOWER.takeIf { capabilities.textToSpeech }
             '+', '=' -> ReaderAction.SPEECH_FASTER.takeIf { capabilities.textToSpeech }
             'k' -> ReaderAction.SHOW_KEYS.takeIf { capabilities.textHighlight }
-            'n' -> ReaderAction.CHAPTER_NEXT.takeIf { audio }
+            'h' -> ReaderAction.HIGHLIGHT.takeIf { capabilities.textHighlight }
+            'd' -> ReaderAction.LOOKUP_WORD.takeIf { capabilities.dictionaryLookup }
+            'n' ->
+                if (audio) ReaderAction.CHAPTER_NEXT
+                else (if (shift) ReaderAction.FIND_PREVIOUS else ReaderAction.FIND_NEXT).takeIf { capabilities.textSearch }
             'p' -> ReaderAction.CHAPTER_PREVIOUS.takeIf { audio }
             else -> null
         }
