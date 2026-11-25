@@ -164,6 +164,7 @@ fun ReaderScreen(
     val isTtsActive by viewModel.isTtsActive.collectAsState()
 
     var showDeleteDialogId by remember { mutableStateOf<String?>(null) }
+    var showKeyList by remember { mutableStateOf(false) }
 
     val isBottomSheetVisible by viewModel.isBottomSheetVisible.collectAsState()
     val showTagSelector by viewModel.showTagSelector.collectAsState()
@@ -217,7 +218,7 @@ fun ReaderScreen(
     var chromeVisible by remember(layoutProfile.transientChrome) { mutableStateOf(layoutProfile.chromeInitiallyVisible) }
     val transientChrome by rememberUpdatedState(layoutProfile.transientChrome)
 
-    val overlayOpen = showDeleteDialogId != null || showTagSelector || showReaderSettings || showToc ||
+    val overlayOpen = showDeleteDialogId != null || showKeyList || showTagSelector || showReaderSettings || showToc ||
         showSearch || showHighlights || showBookmarks || isBottomSheetVisible
     EpubKeyboardEffect(
         scrollMode = epubPreferences.scroll == true,
@@ -229,6 +230,12 @@ fun ReaderScreen(
                 EpubKeyCommand.OPEN_CONTENTS -> viewModel.toggleToc()
                 EpubKeyCommand.OPEN_FIND -> viewModel.toggleSearch()
                 EpubKeyCommand.OPEN_APPEARANCE -> viewModel.toggleReaderSettings()
+                EpubKeyCommand.OPEN_HIGHLIGHTS -> viewModel.toggleHighlights()
+                EpubKeyCommand.TEXT_LARGER -> viewModel.adjustTextSize(1)
+                EpubKeyCommand.TEXT_SMALLER -> viewModel.adjustTextSize(-1)
+                EpubKeyCommand.CYCLE_THEME -> viewModel.cycleReaderTheme()
+                EpubKeyCommand.TOGGLE_SPEECH -> viewModel.toggleTts()
+                EpubKeyCommand.SHOW_KEYS -> showKeyList = true
                 EpubKeyCommand.TOGGLE_CHROME -> chromeVisible = !chromeVisible
                 EpubKeyCommand.ESCAPE -> activity.onBackPressedDispatcher.onBackPressed()
                 else -> Unit
@@ -239,6 +246,7 @@ fun ReaderScreen(
     BackHandler {
         when {
             showDeleteDialogId != null -> showDeleteDialogId = null
+            showKeyList -> showKeyList = false
             showTagSelector -> viewModel.dismissTagSelector()
             showReaderSettings -> viewModel.dismissReaderSettings()
             showToc -> viewModel.toggleToc()
@@ -316,6 +324,8 @@ fun ReaderScreen(
                     )
                 }
                 ReaderPanels(viewModel = viewModel)
+
+                if (showKeyList) ReaderKeyListDialog(onDismiss = { showKeyList = false })
 
                 showDeleteDialogId?.let { highlightId ->
                     DeleteHighlightDialog(
@@ -690,6 +700,29 @@ private fun DeleteHighlightDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) 
         onConfirm = onConfirm,
         onDismiss = onDismiss,
         modifier = Modifier.zIndex(4f),
+    )
+}
+
+/** The key list (K): everything the keyboard does in a book, on one screen. */
+@Composable
+private fun ReaderKeyListDialog(onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Keys") },
+        text = {
+            Text(
+                "← →  turn page\n" +
+                    "Space / Shift+Space  forward / back\n" +
+                    "Enter  show or hide the bars\n" +
+                    "B  bookmark    T  contents    F  find\n" +
+                    "A  look (font, size, spacing)\n" +
+                    "S / Shift+S  text bigger / smaller\n" +
+                    "M  switch theme    V  read aloud\n" +
+                    "L  highlights    K  this list\n" +
+                    "Esc  close, then leave",
+            )
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Close") } },
     )
 }
 

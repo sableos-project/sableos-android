@@ -60,6 +60,7 @@ import org.vaachak.reader.core.domain.model.HighlightEntity
 import org.vaachak.reader.core.domain.model.ReaderPreferences
 import org.vaachak.reader.core.domain.model.TtsSettings
 import java.util.Locale
+import org.vaachak.reader.leisure.ui.reader.components.AppearanceStripModel
 import javax.inject.Inject
 import kotlin.math.abs
 
@@ -355,6 +356,23 @@ class ReaderViewModel @Inject constructor(
                 // A saved location that no longer parses cannot be jumped to; the reader stays where it is.
             }
         }
+    }
+
+    /** Text size one preset up or down (S and Shift+S), with the new size shown for a moment. */
+    fun adjustTextSize(delta: Int) {
+        val row = AppearanceStripModel.pages.first().rows.first { it.label == "Size" }
+        val next = AppearanceStripModel.step(row, epubPreferences.value, delta)
+        savePreferences(next)
+        _snackbarMessage.value = "Text size ${row.options[row.indexOf(next)].label}"
+    }
+
+    /** Switch between the SableOS page and sepia (M), with the theme name shown for a moment. */
+    fun cycleReaderTheme() {
+        val row = AppearanceStripModel.pages.first().rows.first { it.label == "Theme" }
+        val current = row.indexOf(epubPreferences.value)
+        val next = row.options[(current + 1) % row.options.size]
+        savePreferences(next.apply(epubPreferences.value))
+        _snackbarMessage.value = "Theme ${next.label}"
     }
 
     fun toggleReaderSettings() {

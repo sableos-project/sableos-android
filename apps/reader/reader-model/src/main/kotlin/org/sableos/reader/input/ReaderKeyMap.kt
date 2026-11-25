@@ -57,7 +57,7 @@ object ReaderKeyMap {
         ReaderKey.SPACE -> space(input.shift, context.surface)
         ReaderKey.ACTIVATE, ReaderKey.MENU ->
             ReaderAction.TOGGLE_CHROME.takeUnless { context.surface == ReaderSurface.AUDIO }
-        ReaderKey.CHARACTER -> letter(input.character, context)
+        ReaderKey.CHARACTER -> letter(input.character, input.shift, context)
         ReaderKey.ESCAPE, ReaderKey.BACK -> ReaderAction.DISMISS_OR_BACK
     }
 
@@ -101,7 +101,7 @@ object ReaderKeyMap {
 
     // N/P are the BlackBerry next/previous keys: on an audiobook they change chapter, so keyboards without
     // PageUp/PageDown (the Q25, the Titan 2) can still do it.
-    private fun letter(character: Char?, context: KeyContext): ReaderAction? {
+    private fun letter(character: Char?, shift: Boolean, context: KeyContext): ReaderAction? {
         val capabilities = context.capabilities
         val audio = context.surface == ReaderSurface.AUDIO
         return when (character?.lowercaseChar()) {
@@ -109,6 +109,12 @@ object ReaderKeyMap {
             't' -> ReaderAction.OPEN_CONTENTS.takeIf { capabilities.contents }
             'f' -> ReaderAction.OPEN_FIND.takeIf { capabilities.textSearch }
             'a' -> ReaderAction.OPEN_APPEARANCE.takeIf { capabilities.appearance }
+            // The text-book keys: only an engine with real text features answers them, the rest pass through.
+            'l' -> ReaderAction.OPEN_HIGHLIGHTS.takeIf { capabilities.textHighlight }
+            's' -> (if (shift) ReaderAction.TEXT_SMALLER else ReaderAction.TEXT_LARGER).takeIf { capabilities.textHighlight }
+            'm' -> ReaderAction.CYCLE_THEME.takeIf { capabilities.textHighlight }
+            'v' -> ReaderAction.TOGGLE_SPEECH.takeIf { capabilities.textToSpeech }
+            'k' -> ReaderAction.SHOW_KEYS.takeIf { capabilities.textHighlight }
             'n' -> ReaderAction.CHAPTER_NEXT.takeIf { audio }
             'p' -> ReaderAction.CHAPTER_PREVIOUS.takeIf { audio }
             else -> null

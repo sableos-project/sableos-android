@@ -169,4 +169,15 @@ class ReaderKeyMapTest {
         assertFalse("Left / Right" in hints)
         assertTrue("Up / Down" in hints)
     }
+
+    @Test
+    fun textBookKeysOnlyAnswerWhereTheEngineHasTextFeatures() {
+        assertEquals(ReaderAction.OPEN_HIGHLIGHTS, resolved(letter('l'), epubPaged))
+        assertEquals(ReaderAction.TEXT_LARGER, resolved(letter('s'), epubPaged))
+        assertEquals(ReaderAction.TEXT_SMALLER, resolved(letter('S', shift = true), epubPaged))
+        assertEquals(ReaderAction.CYCLE_THEME, resolved(letter('m'), epubPaged))
+        assertEquals(ReaderAction.TOGGLE_SPEECH, resolved(letter('v'), epubPaged))
+        assertEquals(ReaderAction.SHOW_KEYS, resolved(letter('k'), epubPaged))
+        listOf('l', 's', 'm', 'v', 'k').forEach { assertEquals(KeyResolution.PassThrough, ReaderKeyMap.resolve(letter(it), pdf)) }
+    }
 }

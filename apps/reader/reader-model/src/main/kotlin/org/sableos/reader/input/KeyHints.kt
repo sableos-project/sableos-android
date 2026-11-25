@@ -24,6 +24,13 @@ object KeyHints {
             val what = if (context.surface == ReaderSurface.AUDIO) "Speed, skip and sleep timer" else "Appearance"
             add(KeyHint("A", what))
         }
+        if (caps.textHighlight) {
+            add(KeyHint("L", "Highlights"))
+            add(KeyHint("S / Shift+S", "Text bigger / smaller"))
+            add(KeyHint("M", "Switch theme"))
+            add(KeyHint("K", "Key list"))
+        }
+        if (caps.textToSpeech) add(KeyHint("V", "Read aloud"))
         add(KeyHint("Esc / Back", "Close, then leave"))
     }
 
