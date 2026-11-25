@@ -165,6 +165,7 @@ fun ReaderScreen(
 
     var showDeleteDialogId by remember { mutableStateOf<String?>(null) }
     var showKeyList by remember { mutableStateOf(false) }
+    val ttsProblem by viewModel.ttsProblem.collectAsState()
 
     val isBottomSheetVisible by viewModel.isBottomSheetVisible.collectAsState()
     val showTagSelector by viewModel.showTagSelector.collectAsState()
@@ -218,7 +219,7 @@ fun ReaderScreen(
     var chromeVisible by remember(layoutProfile.transientChrome) { mutableStateOf(layoutProfile.chromeInitiallyVisible) }
     val transientChrome by rememberUpdatedState(layoutProfile.transientChrome)
 
-    val overlayOpen = showDeleteDialogId != null || showKeyList || showTagSelector || showReaderSettings || showToc ||
+    val overlayOpen = showDeleteDialogId != null || showKeyList || ttsProblem != null || showTagSelector || showReaderSettings || showToc ||
         showSearch || showHighlights || showBookmarks || isBottomSheetVisible
     EpubKeyboardEffect(
         scrollMode = epubPreferences.scroll == true,
@@ -237,6 +238,10 @@ fun ReaderScreen(
                 EpubKeyCommand.CYCLE_THEME -> viewModel.cycleReaderTheme()
                 EpubKeyCommand.TOGGLE_SPEECH -> viewModel.toggleTts()
                 EpubKeyCommand.SHOW_KEYS -> showKeyList = true
+                EpubKeyCommand.SPEECH_PREVIOUS_SENTENCE -> viewModel.skipSentence(-1)
+                EpubKeyCommand.SPEECH_NEXT_SENTENCE -> viewModel.skipSentence(1)
+                EpubKeyCommand.SPEECH_SLOWER -> viewModel.adjustTtsSpeed(-1)
+                EpubKeyCommand.SPEECH_FASTER -> viewModel.adjustTtsSpeed(1)
                 EpubKeyCommand.TOGGLE_CHROME -> chromeVisible = !chromeVisible
                 EpubKeyCommand.ESCAPE -> activity.onBackPressedDispatcher.onBackPressed()
                 else -> Unit
@@ -248,6 +253,7 @@ fun ReaderScreen(
         when {
             showDeleteDialogId != null -> showDeleteDialogId = null
             showKeyList -> showKeyList = false
+            ttsProblem != null -> viewModel.dismissTtsProblem()
             showTagSelector -> viewModel.dismissTagSelector()
             showReaderSettings -> viewModel.dismissReaderSettings()
             showToc -> viewModel.toggleToc()
@@ -327,6 +333,7 @@ fun ReaderScreen(
                 ReaderPanels(viewModel = viewModel)
 
                 if (showKeyList) ReaderKeyListDialog(onDismiss = { showKeyList = false })
+                ttsProblem?.let { problem -> TtsProblemDialog(problem, onDismiss = { viewModel.dismissTtsProblem() }) }
 
                 showDeleteDialogId?.let { highlightId ->
                     DeleteHighlightDialog(
@@ -707,6 +714,29 @@ private fun DeleteHighlightDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) 
     )
 }
 
+/** Read aloud could not start: say why, and offer the Android voice settings where voices are added. */
+@Composable
+private fun TtsProblemDialog(message: String, onDismiss: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Read aloud") },
+        text = { Text(message) },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent("com.android.settings.TTS_SETTINGS")
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+                onDismiss()
+            }) { Text("Voice settings") }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Close") } },
+    )
+}
+
 /** The key list (K): everything the keyboard does in a book, on one screen. */
 @Composable
 private fun ReaderKeyListDialog(onDismiss: () -> Unit) {
@@ -722,6 +752,7 @@ private fun ReaderKeyListDialog(onDismiss: () -> Unit) {
                     "A  look (font, size, spacing)\n" +
                     "S / Shift+S  text bigger / smaller\n" +
                     "M  switch theme    V  read aloud\n" +
+                    ",  .  sentence back / forward    -  +  speech speed\n" +
                     "L  highlights    Shift+L  bookmarks\n" +
                     "K  this list\n" +
                     "Esc  close, then leave",

@@ -30,7 +30,11 @@ object KeyHints {
             add(KeyHint("M", "Switch theme"))
             add(KeyHint("K", "Key list"))
         }
-        if (caps.textToSpeech) add(KeyHint("V", "Read aloud"))
+        if (caps.textToSpeech) {
+            add(KeyHint("V", "Read aloud"))
+            add(KeyHint(", / .", "Previous / next sentence while reading aloud"))
+            add(KeyHint("- / +", "Slower / faster while reading aloud"))
+        }
         add(KeyHint("Esc / Back", "Close, then leave"))
     }
 

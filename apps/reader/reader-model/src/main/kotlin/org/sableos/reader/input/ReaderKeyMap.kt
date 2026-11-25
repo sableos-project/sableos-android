@@ -114,6 +114,11 @@ object ReaderKeyMap {
             's' -> (if (shift) ReaderAction.TEXT_SMALLER else ReaderAction.TEXT_LARGER).takeIf { capabilities.textHighlight }
             'm' -> ReaderAction.CYCLE_THEME.takeIf { capabilities.textHighlight }
             'v' -> ReaderAction.TOGGLE_SPEECH.takeIf { capabilities.textToSpeech }
+            // While reading aloud: , and . skip a sentence, - and + change the speed.
+            ',' -> ReaderAction.SPEECH_PREVIOUS_SENTENCE.takeIf { capabilities.textToSpeech }
+            '.' -> ReaderAction.SPEECH_NEXT_SENTENCE.takeIf { capabilities.textToSpeech }
+            '-' -> ReaderAction.SPEECH_SLOWER.takeIf { capabilities.textToSpeech }
+            '+', '=' -> ReaderAction.SPEECH_FASTER.takeIf { capabilities.textToSpeech }
             'k' -> ReaderAction.SHOW_KEYS.takeIf { capabilities.textHighlight }
             'n' -> ReaderAction.CHAPTER_NEXT.takeIf { audio }
             'p' -> ReaderAction.CHAPTER_PREVIOUS.takeIf { audio }
