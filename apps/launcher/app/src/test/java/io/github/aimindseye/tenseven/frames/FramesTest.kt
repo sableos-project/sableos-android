@@ -52,6 +52,22 @@ class FramesTest {
         assertTrue(FramePolicy.state(input(apps = emptySet()), emptyMap(), 3).items.isEmpty())
     }
 
+    @Test fun appStoresAndGoogleServicesNeverAppearInFrames() {
+        val store = FrameApp("com.aurora.store", 0)
+        val gms = FrameApp("com.google.android.gms", 0)
+        val state =
+            FramePolicy.state(
+                input(
+                    emptyList(),
+                    listOf(ForegroundEvent("com.aurora.store", 300), ForegroundEvent("com.google.android.gms", 200), ForegroundEvent("mail", 100)),
+                    setOf(store, gms, personal),
+                ),
+                emptyMap(),
+                1,
+            )
+        assertEquals(listOf(personal), state.items.map { it.app })
+    }
+
     @Test fun limitsNormalizeAndNeverExceedFourEightOrTwelve() {
         val events = (1..20).map { ForegroundEvent("app$it", it.toLong()) }
         val apps = events.map { FrameApp(it.packageName, 0) }.toSet()
