@@ -75,6 +75,11 @@ class PlaybackService : MediaSessionService() {
                             if (playbackState == Player.STATE_ENDED) {
                                 releaseIdle()
                             }
+                            // Stop from the app: the player goes idle with its queue kept, so nothing should be shown.
+                            if (playbackState == Player.STATE_IDLE && resolvedPlayer.mediaItemCount > 0) {
+                                mainHandler.removeCallbacks(idleRelease)
+                                MediaSnapshotStore.clear(this@PlaybackService)
+                            }
                         }
                     },
                 )
