@@ -173,6 +173,7 @@ class ReaderKeyMapTest {
     @Test
     fun textBookKeysOnlyAnswerWhereTheEngineHasTextFeatures() {
         assertEquals(ReaderAction.OPEN_HIGHLIGHTS, resolved(letter('l'), epubPaged))
+        assertEquals(ReaderAction.OPEN_BOOKMARKS, resolved(letter('L', shift = true), epubPaged))
         assertEquals(ReaderAction.TEXT_LARGER, resolved(letter('s'), epubPaged))
         assertEquals(ReaderAction.TEXT_SMALLER, resolved(letter('S', shift = true), epubPaged))
         assertEquals(ReaderAction.CYCLE_THEME, resolved(letter('m'), epubPaged))

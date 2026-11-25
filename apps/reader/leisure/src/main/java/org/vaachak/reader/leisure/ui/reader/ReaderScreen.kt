@@ -231,6 +231,7 @@ fun ReaderScreen(
                 EpubKeyCommand.OPEN_FIND -> viewModel.toggleSearch()
                 EpubKeyCommand.OPEN_APPEARANCE -> viewModel.toggleReaderSettings()
                 EpubKeyCommand.OPEN_HIGHLIGHTS -> viewModel.toggleHighlights()
+                EpubKeyCommand.OPEN_BOOKMARKS -> viewModel.toggleBookmarksList()
                 EpubKeyCommand.TEXT_LARGER -> viewModel.adjustTextSize(1)
                 EpubKeyCommand.TEXT_SMALLER -> viewModel.adjustTextSize(-1)
                 EpubKeyCommand.CYCLE_THEME -> viewModel.cycleReaderTheme()
@@ -721,7 +722,8 @@ private fun ReaderKeyListDialog(onDismiss: () -> Unit) {
                     "A  look (font, size, spacing)\n" +
                     "S / Shift+S  text bigger / smaller\n" +
                     "M  switch theme    V  read aloud\n" +
-                    "L  highlights    K  this list\n" +
+                    "L  highlights    Shift+L  bookmarks\n" +
+                    "K  this list\n" +
                     "Esc  close, then leave",
             )
         },

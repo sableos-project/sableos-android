@@ -73,6 +73,7 @@ enum class ReaderAction {
     OPEN_FIND,
     OPEN_APPEARANCE,
     OPEN_HIGHLIGHTS,
+    OPEN_BOOKMARKS,
     TEXT_LARGER,
     TEXT_SMALLER,
     CYCLE_THEME,

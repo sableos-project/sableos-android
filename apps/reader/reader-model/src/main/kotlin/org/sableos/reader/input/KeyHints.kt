@@ -25,7 +25,7 @@ object KeyHints {
             add(KeyHint("A", what))
         }
         if (caps.textHighlight) {
-            add(KeyHint("L", "Highlights"))
+            add(KeyHint("L / Shift+L", "Highlights / bookmarks"))
             add(KeyHint("S / Shift+S", "Text bigger / smaller"))
             add(KeyHint("M", "Switch theme"))
             add(KeyHint("K", "Key list"))
