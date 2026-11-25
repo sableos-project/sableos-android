@@ -197,6 +197,28 @@ class FramesTest {
         assertTrue(h.background.isEmpty())
     }
 
+    @Test fun refreshWithNothingNewNeverEmptiesOrRepublishesTheFrames() {
+        val h = Harness()
+        val c = h.coordinator()
+        c.onResume()
+        h.drain()
+        val shown = c.state
+        assertEquals(1, shown.items.size)
+        h.published.clear()
+        repeat(5) {
+            c.refresh()
+            h.drain()
+        }
+        assertTrue(h.published.isEmpty())
+        assertEquals(shown, c.state)
+        assertTrue(c.acceptsSnapshot(shown.items.single(), shown.generation))
+        h.data = h.data.copy(recent = listOf(ForegroundEvent("mail", 100), ForegroundEvent("other", 200)), availableApps = setOf(personal, FrameApp("other", 0)))
+        c.refresh()
+        h.drain()
+        assertEquals(1, h.published.size)
+        assertTrue(h.published.single().items.isNotEmpty())
+    }
+
     @Test fun closeIsImmediatePersistsAcrossRecreationAndNeverRemovesNativeTask() {
         val h = Harness()
         val c = h.coordinator()
