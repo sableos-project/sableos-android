@@ -31,6 +31,7 @@ import org.sableos.reader.engine.audio.AudioSettingsCodec
 import org.sableos.reader.model.storage.RetiredRemoteSettings
 import org.vaachak.reader.core.domain.model.BookshelfPreferences
 import org.vaachak.reader.core.domain.model.CoverAspectRatio
+import org.vaachak.reader.core.domain.model.ReaderLookCodec
 import org.vaachak.reader.core.domain.model.ReaderPreferences
 import org.vaachak.reader.core.domain.model.ThemeMode
 import org.vaachak.reader.core.domain.model.TtsSettings
@@ -200,6 +201,16 @@ class SettingsRepository @Inject constructor(
             val dir = DocumentFile.fromTreeUri(context, uri)
             dir?.let { it.isDirectory && it.canRead() && it.listFiles().any { f -> f.name?.endsWith(".idx", true) == true } } ?: false
         } catch (e: Exception) { false }
+    }
+
+    private fun bookLookKey(bookHash: String) = stringPreferencesKey("book_look_$bookHash")
+
+    /** The look saved for one book, or null when the book has never had its own. */
+    fun bookLook(bookHash: String): Flow<ReaderPreferences?> =
+        vaultPreferencesFlow.map { prefs -> prefs[bookLookKey(bookHash)]?.let(ReaderLookCodec::decode) }
+
+    suspend fun saveBookLook(bookHash: String, prefs: ReaderPreferences) {
+        editCurrentVault { it[bookLookKey(bookHash)] = ReaderLookCodec.encode(prefs) }
     }
 
     suspend fun saveReaderPreferences(prefs: ReaderPreferences) {
