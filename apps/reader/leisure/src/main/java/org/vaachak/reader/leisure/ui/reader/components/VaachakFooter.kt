@@ -62,19 +62,18 @@ import org.vaachak.reader.leisure.ui.testability.tid
 @Composable
 fun ReaderFooter(
     pageInfo: String,
-    isEink: Boolean = false
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().height(26.dp),
-        color = if (isEink) Color.White else MaterialTheme.colorScheme.surface,
-        border = if (isEink) BorderStroke(1.dp, Color.Black) else BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
                 text = pageInfo,
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                fontWeight = if (isEink) FontWeight.Bold else FontWeight.Normal,
-                color = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -86,14 +85,13 @@ fun VaachakNavigationFooter(
     onBookshelfClick: () -> Unit,
     onHighlightsClick: () -> Unit,
     onAboutClick: () -> Unit,
-    isEink: Boolean = false
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding(), //Fix for Android Nav Bar
-        color = if (isEink) Color.White else MaterialTheme.colorScheme.surface,
-        border = if (isEink) BorderStroke(1.dp, Color.Black) else BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.fillMaxWidth()) {
             Row(
@@ -108,27 +106,22 @@ fun VaachakNavigationFooter(
                     label = "Bookshelf",
                     icon = Icons.AutoMirrored.Filled.LibraryBooks,
                     onClick = onBookshelfClick,
-                    isEink = isEink,
                     modifier = Modifier.tid(Tid.Tab.books)
                 )
 
-                if (isEink) VerticalDivider()
 
                 FooterNavItem(
                     label = "Highlights",
                     icon = Icons.Default.CollectionsBookmark,
                     onClick = onHighlightsClick,
-                    isEink = isEink,
                     modifier = Modifier.tid(Tid.Library.HIGHLIGHTS)
                 )
 
-                if (isEink) VerticalDivider()
 
                 FooterNavItem(
                     label = "About",
                     icon = Icons.Default.Info,
                     onClick = onAboutClick,
-                    isEink = isEink,
                     modifier = Modifier.tid(Tid.Tab.settings)
                 )
             }
@@ -143,10 +136,9 @@ fun FooterNavItem(
     label: String,
     icon: ImageVector,
     onClick: () -> Unit,
-    isEink: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
+    val contentColor = MaterialTheme.colorScheme.onSurface
 
     // CHANGED: Column -> Row for horizontal layout
     Row(
@@ -169,7 +161,7 @@ fun FooterNavItem(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (isEink) FontWeight.Bold else FontWeight.Medium,
+            fontWeight = FontWeight.Medium,
             color = contentColor,
             fontSize = 12.sp // Slightly larger text for readability
         )

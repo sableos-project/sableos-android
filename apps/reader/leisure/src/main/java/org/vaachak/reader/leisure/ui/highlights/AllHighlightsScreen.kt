@@ -94,11 +94,10 @@ fun AllHighlightsScreen(
     val groupedHighlights by viewModel.groupedHighlights.collectAsState()
     val tags by viewModel.availableTags.collectAsState()
     val selectedTag by viewModel.selectedTag.collectAsState()
-    val isEink by viewModel.isEinkEnabled.collectAsState()
 
     // Colors
-    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.background
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground
+    val containerColor = MaterialTheme.colorScheme.background
+    val contentColor = MaterialTheme.colorScheme.onBackground
 
     TidScreen(Tid.Screen.highlights) {
         Scaffold(
@@ -106,7 +105,6 @@ fun AllHighlightsScreen(
                 VaachakHeader(
                     title = "Highlights (${groupedHighlights.values.sumOf { it.size }})",
                     onBack = onBack,
-                    isEink = isEink,
                     backButtonModifier = Modifier.tid(Tid.Highlights.BACK)
                 )
             },
@@ -121,7 +119,6 @@ fun AllHighlightsScreen(
                 HighlightsFilterBar(
                     tags = tags,
                     selectedTag = selectedTag,
-                    isEink = isEink,
                     contentColor = contentColor,
                     onSelectTag = { viewModel.updateFilter(it) }
                 )
@@ -129,12 +126,11 @@ fun AllHighlightsScreen(
                 // --- 2. LIST AREA ---
                 if (groupedHighlights.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No highlights found.", color = if(isEink) Color.Black else Color.Gray)
+                        Text("No highlights found.", color = Color.Gray)
                     }
                 } else {
                     HighlightsList(
                         groupedHighlights = groupedHighlights,
-                        isEink = isEink,
                         contentColor = contentColor,
                         onHighlightClick = onHighlightClick,
                         onDelete = { viewModel.deleteHighlight(it) }
@@ -150,13 +146,12 @@ fun AllHighlightsScreen(
 private fun HighlightsFilterBar(
     tags: List<AllHighlightsViewModel.TagWithCount>,
     selectedTag: String,
-    isEink: Boolean,
     contentColor: Color,
     onSelectTag: (String) -> Unit,
 ) {
     var isFilterExpanded by remember { mutableStateOf(false) }
     Surface(
-        color = if (isEink) Color.White else MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .tid(Tid.Highlights.FILTER_BAR)
             .fillMaxWidth()
@@ -208,7 +203,6 @@ private fun HighlightsFilterBar(
                             tagData = tagData,
                             isFirst = index == 0,
                             selected = selectedTag == tagData.name,
-                            isEink = isEink,
                             contentColor = contentColor,
                             onClick = {
                                 onSelectTag(tagData.name)
@@ -218,7 +212,7 @@ private fun HighlightsFilterBar(
                     }
                 }
             }
-            HorizontalDivider(color = if (isEink) Color.Black else MaterialTheme.colorScheme.outlineVariant)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }
@@ -228,7 +222,6 @@ private fun TagFilterChip(
     tagData: AllHighlightsViewModel.TagWithCount,
     isFirst: Boolean,
     selected: Boolean,
-    isEink: Boolean,
     contentColor: Color,
     onClick: () -> Unit,
 ) {
@@ -246,12 +239,12 @@ private fun TagFilterChip(
         label = { Text("${tagData.name} (${tagData.count})", fontSize = 11.sp) },
         modifier = chipModifier.height(28.dp), // Slimmer chips
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.primary,
-            selectedLabelColor = if (isEink) Color.White else MaterialTheme.colorScheme.onPrimary,
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
             containerColor = Color.Transparent,
             labelColor = contentColor
         ),
-        border = if (isEink) BorderStroke(1.dp, Color.Black) else FilterChipDefaults.filterChipBorder(enabled = true, selected = selected)
+        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = selected)
     )
 }
 
@@ -259,7 +252,6 @@ private fun TagFilterChip(
 @Composable
 private fun HighlightsList(
     groupedHighlights: Map<String, List<HighlightEntity>>,
-    isEink: Boolean,
     contentColor: Color,
     onHighlightClick: (String, String) -> Unit,
     onDelete: (String) -> Unit,
@@ -268,26 +260,25 @@ private fun HighlightsList(
     val firstHighlightId = groupedHighlights.values.firstNotNullOfOrNull { it.firstOrNull() }?.id
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         groupedHighlights.forEach { (bookTitle, highlights) ->
-            stickyHeader { BookHeader(bookTitle = bookTitle, isEink = isEink, contentColor = contentColor) }
+            stickyHeader { BookHeader(bookTitle = bookTitle, contentColor = contentColor) }
             items(highlights, key = { highlight -> highlight.id }) { highlight ->
                 CompactHighlightItem(
                     highlight = highlight,
-                    isEink = isEink,
                     isFirstItem = highlight.id == firstHighlightId,
                     onClick = { onHighlightClick(highlight.bookHashId, highlight.locatorJson) },
                     onDelete = { onDelete(highlight.id) }
                 )
-                if (!isEink) HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.2f))
+                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.2f))
             }
         }
     }
 }
 
 @Composable
-private fun BookHeader(bookTitle: String, isEink: Boolean, contentColor: Color) {
+private fun BookHeader(bookTitle: String, contentColor: Color) {
     Surface(
-        color = if (isEink) Color.White else MaterialTheme.colorScheme.surfaceVariant,
-        border = if(isEink) BorderStroke(1.dp, Color.Black) else null,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = null,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -311,12 +302,11 @@ private fun BookHeader(bookTitle: String, isEink: Boolean, contentColor: Color) 
 @Composable
 fun CompactHighlightItem(
     highlight: HighlightEntity,
-    isEink: Boolean,
     isFirstItem: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val modifier = if (isEink) Modifier.fillMaxWidth().border(0.5.dp, Color.Black) else Modifier.fillMaxWidth()
+    val modifier = Modifier.fillMaxWidth()
 
     Surface(
         onClick = onClick,
@@ -346,7 +336,7 @@ fun CompactHighlightItem(
                         text = "#${safeTag.uppercase()}",
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 9.sp, // Smaller tag text
-                        color = if (isEink) Color.Black else MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -358,7 +348,7 @@ fun CompactHighlightItem(
                     lineHeight = 20.sp,
                     //maxLines = 4,
                     overflow = TextOverflow.Ellipsis,
-                    color = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             IconButton(
@@ -373,7 +363,7 @@ fun CompactHighlightItem(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete Highlight",
                     modifier = Modifier.size(16.dp), // Smaller Icon
-                    tint = if (isEink) Color.Black else MaterialTheme.colorScheme.error.copy(alpha=0.6f)
+                    tint = MaterialTheme.colorScheme.error.copy(alpha=0.6f)
                 )
             }
         }

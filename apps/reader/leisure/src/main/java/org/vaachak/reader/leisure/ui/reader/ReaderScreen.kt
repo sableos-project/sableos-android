@@ -148,12 +148,11 @@ fun ReaderScreen(
     val activity = LocalActivity.current as AppCompatActivity
 
     val publication by viewModel.publication.collectAsState()
-    val isEink by viewModel.isEinkEnabled.collectAsState()
 
     val showToc by viewModel.showToc.collectAsState()
     val showReaderSettings by viewModel.showReaderSettings.collectAsState()
     val epubPreferences by viewModel.epubPreferences.collectAsState()
-    val effectiveEpubPreferences = rememberEffectiveEpubPreferences(epubPreferences, isEink)
+    val effectiveEpubPreferences = rememberEffectiveEpubPreferences(epubPreferences)
 
     val showSearch by viewModel.showSearch.collectAsState()
     val showHighlights by viewModel.showHighlights.collectAsState()
@@ -268,7 +267,6 @@ fun ReaderScreen(
             topBar = {
                 if (chromeVisible) ReaderTopBar(
                     bookTitle = publication?.metadata?.title ?: "Loading...",
-                    isEink = isEink,
                     isBookmarked = isPageBookmarked,
                     isTtsActive = isTtsActive,
                     onBack = { viewModel.closeBook(); onBack() },
@@ -288,7 +286,7 @@ fun ReaderScreen(
                     verticalArrangement = Arrangement.Bottom
                 ){
                     if (chromeVisible && publication != null && !panelOpen) {
-                        ReaderSystemFooter(chapterTitle = pageInfo, isEink = isEink)
+                        ReaderSystemFooter(chapterTitle = pageInfo)
                     }
                 }
             },
@@ -316,7 +314,7 @@ fun ReaderScreen(
                         }
                     )
                 }
-                ReaderPanels(viewModel = viewModel, isEink = isEink)
+                ReaderPanels(viewModel = viewModel)
 
                 showDeleteDialogId?.let { highlightId ->
                     DeleteHighlightDialog(
@@ -325,7 +323,7 @@ fun ReaderScreen(
                     )
                 }
 
-                ReaderTtsControls(viewModel = viewModel, isEink = isEink)
+                ReaderTtsControls(viewModel = viewModel)
             }
         }
     }
@@ -333,11 +331,11 @@ fun ReaderScreen(
 
 /**
  * Binds the Readium EPUB canvas to SableOS Light/Dark so book content and chrome never disagree.
- * Sepia and E-Ink remain deliberate reading-only overrides.
+ * Sepia remains a deliberate reading-only override.
  */
 @OptIn(ExperimentalReadiumApi::class)
 @Composable
-private fun rememberEffectiveEpubPreferences(epubPreferences: EpubPreferences, isEink: Boolean): EpubPreferences {
+private fun rememberEffectiveEpubPreferences(epubPreferences: EpubPreferences): EpubPreferences {
     val sableAppearance = rememberGlobalSableAppearance()
     val systemDark = isSystemInDarkTheme()
     val sableDark =
@@ -346,11 +344,8 @@ private fun rememberEffectiveEpubPreferences(epubPreferences: EpubPreferences, i
             AppearanceMode.Light -> false
             AppearanceMode.Dark -> true
         }
-    return remember(epubPreferences, sableAppearance, systemDark, isEink) {
+    return remember(epubPreferences, sableAppearance, systemDark) {
         when {
-            // E-Ink is intentionally a white-page, high-contrast reading mode.
-            isEink -> epubPreferences.copy(theme = Theme.LIGHT)
-
             // Sepia is the only normal page-colour override retained independently of the
             // operating-system Light/Dark selection.
             epubPreferences.theme == Theme.SEPIA -> epubPreferences
@@ -599,7 +594,7 @@ private fun EpubNavigatorHost(
 
 /** The panels and dialogs drawn over the page: error, find, highlights, bookmarks, contents, settings, dictionary, tags. */
 @Composable
-private fun ReaderPanels(viewModel: ReaderViewModel, isEink: Boolean) {
+private fun ReaderPanels(viewModel: ReaderViewModel) {
     val hasChapterError by viewModel.hasChapterError.collectAsState()
     val showSearch by viewModel.showSearch.collectAsState()
     val showHighlights by viewModel.showHighlights.collectAsState()
@@ -611,23 +606,22 @@ private fun ReaderPanels(viewModel: ReaderViewModel, isEink: Boolean) {
 
     if (hasChapterError) {
         ChapterErrorOverlay(
-            isEink = isEink,
             onReturnToLibrary = { viewModel.dismissChapterErrorAndClose() }
         )
     }
 
-    if (showSearch) SearchPanel(viewModel, isEink)
-    if (showHighlights) HighlightsPanel(viewModel, isEink)
-    if (showBookmarks) BookmarksPanel(viewModel, isEink)
-    if (showToc) TocPanel(viewModel, isEink)
+    if (showSearch) SearchPanel(viewModel)
+    if (showHighlights) HighlightsPanel(viewModel)
+    if (showBookmarks) BookmarksPanel(viewModel)
+    if (showToc) TocPanel(viewModel)
 
     if (showReaderSettings) {
         Surface(modifier = Modifier.fillMaxSize().zIndex(10f).tid(Tid.Screen.readerSettings)) {
-            ReaderSettingsSheet(viewModel = viewModel, isEink = isEink, onDismiss = { viewModel.dismissReaderSettings() })
+            ReaderSettingsSheet(viewModel = viewModel, onDismiss = { viewModel.dismissReaderSettings() })
         }
     }
 
-    if (isBottomSheetVisible) DictionaryPanel(viewModel, isEink)
+    if (isBottomSheetVisible) DictionaryPanel(viewModel)
 
     if (showTagSelector) {
         TagSelectorDialog(onTagSelected = { tag -> viewModel.saveHighlightWithTag(tag) }, onDismiss = { viewModel.dismissTagSelector() })
@@ -635,46 +629,46 @@ private fun ReaderPanels(viewModel: ReaderViewModel, isEink: Boolean) {
 }
 
 @Composable
-private fun SearchPanel(viewModel: ReaderViewModel, isEink: Boolean) {
+private fun SearchPanel(viewModel: ReaderViewModel) {
     val bookSearchQuery by viewModel.bookSearchQuery.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
     val isBookSearching by viewModel.isBookSearching.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().zIndex(15f).tid(Tid.Screen.readerSearch)) {
-        BookSearchOverlay(query = bookSearchQuery, results = searchResults, isSearching = isBookSearching, onQueryChange = { viewModel.searchInBook(it) }, onSearch = { viewModel.searchInBook(it) }, onResultClick = { viewModel.onSearchResultClicked(it) }, onDismiss = { viewModel.toggleSearch() }, isEink = isEink)
+        BookSearchOverlay(query = bookSearchQuery, results = searchResults, isSearching = isBookSearching, onQueryChange = { viewModel.searchInBook(it) }, onSearch = { viewModel.searchInBook(it) }, onResultClick = { viewModel.onSearchResultClicked(it) }, onDismiss = { viewModel.toggleSearch() })
     }
 }
 
 @Composable
-private fun HighlightsPanel(viewModel: ReaderViewModel, isEink: Boolean) {
+private fun HighlightsPanel(viewModel: ReaderViewModel) {
     val highlightsList by viewModel.bookmarksList.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().zIndex(15f)) {
-        BookHighlightsOverlay(highlights = highlightsList, onHighlightClick = { viewModel.onHighlightClicked(it) }, onDismiss = { viewModel.toggleHighlights() }, isEink = isEink)
+        BookHighlightsOverlay(highlights = highlightsList, onHighlightClick = { viewModel.onHighlightClicked(it) }, onDismiss = { viewModel.toggleHighlights() })
     }
 }
 
 @Composable
-private fun BookmarksPanel(viewModel: ReaderViewModel, isEink: Boolean) {
+private fun BookmarksPanel(viewModel: ReaderViewModel) {
     val savedBookmarks by viewModel.savedBookmarks.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().zIndex(15f).tid(Tid.Screen.bookmarks)) {
-        BookBookmarksOverlay(bookmarks = savedBookmarks, onBookmarkClick = { viewModel.onBookmarkClicked(it) }, onDismiss = { viewModel.toggleBookmarksList() }, isEink = isEink)
+        BookBookmarksOverlay(bookmarks = savedBookmarks, onBookmarkClick = { viewModel.onBookmarkClicked(it) }, onDismiss = { viewModel.toggleBookmarksList() })
     }
 }
 
 @Composable
-private fun TocPanel(viewModel: ReaderViewModel, isEink: Boolean) {
+private fun TocPanel(viewModel: ReaderViewModel) {
     val publication by viewModel.publication.collectAsState()
     val currentLocator by viewModel.currentLocator.collectAsState()
     val toc = publication?.tableOfContents ?: return
     Surface(modifier = Modifier.fillMaxSize().zIndex(15f)) {
-        TableOfContents(toc = toc, currentHref = currentLocator?.href?.toString(), onLinkSelected = { link -> viewModel.onTocItemSelected(link) }, onDismiss = { viewModel.toggleToc() }, isEink = isEink)
+        TableOfContents(toc = toc, currentHref = currentLocator?.href?.toString(), onLinkSelected = { link -> viewModel.onTocItemSelected(link) }, onDismiss = { viewModel.toggleToc() })
     }
 }
 
 @Composable
-private fun DictionaryPanel(viewModel: ReaderViewModel, isEink: Boolean) {
+private fun DictionaryPanel(viewModel: ReaderViewModel) {
     val dictionaryResponse by viewModel.dictionaryResponse.collectAsState()
     val isDictionaryLoading by viewModel.isDictionaryLoading.collectAsState()
-    DictionaryBottomSheet(responseText = dictionaryResponse, isLoading = isDictionaryLoading, isEink = isEink, onDismiss = { viewModel.dismissBottomSheet() })
+    DictionaryBottomSheet(responseText = dictionaryResponse, isLoading = isDictionaryLoading, onDismiss = { viewModel.dismissBottomSheet() })
 }
 
 @Composable
@@ -691,7 +685,7 @@ private fun DeleteHighlightDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) 
 /** The floating read-aloud controls and their settings sheet, shown while the TTS bar is up. */
 @OptIn(ExperimentalReadiumApi::class)
 @Composable
-private fun ReaderTtsControls(viewModel: ReaderViewModel, isEink: Boolean) {
+private fun ReaderTtsControls(viewModel: ReaderViewModel) {
     val showTtsBar by viewModel.showTtsBar.collectAsState()
     if (!showTtsBar) return
     val isTtsActive by viewModel.isTtsActive.collectAsState()
@@ -707,7 +701,6 @@ private fun ReaderTtsControls(viewModel: ReaderViewModel, isEink: Boolean) {
         TtsVerticalFloatingPill(
             isVisible = true,
             isPlaying = isTtsActive,
-            isEink = isEink,
             onPlayPause = { viewModel.toggleTts() },
             onStop = { viewModel.closeTts() },
             onSkipForward = { viewModel.skipForward() },
@@ -718,7 +711,6 @@ private fun ReaderTtsControls(viewModel: ReaderViewModel, isEink: Boolean) {
             isVisible = showTtsSettingsSheet,
             onDismiss = { viewModel.closeTtsSettings() },
             ttsSettings = ttsSettings,
-            isEink = isEink,
             onSpeedChange = { speed: Float ->
                 viewModel.updateTtsSpeed(speed)
             },
@@ -743,10 +735,9 @@ fun BookBookmarksOverlay(
     bookmarks: List<HighlightEntity>,
     onBookmarkClick: (HighlightEntity) -> Unit,
     onDismiss: () -> Unit,
-    isEink: Boolean
 ) {
-    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.surface
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
+    val containerColor = MaterialTheme.colorScheme.surface
+    val contentColor = MaterialTheme.colorScheme.onSurface
 
     Scaffold(
         topBar = {
@@ -804,7 +795,7 @@ fun BookBookmarksOverlay(
                                         contentDescription = "Bookmark: ${bookmark.text}"
                                     }
                             },
-                            colors = CardDefaults.cardColors(containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.surfaceVariant)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
@@ -860,7 +851,6 @@ fun TagSelectorDialog(
 fun TtsVerticalFloatingPill(
     isVisible: Boolean,
     isPlaying: Boolean,
-    isEink: Boolean,
     onPlayPause: () -> Unit,
     onStop: () -> Unit,
     onSkipForward: () -> Unit,
@@ -869,8 +859,8 @@ fun TtsVerticalFloatingPill(
 ) {
     if (!isVisible) return
 
-    val backgroundColor = if (isEink) Color.White else MaterialTheme.colorScheme.surfaceVariant
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
+    val backgroundColor = MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     var offsetX by remember { mutableStateOf(0f) }
     var offsetY by remember { mutableStateOf(0f) }
@@ -890,8 +880,8 @@ fun TtsVerticalFloatingPill(
             .wrapContentHeight(),
         shape = RoundedCornerShape(28.dp),
         color = backgroundColor,
-        shadowElevation = if (isEink) 0.dp else 8.dp,
-        border = if (isEink) BorderStroke(2.dp, contentColor) else null
+        shadowElevation = 8.dp,
+        border = null
     ) {
         Column(
             modifier = Modifier.padding(vertical = 8.dp),
@@ -900,8 +890,7 @@ fun TtsVerticalFloatingPill(
         ) {
             IconButton(onClick = onStop, modifier = Modifier.tid(Tid.Tts.stop)) { Icon(Icons.Default.Close, "Exit TTS", tint = contentColor) }
 
-            if (isEink) Spacer(modifier = Modifier.height(1.dp).width(24.dp).background(Color.Black))
-            else Spacer(modifier = Modifier.height(1.dp).width(24.dp).background(Color.Gray.copy(alpha = 0.5f)))
+            Spacer(modifier = Modifier.height(1.dp).width(24.dp).background(Color.Gray.copy(alpha = 0.5f)))
 
             IconButton(onClick = onSkipBackward, modifier = Modifier.tid(Tid.Tts.prev)) { Icon(Icons.Default.SkipPrevious, "Previous Sentence", tint = contentColor) }
 
@@ -909,8 +898,8 @@ fun TtsVerticalFloatingPill(
                 onClick = onPlayPause,
                 modifier = Modifier.size(48.dp).tid(Tid.Tts.playPause),
                 colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.primary,
-                    contentColor = if (isEink) Color.White else MaterialTheme.colorScheme.onPrimary
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
                 // --- MAESTRO FIX 4: Dynamic State-Aware Descriptions ---
@@ -922,8 +911,7 @@ fun TtsVerticalFloatingPill(
 
             IconButton(onClick = onSkipForward, modifier = Modifier.tid(Tid.Tts.next)) { Icon(Icons.Default.SkipNext, "Next Sentence", tint = contentColor) }
 
-            if (isEink) Spacer(modifier = Modifier.height(1.dp).width(24.dp).background(Color.Black))
-            else Spacer(modifier = Modifier.height(1.dp).width(24.dp).background(Color.Gray.copy(alpha = 0.5f)))
+            Spacer(modifier = Modifier.height(1.dp).width(24.dp).background(Color.Gray.copy(alpha = 0.5f)))
 
             IconButton(onClick = onOpenSettings, modifier = Modifier.tid(Tid.Tts.settings)) { Icon(Icons.Default.Tune, "TTS Settings", tint = contentColor) }
         }
@@ -932,11 +920,10 @@ fun TtsVerticalFloatingPill(
 
 @Composable
 fun ChapterErrorOverlay(
-    isEink: Boolean,
     onReturnToLibrary: () -> Unit
 ) {
-    val backgroundColor = if (isEink) Color.White else MaterialTheme.colorScheme.background
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val contentColor = MaterialTheme.colorScheme.onBackground
 
     Box(
         modifier = Modifier

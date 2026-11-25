@@ -66,7 +66,6 @@ class BookshelfViewModelTest {
         settingsRepo = mockk(relaxed = true)
         vaultRepository = mockk(relaxed = true)
 
-        every { settingsRepo.isEinkEnabled } returns flowOf(false)
         every { settingsRepo.bookshelfPreferences } returns flowOf(BookshelfPreferences())
 
         every { vaultRepository.activeVaultId } returns fakeVaultId

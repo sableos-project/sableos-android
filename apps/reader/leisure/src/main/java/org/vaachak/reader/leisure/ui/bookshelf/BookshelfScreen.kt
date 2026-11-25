@@ -92,12 +92,10 @@ import org.sableos.reader.layout.rememberReaderLayoutProfile
 import org.sableos.reader.library.LibraryFilters
 import org.vaachak.reader.core.domain.model.BookEntity
 import org.vaachak.reader.core.domain.model.CoverAspectRatio
-import org.vaachak.reader.core.domain.model.DitheringMode
 import org.vaachak.reader.leisure.ui.testability.Tid
 import org.vaachak.reader.leisure.ui.testability.TidScreen
 import org.vaachak.reader.leisure.ui.testability.tid
 import org.vaachak.reader.leisure.ui.testability.tids
-import org.vaachak.reader.leisure.ui.utils.EinkDitherTransformation
 import java.io.File
 
 // --- UNIFIED GRID ITEM TYPE ---
@@ -199,8 +197,8 @@ fun BookshelfScreen(
         }
     }
 
-    val containerColor = if (state.isEink) Color.White else MaterialTheme.colorScheme.background
-    val contentColor = if (state.isEink) Color.Black else MaterialTheme.colorScheme.onBackground
+    val containerColor = MaterialTheme.colorScheme.background
+    val contentColor = MaterialTheme.colorScheme.onBackground
     val layout = rememberReaderLayoutProfile()
 
     TidScreen(Tid.Screen.bookshelf) {
@@ -230,7 +228,6 @@ fun BookshelfScreen(
             floatingActionButton = {
                 if (selectedTab == SHELF_TAB && state.selectedStackName == null) {
                     BookshelfAddButtons(
-                        isEink = state.isEink,
                         onAddFolder = { folderLauncher.launch(null) },
                         onAddBook = { launcher.launch(ADD_BOOK_MIME_TYPES) }
                     )
@@ -358,19 +355,19 @@ private fun SortMenu(contentColor: Color, onSort: (SortOrder) -> Unit) {
 }
 
 @Composable
-private fun BookshelfAddButtons(isEink: Boolean, onAddFolder: () -> Unit, onAddBook: () -> Unit) {
+private fun BookshelfAddButtons(onAddFolder: () -> Unit, onAddBook: () -> Unit) {
     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SmallFloatingActionButton(
             onClick = onAddFolder,
             modifier = Modifier.tid("library_add_folder"),
-            containerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = if (isEink) Color.White else MaterialTheme.colorScheme.onSecondaryContainer
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
         ) { Icon(Icons.Default.Folder, "Add folder of comic pages or audio files") }
         FloatingActionButton(
             onClick = onAddBook,
             modifier = Modifier.tid(Tid.Library.ADD),
-            containerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.primaryContainer,
-            contentColor = if (isEink) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ) { Icon(Icons.Default.Add, "Add Book") }
     }
 }
@@ -577,8 +574,6 @@ fun NeoReaderCoverCard(
     onDelete: () -> Unit
 ) {
     val prefs = state.bookshelfPrefs
-    val isEink = state.isEink
-    val shouldDither = prefs.ditheringMode == DitheringMode.ALWAYS_ON || (prefs.ditheringMode == DitheringMode.AUTO && isEink)
 
     val modifier = if (prefs.coverAspectRatio == CoverAspectRatio.UNIFORM) Modifier.fillMaxWidth().aspectRatio(0.7f)
     else Modifier.fillMaxWidth().heightIn(min = 150.dp, max = 220.dp)
@@ -593,10 +588,10 @@ fun NeoReaderCoverCard(
     ) {
         Card(
             modifier = modifier, shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f)),
-            colors = CardDefaults.cardColors(containerColor = if (isEink) Color.White else Color.LightGray.copy(0.2f))
+            colors = CardDefaults.cardColors(containerColor = Color.LightGray.copy(0.2f))
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                CoverImage(book = book, shouldDither = shouldDither)
+                CoverImage(book = book)
                 CoverBadges(
                     book = book,
                     state = state,
@@ -605,7 +600,7 @@ fun NeoReaderCoverCard(
             }
         }
         Spacer(Modifier.height(4.dp))
-        CoverTitleRow(book = book, isEink = isEink, onDelete = onDelete)
+        CoverTitleRow(book = book, onDelete = onDelete)
     }
 }
 
@@ -614,7 +609,7 @@ private fun cardTids(isFirstVisibleBook: Boolean, id: String, firstId: String): 
     if (isFirstVisibleBook) Modifier.tids(id, firstId) else Modifier.tid(id)
 
 @Composable
-private fun CoverImage(book: BookEntity, shouldDither: Boolean) {
+private fun CoverImage(book: BookEntity) {
     // --- NON-BLOCKING FIX: Cover check moved off main thread ---
     val coverPath = book.coverPath
     var hasCover by remember(coverPath) { mutableStateOf(false) }
@@ -627,7 +622,7 @@ private fun CoverImage(book: BookEntity, shouldDither: Boolean) {
     }
 
     if (hasCover && coverPath != null) {
-        AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(File(coverPath)).crossfade(true).apply { if (shouldDither) transformations(EinkDitherTransformation()) }.build(), contentDescription = "Cover for ${book.title}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(File(coverPath)).crossfade(true).build(), contentDescription = "Cover for ${book.title}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
     } else { Box(Modifier.fillMaxSize().background(Color.LightGray.copy(0.5f)), contentAlignment = Alignment.Center) { Text(book.title.take(1).uppercase(), style = MaterialTheme.typography.headlineMedium) } }
 }
 
@@ -665,7 +660,7 @@ private fun BoxScope.CoverBadges(book: BookEntity, state: BookshelfUiState, isFi
 }
 
 @Composable
-private fun CoverTitleRow(book: BookEntity, isEink: Boolean, onDelete: () -> Unit) {
+private fun CoverTitleRow(book: BookEntity, onDelete: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         Text(
             text = book.title,
@@ -673,7 +668,7 @@ private fun CoverTitleRow(book: BookEntity, isEink: Boolean, onDelete: () -> Uni
             fontWeight = FontWeight.Medium,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            color = if(isEink) Color.Black else MaterialTheme.colorScheme.onBackground,
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.weight(1f)
         )
         Box(
@@ -681,7 +676,7 @@ private fun CoverTitleRow(book: BookEntity, isEink: Boolean, onDelete: () -> Uni
                 .padding(start = 4.dp)
                 .size(24.dp)
                 .background(
-                    color = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground,
+                    color = MaterialTheme.colorScheme.onBackground,
                     shape = RoundedCornerShape(4.dp)
                 )
                 .tid(Tid.Library.deleteByHash(book.bookHash))
@@ -691,7 +686,7 @@ private fun CoverTitleRow(book: BookEntity, isEink: Boolean, onDelete: () -> Uni
             Icon(
                 imageVector = Icons.Filled.Delete,
                 contentDescription = "Delete ${book.title}",
-                tint = if (isEink) Color.White else MaterialTheme.colorScheme.background,
+                tint = MaterialTheme.colorScheme.background,
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -700,7 +695,6 @@ private fun CoverTitleRow(book: BookEntity, isEink: Boolean, onDelete: () -> Uni
 
 @Composable
 fun StackGridItem(stack: ShelfEntry.Stack, state: BookshelfUiState, onClick: () -> Unit) {
-    val isEink = state.isEink
     val firstBook = stack.books.firstOrNull()
     val unreadCount = stack.books.count { it.progress < 0.99f }
     val modifier = if (state.bookshelfPrefs.coverAspectRatio == CoverAspectRatio.UNIFORM) Modifier.fillMaxWidth().aspectRatio(0.7f)
@@ -726,7 +720,7 @@ fun StackGridItem(stack: ShelfEntry.Stack, state: BookshelfUiState, onClick: () 
             }
     ) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Card(modifier = Modifier.fillMaxSize().padding(top = 8.dp, start = 8.dp, end = 8.dp), shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.4f)), colors = CardDefaults.cardColors(containerColor = if (isEink) Color.LightGray else Color.Gray.copy(alpha = 0.3f))) {}
+            Card(modifier = Modifier.fillMaxSize().padding(top = 8.dp, start = 8.dp, end = 8.dp), shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.4f)), colors = CardDefaults.cardColors(containerColor = Color.Gray.copy(alpha = 0.3f))) {}
 
             if (firstBook != null) {
                 Card(modifier = Modifier.fillMaxSize().padding(bottom = 8.dp, end = 12.dp), shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.5f))) {
@@ -745,7 +739,7 @@ fun StackGridItem(stack: ShelfEntry.Stack, state: BookshelfUiState, onClick: () 
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text(stack.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if(isEink) Color.Black else MaterialTheme.colorScheme.onBackground)
+        Text(stack.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onBackground)
     }
 }
 

@@ -37,8 +37,7 @@ import java.util.Locale
 class AndroidTtsManager(
     context: Context,
     private val publication: Publication,
-    private val visualNavigatorProvider: () -> DecorableNavigator?,
-    private val isEinkProvider: () -> Boolean
+    private val visualNavigatorProvider: () -> DecorableNavigator?
 ) : TtsManager, TextToSpeech.OnInitListener {
 
     private var tts: TextToSpeech? = null
@@ -139,7 +138,7 @@ class AndroidTtsManager(
                     // 1. Move Screen (No Animation = No Jumping)
                     (visualNav as? Navigator)?.go(locator, animated = false)
 
-                    // 2. Highlight for E-ink
+                    // 2. Highlight
                     highlightLocator(locator)
                 }
 
@@ -159,16 +158,7 @@ class AndroidTtsManager(
 
     private fun highlightLocator(locator: Locator) {
         val visualNav = visualNavigatorProvider() ?: return
-        val isEink = isEinkProvider()
-
-        val style = if (isEink) {
-            // OPTIMIZED E-INK: Solid Black Underline
-            // Visible during A2 fast refresh
-            Style.Underline(tint = Color.BLACK, isActive = true)
-        } else {
-            // LCD: Standard Yellow Box
-            Style.Highlight(tint = ColorUtils.setAlphaComponent(Color.YELLOW, 75))
-        }
+        val style = Style.Highlight(tint = ColorUtils.setAlphaComponent(Color.YELLOW, 75))
 
         val decoration = Decoration(id = "tts-highlight", locator = locator, style = style)
 

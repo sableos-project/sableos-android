@@ -15,11 +15,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.IndicationNodeFactory
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,8 +54,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -98,7 +93,6 @@ import org.sableos.reader.ui.comic.ComicReaderScreen
 import org.sableos.reader.ui.pdf.PdfReaderScreen
 import org.vaachak.reader.core.data.repository.VaultRepository
 import org.vaachak.reader.core.domain.model.BookEntity
-import org.vaachak.reader.core.domain.model.ThemeMode
 import org.vaachak.reader.leisure.navigation.Screen
 import org.vaachak.reader.leisure.ui.bookshelf.BookshelfScreen
 import org.vaachak.reader.leisure.ui.bookshelf.BookshelfUiState
@@ -181,20 +175,15 @@ class MainActivity : AppCompatActivity() {
         val navController = rememberNavController()
 
         // Read from the ultra-lightweight RootViewModel
-        val currentTheme by rootViewModel.appThemeMode.collectAsState()
-        val einkContrast by rootViewModel.einkContrastVal.collectAsState()
         val hasCompletedOnboarding by rootViewModel.hasCompletedOnboarding.collectAsState(initial = false)
         val isMultiUser by rootViewModel.isMultiUserMode.collectAsState(initial = false)
         val activeVaultId by rootViewModel.activeVaultId.collectAsState(initial = VaultRepository.DEFAULT_VAULT_ID)
-
-        val isEink = currentTheme == ThemeMode.E_INK
 
         val startDestination = remember(hasCompletedOnboarding, isMultiUser, activeVaultId) {
             startDestinationFor(hasCompletedOnboarding, isMultiUser, activeVaultId)
         }
 
         CompositionLocalProvider(
-            LocalIndication provides if (isEink) NoIndication else LocalIndication.current,
             LocalReaderKeyDispatcher provides readerKeyDispatcher,
             LocalEditableFocus provides editableFocus
         ) {
@@ -205,8 +194,8 @@ class MainActivity : AppCompatActivity() {
                     .fillMaxSize()
                     .semantics { testTagsAsResourceId = true }
             ) {
-                ProductReaderTheme(themeMode = currentTheme, contrast = einkContrast) {
-                    val background = if (isEink) Color.White else MaterialTheme.colorScheme.background
+                ProductReaderTheme {
+                    val background = MaterialTheme.colorScheme.background
                     Scaffold(containerColor = background) { padding ->
                         Surface(
                             modifier = Modifier.padding(padding).fillMaxSize(),
@@ -216,8 +205,8 @@ class MainActivity : AppCompatActivity() {
                                 navController = navController,
                                 startDestination = startDestination
                             ) {
-                                onboardingDestinations(navController, isEink)
-                                libraryDestination(navController, isEink, isMultiUser)
+                                onboardingDestinations(navController)
+                                libraryDestination(navController, isMultiUser)
                                 readerDestinations(navController)
                                 settingsDestinations(navController)
                             }
@@ -235,7 +224,7 @@ class MainActivity : AppCompatActivity() {
             else -> Screen.Library.route
         }
 
-    private fun NavGraphBuilder.onboardingDestinations(navController: NavHostController, isEink: Boolean) {
+    private fun NavGraphBuilder.onboardingDestinations(navController: NavHostController) {
         composable(WELCOME_ROUTE) {
             val settingsViewModel: SettingsViewModel = hiltViewModel()
             WelcomeScreen(
@@ -253,7 +242,6 @@ class MainActivity : AppCompatActivity() {
             val profileViewModel: org.vaachak.reader.leisure.ui.settings.ProfileViewModel = hiltViewModel()
 
             ProfilePickerScreen(
-                isEink = isEink,
                 viewModel = profileViewModel,
                 onProfileSelected = {
                     navController.navigate(Screen.Library.route) {
@@ -264,14 +252,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun NavGraphBuilder.libraryDestination(navController: NavHostController, isEink: Boolean, isMultiUser: Boolean) {
+    private fun NavGraphBuilder.libraryDestination(navController: NavHostController, isMultiUser: Boolean) {
         composable(Screen.Library.route) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f)) {
                     MainAppScreen(
                         navController = navController,
                         bookshelfViewModel = bookshelfViewModel,
-                        isEink = isEink,
                         isMultiUser = isMultiUser,
                         onBookClick = { bookHash -> openBook(navController, bookHash) },
                         onHighlightsClick = { navController.navigate(Screen.Highlights.route) },
@@ -508,11 +495,6 @@ class MainActivity : AppCompatActivity() {
         const val PROFILE_PICKER_ROUTE = "profile_picker"
         const val BOOK_ID_ARG = "bookId"
     }
-
-    // A data object supplies the equals/hashCode IndicationNodeFactory requires.
-    private data object NoIndication : IndicationNodeFactory {
-        override fun create(interactionSource: InteractionSource): DelegatableNode { return object : Modifier.Node(), DelegatableNode {} }
-    }
 }
 
 // --- NEW COMPOSABLES FOR LAUNCH FLOW ---
@@ -559,7 +541,6 @@ fun MainAppScreen(
     navController: androidx.navigation.NavController,
     bookshelfViewModel: BookshelfViewModel,
     profileViewModel: org.vaachak.reader.leisure.ui.settings.ProfileViewModel = hiltViewModel(),
-    isEink: Boolean,
     isMultiUser: Boolean, // <-- 2. ACCEPT IT HERE
     onBookClick: (String) -> Unit,
     onHighlightsClick: () -> Unit,
@@ -569,7 +550,7 @@ fun MainAppScreen(
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
 
     val activeProfile by profileViewModel.activeProfile.collectAsState()
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
+    val contentColor = MaterialTheme.colorScheme.onSurface
 
     androidx.activity.compose.BackHandler(enabled = selectedTabIndex != 0) { selectedTabIndex = 0 }
     // Books shows the whole library; Comics and Audio are the same shelf narrowed to one kind.

@@ -64,7 +64,6 @@ class ReaderViewModelTest {
 
         every { vaultRepository.activeVaultId } returns MutableStateFlow("profile_piyush")
 
-        every { settingsRepo.isEinkEnabled } returns flowOf(false)
         every { settingsRepo.readerPreferences } returns flowOf(ReaderPreferences())
         every { settingsRepo.ttsSettings } returns flowOf(
             TtsSettings(1.0f, true, "underline", "default", false, 0, 0.5f, "default")

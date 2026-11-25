@@ -2,12 +2,10 @@ package org.vaachak.reader.core.domain.model
 
 import kotlinx.serialization.Serializable
 
-enum class DitheringMode { AUTO, ALWAYS_ON, OFF }
 enum class CoverAspectRatio { ORIGINAL, UNIFORM }
 
 @Serializable
 data class BookshelfPreferences(
-    val ditheringMode: DitheringMode = DitheringMode.AUTO,
     val groupBySeries: Boolean = true,
 
     // NEW: Cover Style Settings (NeoReader style)

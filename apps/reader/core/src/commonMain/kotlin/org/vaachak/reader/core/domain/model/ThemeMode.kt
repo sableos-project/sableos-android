@@ -24,6 +24,5 @@ package org.vaachak.reader.core.domain.model
 
 enum class ThemeMode {
     LIGHT,
-    DARK,
-    E_INK
+    DARK
 }

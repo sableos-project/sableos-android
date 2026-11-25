@@ -61,12 +61,11 @@ import java.util.Calendar
 @Composable
 fun ReaderSystemFooter(
     chapterTitle: String,
-    isEink: Boolean
 ) {
     val context = LocalContext.current // FIX: Get Context here
-    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.surface
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
-    val dividerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.outlineVariant
+    val containerColor = MaterialTheme.colorScheme.surface
+    val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val dividerColor = MaterialTheme.colorScheme.outlineVariant
 
     // Logic for Clock
     var timeString by remember { mutableStateOf("") }
@@ -92,7 +91,7 @@ fun ReaderSystemFooter(
             }
     ) {
         Column {
-            HorizontalDivider(thickness = if (isEink) 1.dp else 0.5.dp, color = dividerColor)
+            HorizontalDivider(thickness = 0.5.dp, color = dividerColor)
 
             Row(
                 modifier = Modifier
@@ -108,7 +107,7 @@ fun ReaderSystemFooter(
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    fontWeight = if (isEink) FontWeight.Bold else FontWeight.Normal,
+                    fontWeight = FontWeight.Normal,
                     modifier = Modifier.weight(1f).padding(end = 16.dp)
                 )
 

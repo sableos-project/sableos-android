@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -40,7 +41,6 @@ data class BookshelfUiState(
     val availableFilters: List<String> = listOf("All"),
     val filterCounts: Map<String, Int> = emptyMap(),
     val sortOrder: SortOrder = SortOrder.PROGRESS,
-    val isEink: Boolean = false,
     val snackbarMessage: String? = null,
     val bookshelfPrefs: BookshelfPreferences = BookshelfPreferences(),
     val heroBook: BookEntity? = null,
@@ -62,7 +62,6 @@ private data class FilterState(
 )
 
 private data class PrefsState(
-    val isEink: Boolean,
     val bookshelfPrefs: BookshelfPreferences
 )
 
@@ -102,12 +101,9 @@ class BookshelfViewModel @Inject constructor(
         FilterState(scope, query, filter, sort, stack)
     }.distinctUntilChanged()
 
-    private val prefsFlow = combine(
-        settingsRepo.isEinkEnabled,
-        settingsRepo.bookshelfPreferences
-    ) { eink, shelfPrefs ->
-        PrefsState(eink, shelfPrefs)
-    }.distinctUntilChanged()
+    private val prefsFlow = settingsRepo.bookshelfPreferences
+        .map { shelfPrefs -> PrefsState(shelfPrefs) }
+        .distinctUntilChanged()
 
     private val activeBooksFlow = vaultRepository.activeVaultId
         .flatMapLatest { profileId -> bookDao.getAllBooksSortedByRecent(profileId) }
@@ -188,7 +184,6 @@ class BookshelfViewModel @Inject constructor(
                 availableFilters = allFilters,
                 filterCounts = filterCounts,
                 sortOrder = filters.sort,
-                isEink = prefs.isEink,
                 snackbarMessage = dialogs.snackbar,
                 bookshelfPrefs = prefs.bookshelfPrefs,
                 heroBook = heroBook,

@@ -52,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import org.vaachak.reader.core.domain.model.CoverAspectRatio
-import org.vaachak.reader.core.domain.model.DitheringMode
 import org.vaachak.reader.leisure.ui.reader.components.VaachakHeader
 import org.vaachak.reader.leisure.ui.testability.Tid
 import org.vaachak.reader.leisure.ui.testability.TidScreen
@@ -78,7 +77,6 @@ fun LibrarySettingsScreen(
                 title = "Library Settings",
                 onBack = { navController.popBackStack() },
                 showBackButton = true,
-                isEink = false,
                 backButtonModifier = Modifier.tid("library_settings_back")
             )
         },
@@ -106,7 +104,6 @@ fun LibrarySettingsScreen(
                         isSelected = prefs.coverAspectRatio == CoverAspectRatio.ORIGINAL,
                         onClick = { viewModel.setCoverAspectRatio(CoverAspectRatio.ORIGINAL) },
                         contentColor = contentColor,
-                        isEink = false
                     )
 
                     // Style 2: Uniform (NeoReader default)
@@ -117,7 +114,6 @@ fun LibrarySettingsScreen(
                         isSelected = prefs.coverAspectRatio == CoverAspectRatio.UNIFORM,
                         onClick = { viewModel.setCoverAspectRatio(CoverAspectRatio.UNIFORM) },
                         contentColor = contentColor,
-                        isEink = false
                     )
                 }
             }
@@ -173,30 +169,6 @@ fun LibrarySettingsScreen(
                     )
                 }
             }
-
-            HorizontalDivider(color = contentColor.copy(alpha = 0.1f))
-
-            // --- SECTION 4: E-INK OPTIMIZATION ---
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("E-ink Optimization", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = contentColor)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Cover Dithering Mode", style = MaterialTheme.typography.bodyLarge, color = contentColor)
-                        Text("Applies Floyd-Steinberg algorithm to book covers to reduce ghosting.", style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.6f))
-                    }
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DitheringChip("Auto", prefs.ditheringMode == DitheringMode.AUTO, contentColor) { viewModel.setDitheringMode(DitheringMode.AUTO) }
-                    DitheringChip("Always On", prefs.ditheringMode == DitheringMode.ALWAYS_ON, contentColor) { viewModel.setDitheringMode(DitheringMode.ALWAYS_ON) }
-                    DitheringChip("Off", prefs.ditheringMode == DitheringMode.OFF, contentColor) { viewModel.setDitheringMode(DitheringMode.OFF) }
-                }
-            }
         }
     }
     }
@@ -211,11 +183,10 @@ fun CoverStyleCard(
     isSelected: Boolean,
     onClick: () -> Unit,
     contentColor: Color,
-    isEink: Boolean,
     modifier: Modifier = Modifier
 ) {
     val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else contentColor.copy(alpha = 0.2f)
-    val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isEink) 0.1f else 0.5f) else Color.Transparent
+    val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent
 
     Card(
         onClick = onClick,
@@ -277,21 +248,4 @@ fun CoverElementToggle(label: String, isChecked: Boolean, onToggle: (Boolean) ->
         Spacer(Modifier.width(4.dp))
         Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DitheringChip(label: String, isSelected: Boolean, contentColor: Color, onClick: () -> Unit) {
-    FilterChip(
-        selected = isSelected,
-        onClick = onClick,
-        label = { Text(label) },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = contentColor.copy(alpha = 0.1f),
-            selectedLabelColor = contentColor
-        ),
-        modifier = Modifier.semantics(mergeDescendants = true) {
-            contentDescription = "Dithering Mode: $label, ${if (isSelected) "Selected" else "Not Selected"}"
-        }
-    )
 }

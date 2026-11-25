@@ -70,10 +70,9 @@ fun BookHighlightsOverlay(
     highlights: List<HighlightEntity>,
     onHighlightClick: (HighlightEntity) -> Unit,
     onDismiss: () -> Unit,
-    isEink: Boolean
 ) {
-    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.background
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground
+    val containerColor = MaterialTheme.colorScheme.background
+    val contentColor = MaterialTheme.colorScheme.onBackground
 
     Scaffold(
         modifier = Modifier.tid(Tid.Screen.bookHighlights),
@@ -117,13 +116,12 @@ fun BookHighlightsOverlay(
                     itemsIndexed(highlights) { index, highlight ->
                         HighlightItem(
                             highlight = highlight,
-                            isEink = isEink,
                             isFirstVisibleItem = index == 0,
                             onClick = onHighlightClick
                         )
                         HorizontalDivider(
                             thickness = 0.5.dp,
-                            color = if(isEink) Color.LightGray else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                         )
                     }
                 }
@@ -135,15 +133,14 @@ fun BookHighlightsOverlay(
 @Composable
 fun HighlightItem(
     highlight: HighlightEntity,
-    isEink: Boolean,
     isFirstVisibleItem: Boolean,
     onClick: (HighlightEntity) -> Unit
 ) {
-    val textColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
+    val textColor = MaterialTheme.colorScheme.onSurface
 
     // Tag Color Logic
-    val tagBgColor = if (isEink) Color.Black else MaterialTheme.colorScheme.secondaryContainer
-    val tagTextColor = if (isEink) Color.White else MaterialTheme.colorScheme.onSecondaryContainer
+    val tagBgColor = MaterialTheme.colorScheme.secondaryContainer
+    val tagTextColor = MaterialTheme.colorScheme.onSecondaryContainer
 
     // THE FIX: Lock the cross-module property into a local, immutable variable
     val safeTag = highlight.tag
@@ -180,7 +177,7 @@ fun HighlightItem(
                 modifier = Modifier
                     .width(4.dp)
                     .height(40.dp)
-                    .background(Color(highlight.color).copy(alpha = if(isEink) 0.5f else 1f))
+                    .background(Color(highlight.color).copy(alpha = 1f))
             )
             Spacer(modifier = Modifier.width(12.dp))
 

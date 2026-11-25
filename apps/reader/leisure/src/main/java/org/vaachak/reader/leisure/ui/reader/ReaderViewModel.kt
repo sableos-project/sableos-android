@@ -83,9 +83,6 @@ class ReaderViewModel @Inject constructor(
     private val _currentTtsLanguage = MutableStateFlow("default")
     val currentTtsLanguage = _currentTtsLanguage.asStateFlow()
 
-    val isEinkEnabled: StateFlow<Boolean> = settingsRepo.isEinkEnabled
-        .stateIn(viewModelScope, AppCoroutineConfig.whileSubscribed, false)
-
     val epubPreferences: StateFlow<EpubPreferences> = settingsRepo.readerPreferences
         .map { prefs -> buildEpubPreferences(prefs) }
         .distinctUntilChanged()
@@ -205,10 +202,7 @@ class ReaderViewModel @Inject constructor(
     }.distinctUntilChanged()
         .stateIn(viewModelScope, AppCoroutineConfig.lazily, false)
 
-    val currentBookHighlights: StateFlow<List<Decoration>> = combine(
-        allBookItems,
-        isEinkEnabled
-    ) { items, isEink ->
+    val currentBookHighlights: StateFlow<List<Decoration>> = allBookItems.map { items ->
         withContext(AppCoroutineConfig.default) {
             items.filter { it.tag != "BOOKMARK" }.mapNotNull { entity ->
                 try {
@@ -218,7 +212,7 @@ class ReaderViewModel @Inject constructor(
                             id = entity.id,
                             locator = locator,
                             style = Decoration.Style.Highlight(
-                                tint = if (isEink) Color.LTGRAY else entity.color
+                                tint = entity.color
                             )
                         )
                     } else {
@@ -602,7 +596,6 @@ class ReaderViewModel @Inject constructor(
     fun addTestHighlightAtCurrentLocator() {
         val locator = _currentLocator.value ?: return
         val bookHash = _currentBookHash.value ?: return
-        val einkEnabled = isEinkEnabled.value
 
         viewModelScope.launch {
             val profileId = vaultRepository.activeVaultId.first()
@@ -612,7 +605,7 @@ class ReaderViewModel @Inject constructor(
                     profileId = profileId,
                     locatorJson = locator.toJSON().toString(),
                     text = locator.text.highlight ?: "Test Highlight",
-                    color = if (einkEnabled) Color.DKGRAY else Color.YELLOW,
+                    color = Color.YELLOW,
                     tag = "Test"
                 )
             )
@@ -623,7 +616,6 @@ class ReaderViewModel @Inject constructor(
     fun saveHighlightWithTag(tag: String) {
         val l = pendingHighlightLocator ?: return
         val u = _currentBookHash.value ?: return
-        val e = isEinkEnabled.value
 
         viewModelScope.launch {
             val profileId = vaultRepository.activeVaultId.first()
@@ -633,7 +625,7 @@ class ReaderViewModel @Inject constructor(
                     profileId = profileId,
                     locatorJson = l.toJSON().toString(),
                     text = l.text.highlight ?: "Selected",
-                    color = if (e) Color.DKGRAY else Color.YELLOW,
+                    color = Color.YELLOW,
                     tag = tag
                 )
             )

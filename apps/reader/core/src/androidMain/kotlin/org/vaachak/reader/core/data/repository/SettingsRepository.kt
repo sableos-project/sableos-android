@@ -31,7 +31,6 @@ import org.sableos.reader.engine.audio.AudioSettingsCodec
 import org.sableos.reader.model.storage.RetiredRemoteSettings
 import org.vaachak.reader.core.domain.model.BookshelfPreferences
 import org.vaachak.reader.core.domain.model.CoverAspectRatio
-import org.vaachak.reader.core.domain.model.DitheringMode
 import org.vaachak.reader.core.domain.model.ReaderPreferences
 import org.vaachak.reader.core.domain.model.ThemeMode
 import org.vaachak.reader.core.domain.model.TtsSettings
@@ -47,9 +46,7 @@ class SettingsRepository @Inject constructor(
 
     companion object {
         // --- APP GLOBAL SETTINGS ---
-        val IS_EINK_ENABLED = booleanPreferencesKey("is_eink_enabled")
         val THEME_KEY = stringPreferencesKey("theme_mode")
-        val CONTRAST_KEY = floatPreferencesKey("eink_contrast")
         val DICTIONARY_FOLDER_KEY = stringPreferencesKey("dictionary_folder")
         val USE_EMBEDDED_DICT = booleanPreferencesKey("use_embedded_dict")
 
@@ -86,7 +83,6 @@ class SettingsRepository @Inject constructor(
         val READER_LIGATURES = booleanPreferencesKey("reader_ligatures")
 
         // --- LIBRARY & COVER STYLE SETTINGS ---
-        val DITHERING_MODE_KEY = stringPreferencesKey("dithering_mode")
         val GROUP_BY_SERIES_KEY = booleanPreferencesKey("group_by_series")
         val COVER_ASPECT_RATIO_KEY = stringPreferencesKey("cover_aspect_ratio")
         val SHOW_FORMAT_BADGE_KEY = booleanPreferencesKey("show_format_badge")
@@ -120,11 +116,9 @@ class SettingsRepository @Inject constructor(
         .flatMapLatest { vaultId -> getVaultDataStore(vaultId).data }
 
     // --- APP FLOWS ---
-    val isEinkEnabled: Flow<Boolean> = vaultPreferencesFlow.map { it[IS_EINK_ENABLED] ?: false }
-    val einkContrast: Flow<Float> = vaultPreferencesFlow.map { it[CONTRAST_KEY] ?: 0.5f }
 
     val themeMode: Flow<ThemeMode> = vaultPreferencesFlow.map { prefs ->
-        // LIGHT is the "follow SableOS" sentinel; E-Ink is an explicit, reading-only opt-in.
+        // LIGHT is the "follow SableOS" sentinel; a stored legacy "E_INK" falls back to it.
         val name = prefs[THEME_KEY] ?: ThemeMode.LIGHT.name
         try { ThemeMode.valueOf(name) } catch (_: Exception) { ThemeMode.LIGHT }
     }
@@ -195,7 +189,6 @@ class SettingsRepository @Inject constructor(
     // --- APP SETTINGS ACTIONS ---
 
     suspend fun setThemeMode(mode: ThemeMode) { editCurrentVault { it[THEME_KEY] = mode.name } }
-    suspend fun setContrast(value: Float) { editCurrentVault { it[CONTRAST_KEY] = value } }
     suspend fun setUseEmbeddedDictionary(enabled: Boolean) { editCurrentVault { it[USE_EMBEDDED_DICT] = enabled } }
     suspend fun setDictionaryFolder(uri: String) { editCurrentVault { it[DICTIONARY_FOLDER_KEY] = uri } }
 
@@ -261,14 +254,11 @@ class SettingsRepository @Inject constructor(
     }
 
     val bookshelfPreferences: Flow<BookshelfPreferences> = vaultPreferencesFlow.map { prefs ->
-        val ditheringName = prefs[DITHERING_MODE_KEY] ?: DitheringMode.AUTO.name
-        val ditheringMode = try { DitheringMode.valueOf(ditheringName) } catch (_: Exception) { DitheringMode.AUTO }
 
         val ratioName = prefs[COVER_ASPECT_RATIO_KEY] ?: CoverAspectRatio.UNIFORM.name
         val coverAspectRatio = try { CoverAspectRatio.valueOf(ratioName) } catch (_: Exception) { CoverAspectRatio.UNIFORM }
 
         BookshelfPreferences(
-            ditheringMode = ditheringMode,
             groupBySeries = prefs[GROUP_BY_SERIES_KEY] ?: true,
             coverAspectRatio = coverAspectRatio,
             showFormatBadge = prefs[SHOW_FORMAT_BADGE_KEY] ?: true,
@@ -277,7 +267,6 @@ class SettingsRepository @Inject constructor(
         )
     }
 
-    suspend fun setDitheringMode(mode: DitheringMode) { editCurrentVault { it[DITHERING_MODE_KEY] = mode.name } }
     suspend fun setGroupBySeries(enabled: Boolean) { editCurrentVault { it[GROUP_BY_SERIES_KEY] = enabled } }
     suspend fun setCoverAspectRatio(ratio: CoverAspectRatio) { editCurrentVault { it[COVER_ASPECT_RATIO_KEY] = ratio.name } }
 

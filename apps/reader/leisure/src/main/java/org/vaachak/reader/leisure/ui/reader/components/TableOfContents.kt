@@ -65,14 +65,13 @@ fun TableOfContents(
     currentHref: String?,
     onLinkSelected: (Link) -> Unit,
     onDismiss: () -> Unit,
-    isEink: Boolean
 ) {
     val flattenedToc = remember(toc) {
         flattenToc(toc)
     }
 
-    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.background
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground
+    val containerColor = MaterialTheme.colorScheme.background
+    val contentColor = MaterialTheme.colorScheme.onBackground
 
     Scaffold(
         modifier = Modifier.tid(Tid.Screen.toc),
@@ -120,13 +119,12 @@ fun TableOfContents(
                         depth = depth,
                         isFirstVisibleItem = index == 0,
                         isActive = isActive,
-                        isEink = isEink,
                         // 2. NAVIGATION: Pass original link with fragments intact
                         onClick = { onLinkSelected(link) }
                     )
                     HorizontalDivider(
                         thickness = 0.5.dp,
-                        color = if (isEink) Color.LightGray else MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.5f)
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.5f)
                     )
                 }
             }
@@ -151,20 +149,19 @@ fun TocItem(
     depth: Int,
     isFirstVisibleItem: Boolean,
     isActive: Boolean,
-    isEink: Boolean,
     onClick: () -> Unit
 ) {
     val textColor = if (isActive) {
-        if (isEink) Color.Black else MaterialTheme.colorScheme.primary
+        MaterialTheme.colorScheme.primary
     } else {
-        if (isEink) Color.DarkGray else MaterialTheme.colorScheme.onSurface
+        MaterialTheme.colorScheme.onSurface
     }
 
     val fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
 
     // Visual Indicator for Active Item
     val backgroundColor = if (isActive) {
-        if (isEink) Color.LightGray.copy(alpha = 0.3f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
     } else Color.Transparent
 
     val paddingStart = 16.dp + (24.dp * depth)

@@ -29,7 +29,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import org.vaachak.reader.core.domain.model.ThemeMode
@@ -37,64 +36,9 @@ import org.vaachak.reader.core.domain.model.ThemeMode
 @Composable
 fun VaachakTheme(
     themeMode: ThemeMode = ThemeMode.LIGHT,
-    contrast: Float = 0.5f, // 0.0f (Soft) -> 1.0f (High Contrast/Binary)
     content: @Composable () -> Unit
 ) {
     val colorScheme = when (themeMode) {
-        ThemeMode.E_INK -> {
-            // --- E-INK SHARPNESS LOGIC ---
-            // We interpolate ("lerp") colors based on the contrast slider.
-            // Slider 0% (0.0) = Standard Grays (Soft)
-            // Slider 100% (1.0) = Pure Black (Max Sharpness)
-
-            // 1. Text & Icons (Gray -> Black)
-            // Affects: Subtitles, Icons, Secondary text
-            val sharpContentColor = lerp(Color.Gray, PureBlack, contrast)
-
-            // 2. Borders & Dividers (LightGray -> Black)
-            // Affects: Checkboxes, Outlines, Dividers
-            val sharpBorderColor = lerp(Color.LightGray, PureBlack, contrast)
-
-            // 3. Card Backgrounds (LightGray -> White)
-            // Affects: Settings Groups. At high contrast, we "flatten" them to white.
-            val flatBackgroundColor = lerp(LightGray, PureWhite, contrast)
-
-            lightColorScheme(
-                // High Emphasis (Always Sharp)
-                primary = PureBlack,
-                onPrimary = PureWhite,
-
-                // Backgrounds (Always Clean)
-                background = PureWhite,
-                onBackground = PureBlack,
-                surface = PureWhite,
-                onSurface = PureBlack,
-
-                // --- THE FIX IS HERE ---
-                // We map the calculated "sharp" colors to the slots Material3 uses for grays.
-
-                // Icons & Secondary Text
-                secondary = sharpContentColor,
-                onSecondary = PureWhite,
-
-                // Subtitles (The "Theme & E-ink Sharpness" text)
-                onSurfaceVariant = sharpContentColor,
-
-                // Borders (Outlines, Dividers)
-                outline = sharpBorderColor,
-                outlineVariant = sharpBorderColor,
-
-                // Card Containers (Settings Groups)
-                surfaceVariant = flatBackgroundColor,
-
-                // Dialogs and menus use these containers; left unset they fall back to Material's lilac defaults.
-                surfaceContainerLowest = PureWhite,
-                surfaceContainerLow = PureWhite,
-                surfaceContainer = PureWhite,
-                surfaceContainerHigh = PureWhite,
-                surfaceContainerHighest = flatBackgroundColor,
-            )
-        }
         ThemeMode.DARK -> darkColorScheme(
             primary = PureWhite,
             onPrimary = PureBlack,
@@ -139,7 +83,7 @@ fun VaachakTheme(
             val insetsController = WindowCompat.getInsetsController(window, view)
 
             // 2. Determine Icon Color
-            // If NOT Dark Mode, we want Dark Icons (so they show up on white/E-ink paper).
+            // If NOT Dark Mode, we want Dark Icons (so they show up on a light background).
             val useDarkIcons = (themeMode != ThemeMode.DARK)
 
             // 3. Set Icon Colors (No Deprecation Warnings!)

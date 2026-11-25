@@ -57,7 +57,6 @@ class SettingsViewModelTest {
         every { profileDao.getAllProfiles() } returns flowOf(emptyList())
 
         every { settingsRepo.themeMode } returns flowOf(ThemeMode.LIGHT)
-        every { settingsRepo.einkContrast } returns flowOf(1f)
         every { settingsRepo.bookshelfPreferences } returns flowOf(BookshelfPreferences())
         every { settingsRepo.readerPreferences } returns flowOf(ReaderPreferences())
         every { settingsRepo.ttsSettings } returns flowOf(mockk(relaxed = true))

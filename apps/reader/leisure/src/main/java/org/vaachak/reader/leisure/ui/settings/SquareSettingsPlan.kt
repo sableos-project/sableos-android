@@ -69,7 +69,7 @@ object SquareSettingsPlan {
                             ),
                         )
                     }
-                    add(SquareTile('T', "Theme", "Light, dark, e-ink", Icons.Default.Contrast, SquareAction.Open("settings/app_appearance")))
+                    add(SquareTile('T', "Theme", "Follows SableOS", Icons.Default.Contrast, SquareAction.Open("settings/app_appearance")))
                     add(SquareTile('I', "About", "Version, privacy", Icons.Default.Info, SquareAction.Open(Screen.About.route)))
                 },
             ),
@@ -79,7 +79,7 @@ object SquareSettingsPlan {
                     SquareTile(
                         'L',
                         "Library visuals",
-                        "Covers, e-ink, stacks",
+                        "Covers, stacks",
                         Icons.AutoMirrored.Filled.LibraryBooks,
                         SquareAction.Open(Screen.Bookshelf.route),
                     ),
