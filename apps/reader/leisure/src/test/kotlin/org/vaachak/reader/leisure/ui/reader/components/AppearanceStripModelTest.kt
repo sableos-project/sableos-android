@@ -52,4 +52,19 @@ class AppearanceStripModelTest {
             assertEquals(name, row.options.indexOfFirst { it.label == "Normal" || it.label == "Small" }, row.indexOf(EpubPreferences()))
         }
     }
+
+    @Test
+    fun lowVisionRowsAreOnTheirOwnPage() {
+        val vision = AppearanceStripModel.pages.first { it.title == "Vision" }
+        assertEquals(listOf("Contrast", "Bold"), vision.rows.map { it.label })
+    }
+
+    @Test
+    fun anyThemeChoiceClearsAHighContrastLook() {
+        val contrast = rows.first { it.label == "Contrast" }
+        val theme = rows.first { it.label == "Theme" }
+        val yellow = contrast.options[2].apply(EpubPreferences())
+        assertEquals(2, contrast.indexOf(yellow))
+        assertEquals(0, contrast.indexOf(theme.options[0].apply(yellow)))
+    }
 }

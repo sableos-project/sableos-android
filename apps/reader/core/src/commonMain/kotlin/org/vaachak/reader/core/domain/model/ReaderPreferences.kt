@@ -43,5 +43,7 @@ data class ReaderPreferences(
     val hyphens: Boolean? = null,
     val ligatures: Boolean? = null,
     val marginTop: Double? = null,
-    val marginBottom: Double? = null
+    val marginBottom: Double? = null,
+    /** Text weight for low vision; 1.0 is normal. */
+    val fontWeight: Double? = null
 )
