@@ -86,6 +86,13 @@ fun VaachakTheme(
 
                 // Card Containers (Settings Groups)
                 surfaceVariant = flatBackgroundColor,
+
+                // Dialogs and menus use these containers; left unset they fall back to Material's lilac defaults.
+                surfaceContainerLowest = PureWhite,
+                surfaceContainerLow = PureWhite,
+                surfaceContainer = PureWhite,
+                surfaceContainerHigh = PureWhite,
+                surfaceContainerHighest = flatBackgroundColor,
             )
         }
         ThemeMode.DARK -> darkColorScheme(
@@ -98,7 +105,12 @@ fun VaachakTheme(
             onSurface = PureWhite,
             surfaceVariant = Color(0xFF222222),
             onSurfaceVariant = Color(0xFFCCCCCC),
-            outline = Color(0xFF444444)
+            outline = Color(0xFF444444),
+            surfaceContainerLowest = PureBlack,
+            surfaceContainerLow = DarkSurface,
+            surfaceContainer = DarkSurface,
+            surfaceContainerHigh = DarkSurface,
+            surfaceContainerHighest = Color(0xFF222222)
         )
         ThemeMode.LIGHT -> lightColorScheme(
             primary = PureBlack,
@@ -109,7 +121,12 @@ fun VaachakTheme(
             onSurface = PureBlack,
             surfaceVariant = LightGray, // Uses your Color.kt
             onSurfaceVariant = Color.DarkGray, // Keep subtitles readable in Light mode
-            outline = Color.LightGray
+            outline = Color.LightGray,
+            surfaceContainerLowest = PureWhite,
+            surfaceContainerLow = PureWhite,
+            surfaceContainer = PureWhite,
+            surfaceContainerHigh = PureWhite,
+            surfaceContainerHighest = LightGray
         )
     }
 
