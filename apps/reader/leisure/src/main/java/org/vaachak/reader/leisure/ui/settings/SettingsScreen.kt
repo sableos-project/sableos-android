@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -29,19 +28,16 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material.icons.outlined.Photo
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -59,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
+import org.sableos.reader.layout.rememberReaderLayoutProfile
 import org.vaachak.reader.leisure.navigation.Screen
 import org.vaachak.reader.leisure.ui.testability.Tid
 import org.vaachak.reader.leisure.ui.testability.TidScreen
@@ -74,6 +71,11 @@ fun SettingsScreen(
     // NEW: Collect Vault State
     val activeVaultId by viewModel.activeVaultId.collectAsState()
     val isMultiUserMode by viewModel.isMultiUserMode.collectAsState()
+
+    if (rememberReaderLayoutProfile().isSquareish) {
+        SquareSettingsScreen(navController, viewModel)
+        return
+    }
 
     val scrollState = rememberScrollState()
 
@@ -168,37 +170,7 @@ fun GlobalSettingsTab(
         )
     }
 
-    if (showVaultDialog) {
-        var newVaultName by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showVaultDialog = false },
-            title = { Text("Switch Local Profile") },
-            text = {
-                Column {
-                    Text("Enter the name of the offline profile you want to switch to or create.")
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = newVaultName,
-                        onValueChange = { newVaultName = it },
-                        label = { Text("Profile Name") }, // Maestro reads this label
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (newVaultName.isNotBlank()) {
-                        viewModel.switchVault(newVaultName)
-                    }
-                    showVaultDialog = false
-                }) { Text("Switch") } // Maestro sees "Switch"
-            },
-            dismissButton = {
-                TextButton(onClick = { showVaultDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
+    if (showVaultDialog) SwitchProfileDialog(viewModel) { showVaultDialog = false }
 }
 
 @Composable
