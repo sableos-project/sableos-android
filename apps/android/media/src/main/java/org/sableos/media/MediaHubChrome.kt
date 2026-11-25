@@ -254,7 +254,7 @@ internal fun MediaNowLine(
     art: ArtworkSource?,
     onOpen: () -> Unit,
 ) {
-    if (playback.currentIndex < 0 && !playback.isPlaying) return
+    if (playback.stopped || (playback.currentIndex < 0 && !playback.isPlaying)) return
     val accent = MaterialTheme.colorScheme.primary
     Column(Modifier.fillMaxWidth()) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

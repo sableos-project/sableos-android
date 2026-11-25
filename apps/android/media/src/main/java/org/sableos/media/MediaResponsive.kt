@@ -25,7 +25,8 @@ import org.sableos.media.MediaText.t
 internal val NOTHING_QUEUED_TITLE: String get() = t("nothing_queued")
 
 internal fun PlaybackUiState.miniPlayerModel(): SableMiniPlayerModel? {
-    val idle = title == NOTHING_QUEUED_TITLE && queue.isEmpty() && !isPlaying
+    // A stopped player shows nothing, the same as nothing queued; a paused one keeps its player.
+    val idle = stopped || (title == NOTHING_QUEUED_TITLE && queue.isEmpty() && !isPlaying)
     return SableMiniPlayerPolicy.present(
         SableMiniPlayerInput(
             title = title.takeUnless { it == NOTHING_QUEUED_TITLE },
