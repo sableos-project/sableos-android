@@ -39,7 +39,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.vaachak.reader.leisure.ui.testability.Tid
 import org.vaachak.reader.leisure.ui.testability.TidScreen
 import org.vaachak.reader.leisure.ui.testability.tid
@@ -50,7 +49,6 @@ fun AppAppearanceScreen(
     onBack: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     TidScreen(Tid.Screen.appAppearance) {
     Scaffold(
         topBar = {
