@@ -27,6 +27,11 @@ object AudiobookNowPlaying {
         mutable.value = mutable.value?.copy(playing = playing)
     }
 
+    /** Hides the bar after the service stops a finished or long-paused book; the service keeps running. */
+    internal fun hidden() {
+        mutable.value = null
+    }
+
     internal fun cleared() {
         mutable.value = null
         toggle = null

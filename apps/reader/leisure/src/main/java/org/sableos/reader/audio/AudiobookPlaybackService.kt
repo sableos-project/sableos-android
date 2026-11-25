@@ -88,6 +88,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
             if (!::player.isInitialized || player.isPlaying) return@Runnable
             playback?.persist(force = true)
             player.stop()
+            AudiobookNowPlaying.hidden()
         }
 
     private fun onTick() {
@@ -207,7 +208,8 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
     private suspend fun loadAndStart(hash: String, startMs: Long, play: Boolean): SessionResult {
         val active = playback
-        val alreadyOpen = active?.bookHash == hash && startMs == CONTINUE
+        val alreadyOpen =
+            active?.bookHash == hash && startMs == CONTINUE && player.playbackState != Player.STATE_IDLE
         return when {
             active == null -> SessionResult(SessionError.ERROR_UNKNOWN)
             alreadyOpen -> SessionResult(SessionResult.RESULT_SUCCESS)
