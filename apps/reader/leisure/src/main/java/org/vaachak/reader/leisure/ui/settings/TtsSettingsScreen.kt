@@ -3,7 +3,6 @@ package org.vaachak.reader.leisure.ui.settings
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -68,15 +67,22 @@ fun TtsSettingsScreen(
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // 1. LANGUAGE OVERRIDE (Full BCP-47 Tags)
+            // 1. LANGUAGE AND VOICE come from Android's Text-to-speech settings
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("LANGUAGE OVERRIDE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TtsFilterOption("Default", ttsSettings.language == "default") { viewModel.setTtsLanguage("default") }
-                    TtsFilterOption("English", ttsSettings.language == "en-US") { viewModel.setTtsLanguage("en-US") }
-                    TtsFilterOption("Hindi", ttsSettings.language == "hi-IN") { viewModel.setTtsLanguage("hi-IN") }
-                    TtsFilterOption("Gujarati", ttsSettings.language == "gu-IN") { viewModel.setTtsLanguage("gu-IN") }
-                    TtsFilterOption("Kutchi", ttsSettings.language == "gu-IN-kutchi") { viewModel.setTtsLanguage("gu-IN") }
+                Text("LANGUAGE AND VOICE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "The language and voice are the ones set in Android's Text-to-speech settings.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedButton(
+                    onClick = {
+                        context.startActivity(Intent("com.android.settings.TTS_SETTINGS").apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        })
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp).tid("tts_settings_manage_system_voices")
+                ) {
+                    Text("Open Android text-to-speech settings")
                 }
             }
 
@@ -127,17 +133,6 @@ fun TtsSettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedButton(
-                onClick = {
-                    context.startActivity(Intent("com.android.settings.TTS_SETTINGS").apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    })
-                },
-                modifier = Modifier.fillMaxWidth().height(56.dp).tid("tts_settings_manage_system_voices")
-            ) {
-                Text("Manage System Voices")
-            }
         }
     }
     }

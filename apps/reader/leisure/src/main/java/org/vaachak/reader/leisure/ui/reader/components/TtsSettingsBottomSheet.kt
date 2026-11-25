@@ -25,6 +25,7 @@
 package org.vaachak.reader.leisure.ui.reader.components
 
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -75,6 +76,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.readium.navigator.media.tts.android.AndroidTtsEngine
@@ -86,29 +88,6 @@ import org.vaachak.reader.leisure.ui.testability.tid
 import java.util.Locale
 
 
-data class ParsedVoice(
-    val voice: AndroidTtsEngine.Voice,
-    val countryName: String,
-    val label: String
-)
-
-fun parseLocalVoice(voice: AndroidTtsEngine.Voice, index: Int): ParsedVoice? {
-    val voiceId = voice.id.value
-    // Reject cloud/network voices
-    if (!voiceId.endsWith("local", ignoreCase = true)) return null
-
-    return try {
-        val parts = voiceId.split("-")
-        val locale = Locale.Builder()
-            .setLanguage(parts[0])
-            .setRegion(parts[1])
-            .build()
-
-        ParsedVoice(voice, locale.displayCountry, "Voice $index")
-    } catch (e: Exception) {
-        null
-    }
-}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TtsSettingsBottomSheet(
@@ -120,16 +99,10 @@ fun TtsSettingsBottomSheet(
     onPitchChange: (Float) -> Unit,
     onStyleChange: (String) -> Unit,
     onAutoPageTurnChange: (Boolean) -> Unit,
-    onLanguageChange: (String) -> Unit,
-    onVoiceChange: (AndroidTtsEngine.Voice) -> Unit,
     viewModel: ReaderViewModel
 ) {
     val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.surface
     val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
-
-    // Read from ViewModel RAM, not DataStore
-    val currentVoiceId by viewModel.currentTtsVoiceId.collectAsStateWithLifecycle()
-    val currentLang by viewModel.currentTtsLanguage.collectAsStateWithLifecycle()
 
     // 1. INVISIBLE SCRIM (Prevents E-ink hardware from dimming the screen)
     if (isVisible) {
@@ -209,114 +182,28 @@ fun TtsSettingsBottomSheet(
 
                 HorizontalDivider(color = contentColor.copy(alpha = 0.2f))
 
-                // --- ROW 2: LANGUAGE & VOICE (Side-by-Side) ---
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-
-                    // Language Dropdown
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Language", style = MaterialTheme.typography.labelSmall, color = contentColor.copy(alpha = 0.7f))
-                        var langExpanded by remember { mutableStateOf(false) }
-                        val languages = listOf("default" to "Default", "en" to "English", "hi" to "Hindi", "gu" to "Gujarati")
-                        val currentLangLabel = languages.find { it.first == currentLang }?.second ?: "Default"
-
-                        Box {
-                            OutlinedButton(
-                                onClick = { langExpanded = true },
-                                modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-                                    contentDescription = "Language Selection: $currentLangLabel"
-                                },
-                                contentPadding = PaddingValues(horizontal = 8.dp)
-                            ) {
-                                Text(currentLangLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, color = contentColor)
-                                Spacer(Modifier.weight(1f))
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = contentColor)
-                            }
-                            DropdownMenu(
-                                expanded = langExpanded,
-                                onDismissRequest = { langExpanded = false },
-                                containerColor = containerColor
-                            ) {
-                                languages.forEach { (code, label) ->
-                                    DropdownMenuItem(
-                                        text = { Text(label, color = contentColor) },
-                                        onClick = { onLanguageChange(code); langExpanded = false }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Grouped Voice Combo Dropdown
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Voice / Accent", style = MaterialTheme.typography.labelSmall, color = contentColor.copy(alpha = 0.7f))
-                        var voiceExpanded by remember { mutableStateOf(false) }
-
-                        val rawVoices = viewModel.getVoicesForLanguage(currentLang)
-                        val groupedVoices = remember(currentLang, rawVoices) {
-                            var index = 1
-                            rawVoices.mapNotNull { parseLocalVoice(it, index++) }
-                                .groupBy { it.countryName }
-                        }
-
-                        val activeVoiceLabel = groupedVoices.values.flatten()
-                            .find { it.voice.id.value == currentVoiceId }?.label ?: "Default"
-
-                        ExposedDropdownMenuBox(
-                            expanded = voiceExpanded,
-                            onExpandedChange = { voiceExpanded = !voiceExpanded }
-                        ) {
-                            OutlinedTextField(
-                                value = activeVoiceLabel,
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Voice / Accent", color = contentColor) },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceExpanded) },
-                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
-                                    focusedTextColor = contentColor,
-                                    unfocusedTextColor = contentColor,
-                                    focusedTrailingIconColor = contentColor,
-                                    unfocusedTrailingIconColor = contentColor
-                                ),
-                                modifier = Modifier
-                                    .menuAnchor(
-                                        ExposedDropdownMenuAnchorType.PrimaryNotEditable,
-                                        enabled = true,
-                                    )
-                                    .fillMaxWidth()
-                                    .semantics(mergeDescendants = true) {
-                                        contentDescription = "Voice Selection: $activeVoiceLabel"
-                                    }
-                            )
-
-                            ExposedDropdownMenu(
-                                expanded = voiceExpanded,
-                                onDismissRequest = { voiceExpanded = false },
-                                modifier = Modifier.fillMaxHeight(0.5f),
-                                containerColor = containerColor
-                            ) {
-                                groupedVoices.forEach { (country, parsedVoices) ->
-                                    // Group Header (Not clickable)
-                                    DropdownMenuItem(
-                                        text = { Text(country, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
-                                        onClick = { },
-                                        enabled = false
-                                    )
-                                    // Group Items
-                                    parsedVoices.forEach { parsed ->
-                                        DropdownMenuItem(
-                                            text = { Text("   ${parsed.label}", color = contentColor) }, // Indented
-                                            onClick = { onVoiceChange(parsed.voice); voiceExpanded = false }
-                                        )
-                                    }
-                                }
-                                if (groupedVoices.isEmpty()) {
-                                    DropdownMenuItem(
-                                        text = { Text("No offline voices", color = contentColor) },
-                                        onClick = { voiceExpanded = false }
-                                    )
-                                }
-                            }
-                        }
+                // --- ROW 2: LANGUAGE & VOICE come from Android's Text-to-speech settings ---
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Language and voice follow Android's Text-to-speech settings.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentColor.copy(alpha = 0.8f),
+                        modifier = Modifier.weight(1f)
+                    )
+                    val context = LocalContext.current
+                    OutlinedButton(
+                        onClick = {
+                            context.startActivity(Intent("com.android.settings.TTS_SETTINGS").apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            })
+                        },
+                        modifier = Modifier.semantics { contentDescription = "Open Android text-to-speech settings" }
+                    ) {
+                        Text("Change", color = contentColor)
                     }
                 }
 
