@@ -119,6 +119,7 @@ import org.sableos.reader.input.EpubKeyCommand
 import org.sableos.reader.ui.epub.EpubKeyboardEffect
 import org.vaachak.reader.leisure.ui.reader.components.BookHighlightsOverlay
 import org.vaachak.reader.leisure.ui.reader.components.BookSearchOverlay
+import org.vaachak.reader.leisure.ui.reader.components.ReaderAppearanceStrip
 import org.vaachak.reader.leisure.ui.reader.components.ReaderSettingsSheet
 import org.vaachak.reader.leisure.ui.reader.components.ReaderSystemFooter
 import org.vaachak.reader.leisure.ui.reader.components.ReaderTopBar
@@ -601,6 +602,9 @@ private fun ReaderPanels(viewModel: ReaderViewModel) {
     val showBookmarks by viewModel.showBookmarks.collectAsState()
     val showToc by viewModel.showToc.collectAsState()
     val showReaderSettings by viewModel.showReaderSettings.collectAsState()
+    val showFullSettings by viewModel.showFullSettings.collectAsState()
+    val epubPreferences by viewModel.epubPreferences.collectAsState()
+    val squareish = rememberReaderLayoutProfile().isSquareish
     val isBottomSheetVisible by viewModel.isBottomSheetVisible.collectAsState()
     val showTagSelector by viewModel.showTagSelector.collectAsState()
 
@@ -615,7 +619,14 @@ private fun ReaderPanels(viewModel: ReaderViewModel) {
     if (showBookmarks) BookmarksPanel(viewModel)
     if (showToc) TocPanel(viewModel)
 
-    if (showReaderSettings) {
+    if (showReaderSettings && squareish && !showFullSettings) {
+        ReaderAppearanceStrip(
+            prefs = epubPreferences,
+            onChange = { viewModel.savePreferences(it) },
+            onDone = { viewModel.dismissReaderSettings() },
+            onAllSettings = { viewModel.showFullReaderSettings() },
+        )
+    } else if (showReaderSettings) {
         Surface(modifier = Modifier.fillMaxSize().zIndex(10f).tid(Tid.Screen.readerSettings)) {
             ReaderSettingsSheet(viewModel = viewModel, onDismiss = { viewModel.dismissReaderSettings() })
         }

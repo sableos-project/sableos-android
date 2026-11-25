@@ -114,6 +114,10 @@ class ReaderViewModel @Inject constructor(
     private val _showReaderSettings = MutableStateFlow(false)
     val showReaderSettings: StateFlow<Boolean> = _showReaderSettings.asStateFlow()
 
+    /** On a square window the settings open as a strip first; this is true once the full list was asked for. */
+    private val _showFullSettings = MutableStateFlow(false)
+    val showFullSettings: StateFlow<Boolean> = _showFullSettings.asStateFlow()
+
     private val _showSearch = MutableStateFlow(false)
     val showSearch: StateFlow<Boolean> = _showSearch.asStateFlow()
 
@@ -355,10 +359,16 @@ class ReaderViewModel @Inject constructor(
 
     fun toggleReaderSettings() {
         _showReaderSettings.value = !_showReaderSettings.value
+        _showFullSettings.value = false
     }
 
     fun dismissReaderSettings() {
         _showReaderSettings.value = false
+        _showFullSettings.value = false
+    }
+
+    fun showFullReaderSettings() {
+        _showFullSettings.value = true
     }
 
     fun savePreferences(newPrefs: EpubPreferences) = viewModelScope.launch {
