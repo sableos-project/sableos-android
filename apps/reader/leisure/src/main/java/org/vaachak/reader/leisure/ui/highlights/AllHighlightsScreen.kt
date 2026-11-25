@@ -95,6 +95,20 @@ fun AllHighlightsScreen(
     val tags by viewModel.availableTags.collectAsState()
     val selectedTag by viewModel.selectedTag.collectAsState()
 
+    // Export: the person picks where the Markdown file goes.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/markdown")
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use {
+                    it.write(HighlightsExport.toMarkdown(groupedHighlights).toByteArray())
+                }
+            }
+        }
+    }
+
     // Colors
     val containerColor = MaterialTheme.colorScheme.background
     val contentColor = MaterialTheme.colorScheme.onBackground
@@ -105,7 +119,14 @@ fun AllHighlightsScreen(
                 VaachakHeader(
                     title = "Highlights (${groupedHighlights.values.sumOf { it.size }})",
                     onBack = onBack,
-                    backButtonModifier = Modifier.tid(Tid.Highlights.BACK)
+                    backButtonModifier = Modifier.tid(Tid.Highlights.BACK),
+                    actions = {
+                        if (groupedHighlights.isNotEmpty()) {
+                            androidx.compose.material3.TextButton(onClick = { exportLauncher.launch(HighlightsExport.FILE_NAME) }) {
+                                Text("Export")
+                            }
+                        }
+                    }
                 )
             },
             containerColor = containerColor
