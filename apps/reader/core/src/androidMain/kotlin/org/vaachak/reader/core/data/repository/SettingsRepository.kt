@@ -67,6 +67,7 @@ class SettingsRepository @Inject constructor(
         // --- READER PREFERENCES ---
         val READER_FONT_FAMILY = stringPreferencesKey("reader_font_family")
         val READER_FONT_SIZE = doublePreferencesKey("reader_font_size")
+        val READER_FONT_WEIGHT = doublePreferencesKey("reader_font_weight")
         val READER_TEXT_ALIGN = stringPreferencesKey("reader_text_align")
         val READER_THEME = stringPreferencesKey("reader_theme")
         val READER_PUBLISHER_STYLES = booleanPreferencesKey("reader_publisher_styles")
@@ -170,7 +171,8 @@ class SettingsRepository @Inject constructor(
             hyphens = prefs[READER_HYPHENS],
             ligatures = prefs[READER_LIGATURES],
             marginTop = prefs[READER_MARGIN_TOP],
-            marginBottom = prefs[READER_MARGIN_BOTTOM]
+            marginBottom = prefs[READER_MARGIN_BOTTOM],
+            fontWeight = prefs[READER_FONT_WEIGHT]
         )
     }
 
@@ -205,6 +207,7 @@ class SettingsRepository @Inject constructor(
             p[READER_THEME] = prefs.theme
             p[READER_FONT_SIZE] = prefs.fontSize
             p[READER_PUBLISHER_STYLES] = prefs.publisherStyles
+            prefs.fontWeight?.let { p[READER_FONT_WEIGHT] = it } ?: p.remove(READER_FONT_WEIGHT)
 
             if (prefs.publisherStyles) {
                 p.remove(READER_FONT_FAMILY)

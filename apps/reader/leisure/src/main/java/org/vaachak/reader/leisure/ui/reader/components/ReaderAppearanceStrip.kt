@@ -142,7 +142,7 @@ fun ReaderAppearanceStrip(
     }
 }
 
-private val ALWAYS_ON_ROWS = setOf("Theme", "Size")
+private val ALWAYS_ON_ROWS = setOf("Theme", "Size", "Contrast", "Bold")
 
 @Composable
 private fun TabLabel(text: String, selected: Boolean, onClick: () -> Unit) {

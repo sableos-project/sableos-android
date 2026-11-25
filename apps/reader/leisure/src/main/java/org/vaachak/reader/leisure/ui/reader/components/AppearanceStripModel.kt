@@ -4,9 +4,17 @@ package org.vaachak.reader.leisure.ui.reader.components
 
 import kotlin.math.abs
 import org.readium.r2.navigator.epub.EpubPreferences
+import org.readium.r2.navigator.preferences.Color
 import org.readium.r2.navigator.preferences.FontFamily
 import org.readium.r2.navigator.preferences.TextAlign
 import org.readium.r2.navigator.preferences.Theme
+
+/** The saved names and colours of the two high-contrast looks: a black page with white or yellow text. */
+internal const val CONTRAST_WHITE = "contrast_white"
+internal const val CONTRAST_YELLOW = "contrast_yellow"
+internal const val BLACK_PAGE = -16777216 // 0xFF000000
+internal const val WHITE_TEXT = -1 // 0xFFFFFFFF
+internal const val YELLOW_TEXT = -256 // 0xFFFFFF00
 
 /** One choice of a row: its label and how it changes the reading preferences. */
 class StripOption(val label: String, val apply: (EpubPreferences) -> EpubPreferences)
@@ -40,10 +48,28 @@ object AppearanceStripModel {
             label = "Theme",
             options =
                 listOf(
-                    StripOption("SableOS") { it.copy(theme = Theme.LIGHT) },
-                    StripOption("Sepia") { it.copy(theme = Theme.SEPIA) },
+                    StripOption("SableOS") { it.copy(theme = Theme.LIGHT, backgroundColor = null, textColor = null) },
+                    StripOption("Sepia") { it.copy(theme = Theme.SEPIA, backgroundColor = null, textColor = null) },
                 ),
-            indexOf = { if (it.theme == Theme.SEPIA) 1 else 0 },
+            indexOf = { if (it.theme == Theme.SEPIA && it.backgroundColor == null) 1 else 0 },
+        )
+
+    private val contrastRow =
+        StripRow(
+            label = "Contrast",
+            options =
+                listOf(
+                    StripOption("Normal") { it.copy(backgroundColor = null, textColor = null) },
+                    StripOption("White") { it.copy(theme = Theme.DARK, backgroundColor = Color(BLACK_PAGE), textColor = Color(WHITE_TEXT)) },
+                    StripOption("Yellow") { it.copy(theme = Theme.DARK, backgroundColor = Color(BLACK_PAGE), textColor = Color(YELLOW_TEXT)) },
+                ),
+            indexOf = {
+                when {
+                    it.backgroundColor?.int != BLACK_PAGE -> 0
+                    it.textColor?.int == YELLOW_TEXT -> 2
+                    else -> 1
+                }
+            },
         )
 
     private val fontRow =
@@ -135,10 +161,20 @@ object AppearanceStripModel {
             { prefs, value -> prefs.copy(pageMargins = value) },
         )
 
+    private val weightRow =
+        numericRow(
+            "Bold",
+            listOf("Normal" to 1.0, "Bold" to 1.5, "Heavy" to 2.0),
+            1.0,
+            { it.fontWeight },
+            { prefs, value -> prefs.copy(fontWeight = value) },
+        )
+
     val pages: List<StripPage> =
         listOf(
             StripPage("Display", listOf(themeRow, fontRow, sizeRow, alignRow)),
             StripPage("Layout", listOf(lineRow, paragraphRow, lettersRow, marginsRow)),
+            StripPage("Vision", listOf(contrastRow, weightRow)),
         )
 
     /** The preferences after moving [row] by [delta] choices; stops at the first and last choice. */

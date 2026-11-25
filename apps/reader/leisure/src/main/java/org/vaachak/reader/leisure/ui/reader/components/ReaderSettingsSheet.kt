@@ -272,11 +272,11 @@ private fun PageColorSection(prefs: EpubPreferences, style: SettingsStyle, updat
             enabled = style.enabled,
             modifier = Modifier.tid(Tid.ReaderSettings.themeSepia)
         ) {
-            update(prefs.copy(theme = Theme.SEPIA))
+            update(prefs.copy(theme = Theme.SEPIA, backgroundColor = null, textColor = null))
         }
         if (currentTheme == Theme.SEPIA) {
             OutlinedButton(
-                onClick = { update(prefs.copy(theme = Theme.LIGHT)) },
+                onClick = { update(prefs.copy(theme = Theme.LIGHT, backgroundColor = null, textColor = null)) },
                 enabled = style.enabled,
             ) {
                 Text("Follow SableOS")

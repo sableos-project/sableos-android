@@ -37,7 +37,13 @@ import org.readium.navigator.media.tts.android.AndroidTtsSettings
 import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.epub.EpubPreferences
+import org.readium.r2.navigator.preferences.Color as ReadiumColor
 import org.readium.r2.navigator.preferences.FontFamily
+import org.vaachak.reader.leisure.ui.reader.components.BLACK_PAGE
+import org.vaachak.reader.leisure.ui.reader.components.CONTRAST_WHITE
+import org.vaachak.reader.leisure.ui.reader.components.CONTRAST_YELLOW
+import org.vaachak.reader.leisure.ui.reader.components.WHITE_TEXT
+import org.vaachak.reader.leisure.ui.reader.components.YELLOW_TEXT
 import org.readium.r2.navigator.preferences.TextAlign
 import org.readium.r2.navigator.preferences.Theme
 import org.readium.r2.shared.ExperimentalReadiumApi
@@ -391,8 +397,9 @@ class ReaderViewModel @Inject constructor(
 
     fun savePreferences(newPrefs: EpubPreferences) = viewModelScope.launch {
         val readerPrefs = ReaderPreferences(
-            theme = newPrefs.theme?.name?.lowercase() ?: "light",
+            theme = themeName(newPrefs),
             fontSize = newPrefs.fontSize ?: 1.0,
+            fontWeight = newPrefs.fontWeight,
             publisherStyles = newPrefs.publisherStyles ?: true,
             fontFamily = newPrefs.fontFamily?.name,
             textAlign = newPrefs.textAlign?.name?.lowercase(),
@@ -408,12 +415,20 @@ class ReaderViewModel @Inject constructor(
         settingsRepo.saveReaderPreferences(readerPrefs)
     }
 
+    private fun themeName(prefs: EpubPreferences): String = when {
+        prefs.backgroundColor?.int == BLACK_PAGE && prefs.textColor?.int == YELLOW_TEXT -> CONTRAST_YELLOW
+        prefs.backgroundColor?.int == BLACK_PAGE -> CONTRAST_WHITE
+        else -> prefs.theme?.name?.lowercase() ?: "light"
+    }
+
     private fun buildEpubPreferences(prefs: ReaderPreferences): EpubPreferences {
         val rTheme = when (prefs.theme) {
-            "dark" -> Theme.DARK
+            "dark", CONTRAST_WHITE, CONTRAST_YELLOW -> Theme.DARK
             "sepia" -> Theme.SEPIA
             else -> Theme.LIGHT
         }
+        // The two high-contrast looks are a black page with white or yellow text.
+        val contrast = prefs.theme == CONTRAST_WHITE || prefs.theme == CONTRAST_YELLOW
 
         val rFont = prefs.fontFamily?.let { FontFamily(it) }
 
@@ -426,6 +441,13 @@ class ReaderViewModel @Inject constructor(
         return EpubPreferences(
             theme = rTheme,
             fontSize = prefs.fontSize,
+            fontWeight = prefs.fontWeight,
+            backgroundColor = if (contrast) ReadiumColor(BLACK_PAGE) else null,
+            textColor = when (prefs.theme) {
+                CONTRAST_WHITE -> ReadiumColor(WHITE_TEXT)
+                CONTRAST_YELLOW -> ReadiumColor(YELLOW_TEXT)
+                else -> null
+            },
             publisherStyles = prefs.publisherStyles,
             fontFamily = if (!prefs.publisherStyles) rFont else null,
             textAlign = if (!prefs.publisherStyles) rAlign else null,

@@ -361,6 +361,9 @@ private fun rememberEffectiveEpubPreferences(epubPreferences: EpubPreferences): 
             // operating-system Light/Dark selection.
             epubPreferences.theme == Theme.SEPIA -> epubPreferences
 
+            // The high-contrast looks set their own page and text colours.
+            epubPreferences.backgroundColor != null -> epubPreferences
+
             else ->
                 epubPreferences.copy(
                     theme = if (sableDark) Theme.DARK else Theme.LIGHT,
