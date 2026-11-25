@@ -81,6 +81,20 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
     private val tick: Runnable = Runnable { onTick() }
 
+    /** A finished or long-paused audiobook is stopped so it leaves the lock screen and notification; the position is already saved. */
+    private val idleStop: Runnable =
+        Runnable {
+            if (!::player.isInitialized || player.isPlaying) return@Runnable
+            stopNow()
+        }
+
+    private fun stopNow() {
+        handler.removeCallbacks(idleStop)
+        playback?.persist(force = true)
+        player.stop()
+        AudiobookNowPlaying.hidden()
+    }
+
     private fun onTick() {
         val active = playback
         active?.tick()
@@ -106,7 +120,11 @@ class AudiobookPlaybackService : MediaLibraryService() {
             publish = { mediaSession.setSessionExtras(it) },
         )
         player.addListener(PlaybackListener())
-        AudiobookNowPlaying.toggle = { player.playWhenReady = !player.playWhenReady }
+        AudiobookNowPlaying.stop = ::stopNow
+        AudiobookNowPlaying.toggle = {
+            if (player.playbackState == Player.STATE_IDLE && player.mediaItemCount > 0) player.prepare()
+            player.playWhenReady = !player.playWhenReady
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
@@ -154,16 +172,21 @@ class AudiobookPlaybackService : MediaLibraryService() {
     private inner class PlaybackListener : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             AudiobookNowPlaying.setPlaying(isPlaying)
+            handler.removeCallbacks(idleStop)
             if (isPlaying) {
                 handler.removeCallbacks(tick)
                 handler.post(tick)
             } else {
                 playback?.persist(force = true)
+                handler.postDelayed(idleStop, IDLE_STOP_MS)
             }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
-            if (playbackState == Player.STATE_ENDED) playback?.persist(force = true)
+            if (playbackState == Player.STATE_ENDED) {
+                playback?.persist(force = true)
+                idleStop.run()
+            }
         }
 
         override fun onPositionDiscontinuity(
@@ -190,7 +213,8 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
     private suspend fun loadAndStart(hash: String, startMs: Long, play: Boolean): SessionResult {
         val active = playback
-        val alreadyOpen = active?.bookHash == hash && startMs == CONTINUE
+        val alreadyOpen =
+            active?.bookHash == hash && startMs == CONTINUE && player.playbackState != Player.STATE_IDLE
         return when {
             active == null -> SessionResult(SessionError.ERROR_UNKNOWN)
             alreadyOpen -> SessionResult(SessionResult.RESULT_SUCCESS)
@@ -310,6 +334,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
     private companion object {
         const val TICK_MS = 1_000L
+        const val IDLE_STOP_MS = 10 * 60 * 1000L
         const val CONTINUE = -1L
         const val COVER_MAX_PX = 512
         const val COVER_QUALITY = 85
