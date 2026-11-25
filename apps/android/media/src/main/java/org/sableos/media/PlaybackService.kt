@@ -60,10 +60,21 @@ class PlaybackService : MediaSessionService() {
                         }
 
                         override fun onIsPlayingChanged(isPlaying: Boolean) {
+                            mainHandler.removeCallbacks(idleRelease)
                             MediaSnapshotStore.update(
                                 this@PlaybackService,
                                 resolvedPlayer,
                             )
+                            if (!isPlaying) {
+                                mainHandler.postDelayed(idleRelease, IDLE_RELEASE_MS)
+                            }
+                        }
+
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            // A finished queue has nothing left to show.
+                            if (playbackState == Player.STATE_ENDED) {
+                                releaseIdle()
+                            }
                         }
                     },
                 )
@@ -74,6 +85,17 @@ class PlaybackService : MediaSessionService() {
             MediaSession
                 .Builder(this, exoPlayer)
                 .build()
+    }
+
+    private val idleRelease = Runnable { releaseIdle() }
+
+    /** Stops the player and clears what the launcher and lock screen show, so a finished or forgotten song does not linger. */
+    private fun releaseIdle() {
+        mainHandler.removeCallbacks(idleRelease)
+        val current = player ?: return
+        if (current.isPlaying) return
+        current.stop()
+        MediaSnapshotStore.clear(this)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -245,6 +267,9 @@ class PlaybackService : MediaSessionService() {
         const val ACTION_PREVIOUS = "org.sableos.media.PREVIOUS"
         const val ACTION_NEXT = "org.sableos.media.NEXT"
         const val ACTION_PLAY_QUEUE = "org.sableos.media.PLAY_QUEUE"
+
+        /** How long a paused song stays on the lock screen and launcher before it is cleared. */
+        const val IDLE_RELEASE_MS = 10 * 60 * 1000L
 
         const val EXTRA_TITLE = "org.sableos.media.TITLE"
         const val EXTRA_SOURCE = "org.sableos.media.SOURCE"
