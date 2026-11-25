@@ -179,6 +179,10 @@ class ReaderKeyMapTest {
         assertEquals(ReaderAction.CYCLE_THEME, resolved(letter('m'), epubPaged))
         assertEquals(ReaderAction.TOGGLE_SPEECH, resolved(letter('v'), epubPaged))
         assertEquals(ReaderAction.SHOW_KEYS, resolved(letter('k'), epubPaged))
+        assertEquals(ReaderAction.SPEECH_NEXT_SENTENCE, resolved(letter('.'), epubPaged))
+        assertEquals(ReaderAction.SPEECH_PREVIOUS_SENTENCE, resolved(letter(','), epubPaged))
+        assertEquals(ReaderAction.SPEECH_SLOWER, resolved(letter('-'), epubPaged))
+        assertEquals(ReaderAction.SPEECH_FASTER, resolved(letter('+', shift = true), epubPaged))
         listOf('l', 's', 'm', 'v', 'k').forEach { assertEquals(KeyResolution.PassThrough, ReaderKeyMap.resolve(letter(it), pdf)) }
     }
 }

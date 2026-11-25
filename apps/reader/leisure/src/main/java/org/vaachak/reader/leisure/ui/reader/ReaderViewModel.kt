@@ -797,8 +797,14 @@ class ReaderViewModel @Inject constructor(
             viewModelScope.launch { applyTtsPreferences(navigator) }
             viewModelScope.launch { trackTtsPlayback(navigator) }
             viewModelScope.launch { followTtsUtterances(navigator) }
-        }?.onFailure {
-            _snackbarMessage.value = "TTS Initialization failed"
+        }?.onFailure { error ->
+            _ttsProblem.value = if (error.javaClass.simpleName.contains("Language", ignoreCase = true)) {
+                "No voice is installed for the language of this book. Add one in Android's Text-to-speech settings."
+            } else {
+                "Read aloud could not start. Check the voice in Android's Text-to-speech settings."
+            }
+        } ?: run {
+            _ttsProblem.value = "This book has no text that can be read aloud."
         }
     }
 
@@ -944,6 +950,32 @@ class ReaderViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         closeTts()
+    }
+
+    /** Why read aloud could not start, shown with a button to Android's voice settings; null when there is none. */
+    private val _ttsProblem = MutableStateFlow<String?>(null)
+    val ttsProblem: StateFlow<String?> = _ttsProblem.asStateFlow()
+
+    fun dismissTtsProblem() {
+        _ttsProblem.value = null
+    }
+
+    /** One sentence back or forward while reading aloud (, and .). */
+    fun skipSentence(delta: Int) {
+        val nav = ttsNavigator ?: return
+        viewModelScope.launch {
+            if (delta > 0) nav.skipToNextUtterance() else nav.skipToPreviousUtterance()
+        }
+    }
+
+    /** Speech a step slower or faster (- and +), with the new speed shown for a moment. */
+    fun adjustTtsSpeed(delta: Int) {
+        viewModelScope.launch {
+            val current = settingsRepo.ttsSettings.first().defaultSpeed
+            val next = (Math.round((current + delta * 0.25f) * 4f) / 4f).coerceIn(0.5f, 2.5f)
+            settingsRepo.setTtsDefaultSpeed(next)
+            _snackbarMessage.value = "Speech speed ${next}x"
+        }
     }
 
     fun updateTtsSpeed(newSpeed: Float) {

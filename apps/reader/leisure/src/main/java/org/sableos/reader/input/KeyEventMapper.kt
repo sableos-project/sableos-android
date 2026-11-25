@@ -24,6 +24,9 @@ object KeyEventMapper {
             KeyEvent.KEYCODE_MENU -> ReaderKey.MENU
             KeyEvent.KEYCODE_ESCAPE -> ReaderKey.ESCAPE
             in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z -> ReaderKey.CHARACTER
+            // Punctuation keys that the speech controls use: , . - = +
+            KeyEvent.KEYCODE_COMMA, KeyEvent.KEYCODE_PERIOD, KeyEvent.KEYCODE_MINUS,
+            KeyEvent.KEYCODE_EQUALS, KeyEvent.KEYCODE_PLUS -> ReaderKey.CHARACTER
             else -> return null
         }
         val character = if (key == ReaderKey.CHARACTER) event.unicodeChar.takeIf { it != 0 }?.toChar() else null
