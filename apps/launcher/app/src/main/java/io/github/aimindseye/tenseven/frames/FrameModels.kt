@@ -59,6 +59,10 @@ data class FramesState(
 
 /** Merge partial native results with recents. A dismissed native task cannot sneak back in. */
 object FramePolicy {
+    /** App stores and Google-services shims run in the background and never belong in Active Frames. */
+    val EXCLUDED_PACKAGES =
+        setOf("com.aurora.store", "com.google.android.gms", "com.google.android.gsf", "com.android.vending")
+
     fun state(
         input: FrameInput,
         dismissals: Map<String, Long>,
@@ -96,7 +100,7 @@ object FramePolicy {
             items
                 .filter { item ->
                     val closed = dismissals[item.key] ?: dismissals[item.app.key]
-                    item.app in input.availableApps && (closed == null || opened.getOrDefault(item.app.key, 0L) > closed)
+                    item.app.packageName !in EXCLUDED_PACKAGES && item.app in input.availableApps && (closed == null || opened.getOrDefault(item.app.key, 0L) > closed)
                 }.distinctBy { it.key }
                 .take(settings.maximum)
         return FramesState(
