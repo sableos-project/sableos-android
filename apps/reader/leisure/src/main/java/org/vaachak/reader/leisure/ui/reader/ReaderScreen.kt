@@ -849,7 +849,7 @@ fun TagSelectorDialog(
                             .semantics(mergeDescendants = true) {
                                 contentDescription = "Select tag: $tag"
                             },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Black)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
                     ) { Text(tag) }
                 }
             }
