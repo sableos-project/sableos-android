@@ -731,11 +731,7 @@ private fun ReaderTtsControls(viewModel: ReaderViewModel, isEink: Boolean) {
             onAutoPageTurnChange = { enabled: Boolean ->
                 viewModel.setTtsAutoPageTurn(enabled)
             },
-            onVoiceChange = { voice: Voice ->
-                viewModel.setBookSpecificVoice(voice)
-            },
-            viewModel =viewModel,
-            onLanguageChange = { languageCode: String -> viewModel.setTtsLanguage(languageCode)}
+            viewModel = viewModel
         )
     }
 }
