@@ -53,14 +53,13 @@ fun VaachakHeader(
     title: String,
     onBack: () -> Unit,
     showBackButton: Boolean = true,
-    isEink: Boolean = false,
     rootModifier: Modifier = Modifier,
     backButtonModifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
-    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.surface
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
-    val dividerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.outlineVariant
+    val containerColor = MaterialTheme.colorScheme.surface
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    val dividerColor = MaterialTheme.colorScheme.outlineVariant
 
     Surface(
         color = containerColor,
@@ -96,7 +95,7 @@ fun VaachakHeader(
                     text = title,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontSize = 18.sp,
-                        fontWeight = if (isEink) FontWeight.Bold else FontWeight.Medium
+                        fontWeight = FontWeight.Medium
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -107,7 +106,7 @@ fun VaachakHeader(
                 actions()
             }
 
-            HorizontalDivider(thickness = if (isEink) 1.dp else 0.5.dp, color = dividerColor)
+            HorizontalDivider(thickness = 0.5.dp, color = dividerColor)
         }
     }
 }

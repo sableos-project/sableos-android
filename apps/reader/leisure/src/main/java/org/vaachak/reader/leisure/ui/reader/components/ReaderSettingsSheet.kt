@@ -89,7 +89,6 @@ private fun getComposeFontFamily(fontName: String): androidx.compose.ui.text.fon
 @Composable
 fun ReaderSettingsSheet(
     viewModel: ReaderViewModel,
-    isEink: Boolean,
     onDismiss: () -> Unit
 ) {
     // 1. Live Data Sources
@@ -100,12 +99,11 @@ fun ReaderSettingsSheet(
     var selectedTab by remember { mutableIntStateOf(0) }
 
     // 3. Theme Colors
-    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.background
+    val containerColor = MaterialTheme.colorScheme.background
     val style = SettingsStyle(
         enabled = !isPublisherStyles,
-        isEink = isEink,
-        contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground,
-        primaryColor = if (isEink) Color.Black else MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        primaryColor = MaterialTheme.colorScheme.primary,
     )
 
     // Helper to update prefs immediately
@@ -137,7 +135,6 @@ fun ReaderSettingsSheet(
                     subtitle = "Original layout",
                     checked = isPublisherStyles,
                     primaryColor = style.primaryColor,
-                    isEink = isEink,
                     onCheckedChange = { update(prefs.copy(publisherStyles = it)) },
                     modifier = Modifier.weight(1f).tid(Tid.ReaderSettings.togglePublisherStyles)
                 )
@@ -181,10 +178,9 @@ fun ReaderSettingsSheet(
     }
 }
 
-/** Shared look of the settings sections: whether they are editable, and the e-ink aware colours. */
+/** Shared look of the settings sections: whether they are editable. */
 private class SettingsStyle(
     val enabled: Boolean,
-    val isEink: Boolean,
     val contentColor: Color,
     val primaryColor: Color,
 )
@@ -460,7 +456,6 @@ private fun AdvancedTypographySection(prefs: EpubPreferences, style: SettingsSty
             subtitle = "Split long words",
             checked = prefs.hyphens ?: false,
             primaryColor = style.primaryColor,
-            isEink = style.isEink,
             onCheckedChange = { if (style.enabled) update(prefs.copy(hyphens = it)) },
             modifier = Modifier.weight(1f)
         )
@@ -469,7 +464,6 @@ private fun AdvancedTypographySection(prefs: EpubPreferences, style: SettingsSty
             subtitle = "Combine characters",
             checked = prefs.ligatures ?: false,
             primaryColor = style.primaryColor,
-            isEink = style.isEink,
             onCheckedChange = { if (style.enabled) update(prefs.copy(ligatures = it)) },
             modifier = Modifier.weight(1f)
         )

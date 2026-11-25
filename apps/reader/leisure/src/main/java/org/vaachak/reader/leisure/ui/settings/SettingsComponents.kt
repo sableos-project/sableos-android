@@ -378,11 +378,10 @@ fun CompactSettingsToggle(
     subtitle: String,
     checked: Boolean,
     primaryColor: Color,
-    isEink: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val borderColor = if (isEink) Color.Black else Color.Gray.copy(alpha = 0.3f)
+    val borderColor = Color.Gray.copy(alpha = 0.3f)
     val bgColor = if (checked) primaryColor.copy(alpha = 0.05f) else Color.Transparent
 
     Column(
@@ -498,16 +497,15 @@ fun TtsFilterOption(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun TtsOptionChip(label: String, selected: Boolean, isEink: Boolean, onClick: () -> Unit) {
+fun TtsOptionChip(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
         label = { Text(label) },
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.primary,
-            selectedLabelColor = if (isEink) Color.White else MaterialTheme.colorScheme.onPrimary
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
         ),
-        border = if (isEink && !selected) BorderStroke(1.dp, Color.Black) else null
     )
 }
 @Composable

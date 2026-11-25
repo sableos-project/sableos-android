@@ -126,7 +126,7 @@ class JsonDictionaryProvider @Inject constructor(
                 val parts = item.jsonArray
                 val type = parts.getOrNull(0)?.jsonPrimitive?.content ?: ""
                 val definition = parts.getOrNull(1)?.jsonPrimitive?.content ?: ""
-                "<b>($type)</b> $definition" // Using B for bold to help e-ink contrast
+                "<b>($type)</b> $definition" // Bold for the part of speech
             }
         } catch (e: Exception) {
             Timber.e(e, "Format error: ${e.message}")

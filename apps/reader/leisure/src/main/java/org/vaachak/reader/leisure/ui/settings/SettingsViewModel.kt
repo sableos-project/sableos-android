@@ -20,7 +20,6 @@ import org.vaachak.reader.core.data.repository.SettingsRepository
 import org.vaachak.reader.core.data.repository.VaultRepository
 import org.vaachak.reader.core.domain.model.BookshelfPreferences
 import org.vaachak.reader.core.domain.model.CoverAspectRatio
-import org.vaachak.reader.core.domain.model.DitheringMode
 import org.vaachak.reader.core.domain.model.ReaderPreferences
 import org.vaachak.reader.core.domain.model.ThemeMode
 import org.vaachak.reader.core.domain.model.TtsSettings
@@ -34,7 +33,6 @@ private const val PITCH_STEPS_PER_UNIT = 10f
 
 private data class ThemeState(
     val theme: ThemeMode,
-    val contrast: Float,
     val bookshelfPrefs: BookshelfPreferences
 )
 
@@ -83,9 +81,6 @@ class SettingsViewModel @Inject constructor(
     val appThemeMode: StateFlow<ThemeMode> = settingsRepo.themeMode
         .stateIn(viewModelScope, AppCoroutineConfig.eagerly, ThemeMode.LIGHT)
 
-    val einkContrastVal: StateFlow<Float> = settingsRepo.einkContrast
-        .stateIn(viewModelScope, AppCoroutineConfig.eagerly, 1f)
-
     private val _errorMessage = MutableStateFlow<String?>(null)
 
     private val _statusMessage = MutableStateFlow<String?>(null)
@@ -113,10 +108,9 @@ class SettingsViewModel @Inject constructor(
 
     private val themeFlow = combine(
         settingsRepo.themeMode,
-        settingsRepo.einkContrast,
         settingsRepo.bookshelfPreferences
-    ) { theme: ThemeMode, contrast: Float, prefs: BookshelfPreferences ->
-        ThemeState(theme, contrast, prefs)
+    ) { theme: ThemeMode, prefs: BookshelfPreferences ->
+        ThemeState(theme, prefs)
     }.distinctUntilChanged()
 
     private val contentFlow = combine(
@@ -133,7 +127,6 @@ class SettingsViewModel @Inject constructor(
         SettingsUiState(
             errorMessage = content.error,
             themeMode = theme.theme,
-            einkContrast = theme.contrast,
             bookshelfPreferences = theme.bookshelfPrefs,
             ttsSettings = content.tts
         )
@@ -216,20 +209,8 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun toggleEinkMode(enabled: Boolean) = viewModelScope.launch {
-        settingsRepo.setThemeMode(if (enabled) ThemeMode.E_INK else ThemeMode.LIGHT)
-    }
-
     fun setAppTheme(mode: ThemeMode) = viewModelScope.launch {
         settingsRepo.setThemeMode(mode)
-    }
-
-    fun setEinkContrast(value: Float) = viewModelScope.launch {
-        settingsRepo.setContrast(value)
-    }
-
-    fun setDitheringMode(mode: DitheringMode) = viewModelScope.launch {
-        settingsRepo.setDitheringMode(mode)
     }
 
     fun setGroupBySeries(enabled: Boolean) = viewModelScope.launch {

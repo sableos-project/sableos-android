@@ -33,7 +33,6 @@ import org.vaachak.reader.core.domain.model.TtsSettings
 data class SettingsUiState(
     val errorMessage: String? = null,
     val themeMode: ThemeMode = ThemeMode.LIGHT,
-    val einkContrast: Float = 0.5f,
     val ttsSettings: TtsSettings = TtsSettings(
         defaultSpeed = 1.0f,
         isAutoPageTurnEnabled = true,

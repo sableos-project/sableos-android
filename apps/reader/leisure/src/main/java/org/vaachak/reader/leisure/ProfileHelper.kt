@@ -46,12 +46,11 @@ import org.vaachak.reader.leisure.ui.testability.tid
 
 @Composable
 fun ProfilePickerScreen(
-    isEink: Boolean,
     viewModel: ProfileViewModel,
     onProfileSelected: (String) -> Unit
 ) {
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground
-    val bgColor = if (isEink) Color.White else MaterialTheme.colorScheme.background
+    val contentColor = MaterialTheme.colorScheme.onBackground
+    val bgColor = MaterialTheme.colorScheme.background
 
     // Reactively observe the database and multi-user state!
     val profiles by viewModel.profiles.collectAsState()
@@ -202,7 +201,6 @@ fun ProfilePickerScreen(
                         ProfileAvatar(
                             profileId = profile.profileId,
                             name = profile.name,
-                            isEink = isEink,
                             onClick = {
                                 if (profile.pinHash == null) {
                                     viewModel.selectProfile(profile, null, onProfileSelected)
@@ -227,7 +225,7 @@ fun ProfilePickerScreen(
                                 .clickable { showAddScreen = true }
                         ) {
                             Box(
-                                modifier = Modifier.size(100.dp).background(if (isEink) Color.LightGray else Color.DarkGray, RoundedCornerShape(8.dp)),
+                                modifier = Modifier.size(100.dp).background(Color.DarkGray, RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(48.dp), tint = contentColor)
@@ -244,10 +242,10 @@ fun ProfilePickerScreen(
 }
 
 @Composable
-fun ProfileAvatar(profileId: String, name: String, isEink: Boolean, onClick: () -> Unit) {
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground
-    val boxColor = if (isEink) Color.Black else MaterialTheme.colorScheme.primary
-    val letterColor = if (isEink) Color.White else MaterialTheme.colorScheme.onPrimary
+fun ProfileAvatar(profileId: String, name: String, onClick: () -> Unit) {
+    val contentColor = MaterialTheme.colorScheme.onBackground
+    val boxColor = MaterialTheme.colorScheme.primary
+    val letterColor = MaterialTheme.colorScheme.onPrimary
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,

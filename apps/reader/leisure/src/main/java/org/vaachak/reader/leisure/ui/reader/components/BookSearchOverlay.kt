@@ -80,10 +80,9 @@ fun BookSearchOverlay(
     onSearch: (String) -> Unit,
     onResultClick: (Locator) -> Unit,
     onDismiss: () -> Unit,
-    isEink: Boolean
 ) {
-    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.background
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground
+    val containerColor = MaterialTheme.colorScheme.background
+    val contentColor = MaterialTheme.colorScheme.onBackground
 
     Scaffold(
         modifier = Modifier.tid(Tid.Screen.readerSearch),
@@ -155,7 +154,6 @@ fun BookSearchOverlay(
                         SearchResultItem(
                             locator = locator,
                             query = query,
-                            isEink = isEink,
                             isFirstResult = index == 0,
                             onClick = onResultClick
                         )
@@ -171,13 +169,12 @@ fun BookSearchOverlay(
 fun SearchResultItem(
     locator: Locator,
     query: String,
-    isEink: Boolean,
     isFirstResult: Boolean,
     onClick: (Locator) -> Unit
 ) {
     // Colors: Distinct highlighting based on mode
-    val highlightBg = if(isEink) Color.LightGray else Color(0xFFFFEB3B) // Yellow for standard
-    val textColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
+    val highlightBg = Color(0xFFFFEB3B) // Yellow for standard
+    val textColor = MaterialTheme.colorScheme.onSurface
 
     val annotatedText = remember(locator, query) {
         val textObj = locator.text

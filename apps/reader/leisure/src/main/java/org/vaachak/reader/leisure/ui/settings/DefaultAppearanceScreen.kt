@@ -76,7 +76,6 @@ fun DefaultAppearanceScreen(
                 subtitle = if (readerPrefs.publisherStyles) "Using original book layout" else "Custom fonts & layout enabled",
                 checked = readerPrefs.publisherStyles,
                 primaryColor = primaryColor,
-                isEink = false, // Assuming standard screen here, or pass valid e-ink state if available
                 onCheckedChange = {
                     viewModel.updateReaderPreferences(readerPrefs.copy(publisherStyles = it))
                 },

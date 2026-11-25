@@ -94,17 +94,16 @@ fun TtsSettingsBottomSheet(
     isVisible: Boolean,
     onDismiss: () -> Unit,
     ttsSettings: TtsSettings,
-    isEink: Boolean,
     onSpeedChange: (Float) -> Unit,
     onPitchChange: (Float) -> Unit,
     onStyleChange: (String) -> Unit,
     onAutoPageTurnChange: (Boolean) -> Unit,
     viewModel: ReaderViewModel
 ) {
-    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.surface
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
+    val containerColor = MaterialTheme.colorScheme.surface
+    val contentColor = MaterialTheme.colorScheme.onSurface
 
-    // 1. INVISIBLE SCRIM (Prevents E-ink hardware from dimming the screen)
+    // 1. INVISIBLE SCRIM (Prevents the screen from dimming)
     if (isVisible) {
         Box(
             modifier = Modifier
@@ -214,8 +213,8 @@ fun TtsSettingsBottomSheet(
                     Column {
                         Text("Highlight Style", style = MaterialTheme.typography.labelSmall, color = contentColor.copy(alpha = 0.7f))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TtsOptionChip("Underline", ttsSettings.visualStyle == "underline", isEink) { onStyleChange("underline") }
-                            TtsOptionChip("Block", ttsSettings.visualStyle == "highlight", isEink) { onStyleChange("highlight") }
+                            TtsOptionChip("Underline", ttsSettings.visualStyle == "underline") { onStyleChange("underline") }
+                            TtsOptionChip("Block", ttsSettings.visualStyle == "highlight") { onStyleChange("highlight") }
                         }
                     }
 

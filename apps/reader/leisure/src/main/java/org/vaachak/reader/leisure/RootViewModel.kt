@@ -20,9 +20,6 @@ class RootViewModel @Inject constructor(
     val appThemeMode = settingsRepository.themeMode
         .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.LIGHT)
 
-    val einkContrastVal = settingsRepository.einkContrast
-        .stateIn(viewModelScope, SharingStarted.Eagerly, 1f)
-
     // INSTANT-PATH: Routing logic
     val hasCompletedOnboarding = vaultRepository.hasCompletedOnboarding
     val isMultiUserMode = vaultRepository.isMultiUserMode

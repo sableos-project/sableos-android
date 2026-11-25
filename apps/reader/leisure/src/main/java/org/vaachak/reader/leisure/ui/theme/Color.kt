@@ -24,7 +24,7 @@ package org.vaachak.reader.leisure.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// High Contrast E-ink Palette
+// Base palette
 val PureBlack = Color(0xFF000000)
 val PureWhite = Color(0xFFFFFFFF)
 val SoftWhite = Color(0xFFFAFAFA)

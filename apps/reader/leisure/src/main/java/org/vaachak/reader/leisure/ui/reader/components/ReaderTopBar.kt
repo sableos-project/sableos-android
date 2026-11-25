@@ -67,7 +67,6 @@ import org.vaachak.reader.leisure.ui.testability.tid
 @Composable
 fun ReaderTopBar(
     bookTitle: String,
-    isEink: Boolean,
     isBookmarked: Boolean,
     isTtsActive: Boolean,
     onBack: () -> Unit,
@@ -79,9 +78,9 @@ fun ReaderTopBar(
     onTtsClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
-    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.surface
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
-    val dividerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.outlineVariant
+    val containerColor = MaterialTheme.colorScheme.surface
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    val dividerColor = MaterialTheme.colorScheme.outlineVariant
 
     var showMenu by remember { mutableStateOf(false) }
 
@@ -105,7 +104,7 @@ fun ReaderTopBar(
                 Text(
                     text = bookTitle,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = if (isEink) FontWeight.Bold else FontWeight.Medium
+                        fontWeight = FontWeight.Medium
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -118,7 +117,7 @@ fun ReaderTopBar(
                     Icon(
                         imageVector = if (isTtsActive) Icons.Default.PauseCircle else Icons.Default.Headphones,
                         contentDescription = if (isTtsActive) "Pause Read Aloud" else "Start Read Aloud",
-                        tint = if (isTtsActive && !isEink) MaterialTheme.colorScheme.primary else contentColor
+                        tint = if (isTtsActive) MaterialTheme.colorScheme.primary else contentColor
                     )
                 }
 
@@ -126,7 +125,7 @@ fun ReaderTopBar(
                     Icon(
                         imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,
                         contentDescription = if (isBookmarked) "Remove Bookmark" else "Add Bookmark",
-                        tint = if (isBookmarked && !isEink) MaterialTheme.colorScheme.primary else contentColor
+                        tint = if (isBookmarked) MaterialTheme.colorScheme.primary else contentColor
                     )
                 }
 
@@ -168,7 +167,7 @@ fun ReaderTopBar(
                     }
                 }
             }
-            HorizontalDivider(thickness = if (isEink) 1.dp else 0.5.dp, color = dividerColor)
+            HorizontalDivider(thickness = 0.5.dp, color = dividerColor)
         }
     }
 }

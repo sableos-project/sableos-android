@@ -53,9 +53,6 @@ class AllHighlightsViewModel @Inject constructor(
     private val _selectedTag = MutableStateFlow("All")
     val selectedTag: StateFlow<String> = _selectedTag.asStateFlow()
 
-    val isEinkEnabled: StateFlow<Boolean> = settingsRepo.isEinkEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
     // --- MULTI-TENANT DATA FLOWS ---
     // Listen to the active vault and pull the correct data for that user
 

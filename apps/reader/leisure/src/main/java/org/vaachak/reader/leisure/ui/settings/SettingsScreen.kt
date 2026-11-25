@@ -158,7 +158,7 @@ fun GlobalSettingsTab(
 
     SettingsGroup(title = "Appearance") {
         SettingsTile(
-            icon = Icons.Default.Contrast, title = "App-wide Theme", subtitle = "SableOS Light/Dark or E-Ink",
+            icon = Icons.Default.Contrast, title = "App-wide Theme", subtitle = "Follows SableOS Light or Dark",
             onClick = { navController.navigate("settings/app_appearance") }
         )
     }
@@ -177,7 +177,7 @@ fun GlobalSettingsTab(
 fun BookSettingsTab(navController: NavController) {
     SettingsGroup(title = "Library & Visuals") {
         SettingsTile(
-            icon = Icons.AutoMirrored.Filled.LibraryBooks, title = "Library Settings (Visuals)", subtitle = "E-ink optimization, Cover Styles, Smart Stacks",
+            icon = Icons.AutoMirrored.Filled.LibraryBooks, title = "Library Settings (Visuals)", subtitle = "Cover styles, Smart Stacks",
             onClick = { navController.navigate(Screen.Bookshelf.route) }
         )
         SettingsTile(

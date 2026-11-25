@@ -63,18 +63,17 @@ private const val DICTIONARY_LINE_SPACING_MULTIPLIER = 1.2f
 fun DictionaryBottomSheet(
     responseText: String?,
     isLoading: Boolean,
-    isEink: Boolean = false,
     onDismiss: () -> Unit
 ) {
-    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.surfaceContainer
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
+    val containerColor = MaterialTheme.colorScheme.surfaceContainer
+    val contentColor = MaterialTheme.colorScheme.onSurface
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = containerColor,
         contentColor = contentColor,
-        shape = if (isEink) MaterialTheme.shapes.extraSmall else BottomSheetDefaults.ExpandedShape,
+        shape = BottomSheetDefaults.ExpandedShape,
         modifier = Modifier.tid(Tid.Screen.dictionarySheet)
     ) {
         Column(
@@ -87,11 +86,11 @@ fun DictionaryBottomSheet(
         ) {
             Spacer(modifier = Modifier.height(24.dp))
             when {
-                isLoading -> DictionaryLoading(isEink)
+                isLoading -> DictionaryLoading()
                 !responseText.isNullOrBlank() -> DictionaryResult(responseText, contentColor)
                 else -> Text(
                     text = "No definition found.",
-                    color = if (isEink) Color.Gray else MaterialTheme.colorScheme.outline,
+                    color = MaterialTheme.colorScheme.outline,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(vertical = 24.dp)
                 )
@@ -102,20 +101,20 @@ fun DictionaryBottomSheet(
 }
 
 @Composable
-private fun DictionaryLoading(isEink: Boolean) {
+private fun DictionaryLoading() {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(vertical = 16.dp).fillMaxWidth()
     ) {
         CircularProgressIndicator(
-            color = if (isEink) Color.Black else MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(32.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "Consulting Dictionary...",
             style = MaterialTheme.typography.bodyMedium,
-            color = if (isEink) Color.DarkGray else MaterialTheme.colorScheme.secondary
+            color = MaterialTheme.colorScheme.secondary
         )
     }
 }
@@ -134,7 +133,7 @@ private fun DictionaryResult(htmlText: String, contentColor: Color) {
         },
         update = { textView ->
             textView.text = HtmlCompat.fromHtml(htmlText, HtmlCompat.FROM_HTML_MODE_COMPACT)
-            // Follow the active (SableOS Light/Dark or E-Ink) content color instead of a fixed black.
+            // Follow the active (SableOS Light/Dark) content color instead of a fixed black.
             textView.setTextColor(argb)
         }
     )
