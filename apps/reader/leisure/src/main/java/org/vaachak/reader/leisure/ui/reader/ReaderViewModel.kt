@@ -90,10 +90,6 @@ class ReaderViewModel @Inject constructor(
     private val _currentTtsLanguage = MutableStateFlow("default")
     val currentTtsLanguage = _currentTtsLanguage.asStateFlow()
 
-    val epubPreferences: StateFlow<EpubPreferences> = settingsRepo.readerPreferences
-        .map { prefs -> buildEpubPreferences(prefs) }
-        .distinctUntilChanged()
-        .stateIn(viewModelScope, AppCoroutineConfig.eagerly, EpubPreferences())
 
     private var currentTotalPositions: Int = 0
     private var isFirstLocator = true
@@ -165,6 +161,16 @@ class ReaderViewModel @Inject constructor(
     val snackbarMessage = _snackbarMessage.asStateFlow()
 
     private val _currentBookHash = MutableStateFlow<String?>(null)
+
+    /** A book keeps the look it was last read with; a book without its own look starts from the default. */
+    val epubPreferences: StateFlow<EpubPreferences> = combine(
+        settingsRepo.readerPreferences,
+        _currentBookHash.flatMapLatest { hash ->
+            if (hash == null) kotlinx.coroutines.flow.flowOf(null) else settingsRepo.bookLook(hash)
+        },
+    ) { default, own -> buildEpubPreferences(own ?: default) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, AppCoroutineConfig.eagerly, EpubPreferences())
     private val _currentLocalUri = MutableStateFlow<String?>(null)
     private var currentSelectedText = ""
     private var pendingJumpLocator: String? = null
@@ -413,6 +419,7 @@ class ReaderViewModel @Inject constructor(
             ligatures = newPrefs.ligatures
         )
         settingsRepo.saveReaderPreferences(readerPrefs)
+        _currentBookHash.value?.let { settingsRepo.saveBookLook(it, readerPrefs) }
     }
 
     private fun themeName(prefs: EpubPreferences): String = when {
