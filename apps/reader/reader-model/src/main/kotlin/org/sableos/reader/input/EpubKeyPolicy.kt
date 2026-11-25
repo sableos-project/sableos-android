@@ -13,6 +13,7 @@ enum class EpubKeyCommand {
     OPEN_FIND,
     OPEN_APPEARANCE,
     OPEN_HIGHLIGHTS,
+    OPEN_BOOKMARKS,
     TEXT_LARGER,
     TEXT_SMALLER,
     CYCLE_THEME,
@@ -59,6 +60,7 @@ object EpubKeyPolicy {
         ReaderAction.OPEN_FIND -> EpubKeyCommand.OPEN_FIND
         ReaderAction.OPEN_APPEARANCE -> EpubKeyCommand.OPEN_APPEARANCE
         ReaderAction.OPEN_HIGHLIGHTS -> EpubKeyCommand.OPEN_HIGHLIGHTS
+        ReaderAction.OPEN_BOOKMARKS -> EpubKeyCommand.OPEN_BOOKMARKS
         ReaderAction.TEXT_LARGER -> EpubKeyCommand.TEXT_LARGER
         ReaderAction.TEXT_SMALLER -> EpubKeyCommand.TEXT_SMALLER
         ReaderAction.CYCLE_THEME -> EpubKeyCommand.CYCLE_THEME

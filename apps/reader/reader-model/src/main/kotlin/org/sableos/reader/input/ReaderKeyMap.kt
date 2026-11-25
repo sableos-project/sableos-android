@@ -110,7 +110,7 @@ object ReaderKeyMap {
             'f' -> ReaderAction.OPEN_FIND.takeIf { capabilities.textSearch }
             'a' -> ReaderAction.OPEN_APPEARANCE.takeIf { capabilities.appearance }
             // The text-book keys: only an engine with real text features answers them, the rest pass through.
-            'l' -> ReaderAction.OPEN_HIGHLIGHTS.takeIf { capabilities.textHighlight }
+            'l' -> (if (shift) ReaderAction.OPEN_BOOKMARKS else ReaderAction.OPEN_HIGHLIGHTS).takeIf { capabilities.textHighlight }
             's' -> (if (shift) ReaderAction.TEXT_SMALLER else ReaderAction.TEXT_LARGER).takeIf { capabilities.textHighlight }
             'm' -> ReaderAction.CYCLE_THEME.takeIf { capabilities.textHighlight }
             'v' -> ReaderAction.TOGGLE_SPEECH.takeIf { capabilities.textToSpeech }
